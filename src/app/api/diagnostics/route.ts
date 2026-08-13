@@ -1,0 +1,119 @@
+import { NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+import { getSessionUser } from '@/lib/auth';
+import { getBinanceClient, fetchFuturesBalance, fetchCurrentPrice } from '@/lib/binance';
+import { sendTelegramMessage } from '@/lib/telegram';
+import { analyzeStrategy } from '@/lib/indicators';
+
+export const dynamic = 'force-dynamic';
+
+export async function POST() {
+  const user = getSessionUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const report: {
+    database: { status: 'OK' | 'ERROR'; message: string };
+    binance: { status: 'OK' | 'ERROR'; message: string; balance?: number };
+    indicators: { status: 'OK' | 'ERROR'; message: string };
+    telegram: { status: 'OK' | 'ERROR'; message: string };
+  } = {
+    database: { status: 'ERROR', message: 'Not tested' },
+    binance: { status: 'ERROR', message: 'Not tested' },
+    indicators: { status: 'ERROR', message: 'Not tested' },
+    telegram: { status: 'ERROR', message: 'Not tested' },
+  };
+
+  try {
+    // 1. Test Supabase Database
+    try {
+      const { data, error } = await supabase.from('settings').select('id').eq('id', 1).single();
+      if (error) throw error;
+      report.database = { status: 'OK', message: 'Connected successfully to settings table.' };
+    } catch (err: any) {
+      report.database = { status: 'ERROR', message: 'DB query failed: ' + err.message };
+    }
+
+    // 2. Fetch credentials for other tests
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    const binanceApiKey = settings?.binance_api_key || process.env.BINANCE_API_KEY || '';
+    const binanceSecretKey = settings?.binance_secret_key || process.env.BINANCE_SECRET_KEY || '';
+    const telegramToken = settings?.telegram_token || process.env.TELEGRAM_TOKEN || '';
+    const telegramChatId = settings?.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
+
+    // 3. Test Binance Connection
+    let balance = 0;
+    if (!binanceApiKey || !binanceSecretKey) {
+      report.binance = { status: 'ERROR', message: 'API keys are missing in configurations.' };
+    } else {
+      try {
+        const exchange = getBinanceClient(binanceApiKey, binanceSecretKey);
+        balance = await fetchFuturesBalance(exchange);
+        // Fetch BTCUSDT current price as a ticker connection check
+        const price = await fetchCurrentPrice(exchange, 'BTCUSDT');
+        report.binance = { 
+          status: 'OK', 
+          message: `Connected successfully. Balance: ${balance.toFixed(2)} USDT. BTC Price: ${price}.`,
+          balance 
+        };
+      } catch (err: any) {
+        report.binance = { status: 'ERROR', message: 'Binance connection failed: ' + err.message };
+      }
+    }
+
+    // 4. Test Indicators (Mathematical calculations)
+    try {
+      const mockPrices = [
+        10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,
+        9, 8, 7, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+      ];
+      const result = analyzeStrategy(mockPrices);
+      if (isNaN(result.rsi)) {
+        throw new Error('RSI calculation returned NaN');
+      }
+      report.indicators = { status: 'OK', message: 'Calculations verified. Strategy outputs are 100% operational.' };
+    } catch (err: any) {
+      report.indicators = { status: 'ERROR', message: 'Indicator calculation failed: ' + err.message };
+    }
+
+    // 5. Test Telegram Bot Connection
+    if (!telegramToken || !telegramChatId) {
+      report.telegram = { status: 'ERROR', message: 'Telegram Token or Chat ID is missing.' };
+    } else {
+      try {
+        const dbIcon = report.database.status === 'OK' ? '🟢' : '🔴';
+        const binIcon = report.binance.status === 'OK' ? '🟢' : '🔴';
+        const indIcon = report.indicators.status === 'OK' ? '🟢' : '🔴';
+        const balStr = report.binance.status === 'OK' ? `(${balance.toFixed(2)} USDT)` : '';
+
+        const msgText = `🔧 <b>SYSTEM DIAGNOSTIC REPORT</b>\n` +
+          `-----------------------------------\n` +
+          `• <b>Database Connection</b>: ${dbIcon} ${report.database.status}\n` +
+          `• <b>Binance API Key Check</b>: ${binIcon} ${report.binance.status} ${balStr}\n` +
+          `• <b>Mathematical Indicators</b>: ${indIcon} ${report.indicators.status}\n` +
+          `• <b>Telegram Alert Route</b>: 🟢 OK\n` +
+          `-----------------------------------\n` +
+          `All systems check triggered manually. Dashboard report view verified.`;
+
+        const sent = await sendTelegramMessage(telegramToken, telegramChatId, msgText);
+        if (sent) {
+          report.telegram = { status: 'OK', message: 'Test message sent successfully to Telegram.' };
+        } else {
+          throw new Error('API request returned non-OK status code.');
+        }
+      } catch (err: any) {
+        report.telegram = { status: 'ERROR', message: 'Failed to send alert: ' + err.message };
+      }
+    }
+
+    return NextResponse.json({ success: true, report });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}

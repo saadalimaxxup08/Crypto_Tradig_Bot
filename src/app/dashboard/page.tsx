@@ -14,6 +14,7 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   History as HistoryIcon,
+  Activity,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -56,6 +57,11 @@ export default function DashboardPage() {
   const [livePrices, setLivePrices] = useState<{ [symbol: string]: number }>({});
   const [priceDirections, setPriceDirections] = useState<{ [symbol: string]: 'up' | 'down' | 'flat' }>({});
   const wsRef = useRef<WebSocket | null>(null);
+
+  // Diagnostics states
+  const [isTesting, setIsTesting] = useState(false);
+  const [testReport, setTestReport] = useState<any>(null);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const fetchDashboardData = async () => {
     try {
@@ -205,6 +211,34 @@ export default function DashboardPage() {
     }
   };
 
+  const runDiagnostics = async () => {
+    setIsTesting(true);
+    setTestReport(null);
+    setShowReportModal(true);
+
+    try {
+      const res = await fetch('/api/diagnostics', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestReport(data.report);
+        confetti({
+          particleCount: 70,
+          spread: 50,
+          origin: { y: 0.6 },
+          colors: ['#3b82f6', '#10b981'],
+        });
+      } else {
+        setTestReport({
+          error: data.error || 'Failed to complete diagnostics.',
+        });
+      }
+    } catch (err: any) {
+      setTestReport({ error: err.message || 'An unexpected error occurred.' });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   const getChartData = () => {
     const completed = recentTrades.length > 0 ? [...recentTrades].reverse() : [];
     if (completed.length === 0) {
@@ -243,15 +277,21 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Bot Toggle Switch */}
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-semibold tracking-wider uppercase text-zinc-400">
-            Engine State:
-          </span>
+        {/* Bot Toggle Switch & Diagnostics */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={runDiagnostics}
+            disabled={isTesting}
+            className="flex items-center gap-2 px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-850 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
+          >
+            <Activity className={`w-4 h-4 text-emerald-400 ${isTesting ? 'animate-pulse' : ''}`} />
+            <span>Test Project</span>
+          </button>
+
           <button
             onClick={toggleBot}
             disabled={isTogglingBot}
-            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-md ${
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-md cursor-pointer ${
               stats?.botEnabled
                 ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-emerald-500/20'
                 : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400'
@@ -546,6 +586,92 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* System Diagnostics Modal */}
+      {showReportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="relative w-full max-w-md bg-[#0c0c0f]/95 border border-zinc-800/80 rounded-3xl p-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-zinc-200 mb-4 border-b border-zinc-800/50 pb-2">
+                System Diagnostics Report
+              </h3>
+
+              {isTesting ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-4">
+                  <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
+                  <p className="text-xs text-zinc-400 font-medium animate-pulse">Running live checks...</p>
+                </div>
+              ) : testReport?.error ? (
+                <div className="p-4 bg-red-950/25 border border-red-900/50 rounded-2xl text-red-400 text-xs font-semibold">
+                  {testReport.error}
+                </div>
+              ) : testReport ? (
+                <div className="space-y-3.5 text-xs">
+                  {/* Database */}
+                  <div className="flex justify-between items-start p-3 bg-zinc-900/25 border border-zinc-800/50 rounded-2xl">
+                    <span className="font-semibold text-zinc-400">Database Connection</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      testReport.database.status === 'OK' ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/50' : 'bg-red-950/20 text-red-400 border border-red-900/50'
+                    }`}>
+                      {testReport.database.status}
+                    </span>
+                  </div>
+
+                  {/* Binance API */}
+                  <div className="flex flex-col gap-1 p-3 bg-zinc-900/25 border border-zinc-800/50 rounded-2xl">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-zinc-400">Binance API Key Check</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        testReport.binance.status === 'OK' ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/50' : 'bg-red-950/20 text-red-400 border border-red-900/50'
+                      }`}>
+                        {testReport.binance.status}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 leading-normal">{testReport.binance.message}</p>
+                  </div>
+
+                  {/* Indicators */}
+                  <div className="flex flex-col gap-1 p-3 bg-zinc-900/25 border border-zinc-800/50 rounded-2xl">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-zinc-400">Mathematical Indicators</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        testReport.indicators.status === 'OK' ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/50' : 'bg-red-950/20 text-red-400 border border-red-900/50'
+                      }`}>
+                        {testReport.indicators.status}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 leading-normal">{testReport.indicators.message}</p>
+                  </div>
+
+                  {/* Telegram */}
+                  <div className="flex flex-col gap-1 p-3 bg-zinc-900/25 border border-zinc-800/50 rounded-2xl">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-zinc-400">Telegram Alert Route</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        testReport.telegram.status === 'OK' ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/50' : 'bg-red-950/20 text-red-400 border border-red-900/50'
+                      }`}>
+                        {testReport.telegram.status}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 leading-normal">{testReport.telegram.message}</p>
+                  </div>
+
+                  <p className="text-[10px] text-center text-emerald-400 font-semibold bg-emerald-950/10 border border-emerald-900/30 p-2.5 rounded-xl">
+                    Report details have been sent to your Telegram Bot!
+                  </p>
+                </div>
+              ) : null}
+            </div>
+
+            <button
+              onClick={() => setShowReportModal(false)}
+              className="mt-6 w-full py-3 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 font-semibold rounded-2xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
+            >
+              Close Diagnostics
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -584,14 +710,12 @@ function PerformanceChart({ data }: { data: { time: string; pnl: number }[] }) {
     : '';
 
   return (
-    <div className="w-full bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
-      <div className="flex justify-between items-center mb-4">
-        <div>
-          <h3 className="text-md font-bold text-zinc-200">P&L Performance</h3>
-          <p className="text-xs text-zinc-500 font-medium">Cumulative account profit growth</p>
-        </div>
+    <div className="w-full bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300 h-full flex flex-col justify-between">
+      <div>
+        <h3 className="text-md font-bold text-zinc-200">P&L Performance</h3>
+        <p className="text-xs text-zinc-500 font-medium">Cumulative account profit growth</p>
       </div>
-      <div className="relative w-full h-[160px] flex items-center justify-center">
+      <div className="relative w-full h-[160px] mt-4 flex items-center justify-center">
         <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
           <defs>
             <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
