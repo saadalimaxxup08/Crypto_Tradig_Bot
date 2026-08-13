@@ -6,6 +6,7 @@ import {
   placeFuturesOrder,
   cancelAllOpenOrders,
   fetchCurrentPrice,
+  fetchFuturesBalance,
 } from '@/lib/binance';
 import { sendTelegramMessage } from '@/lib/telegram';
 
@@ -285,6 +286,129 @@ async function handleCron() {
           logs.push(`Failed to execute trade for ${pair}: ${err.message}`);
         }
       }
+    }
+
+    // 4. Hourly System Check & Trades Report
+    try {
+      const now = new Date();
+      const lastHourly = settings.last_hourly_report_at ? new Date(settings.last_hourly_report_at) : null;
+      
+      // If never run or run more than 59 minutes ago
+      if (!lastHourly || (now.getTime() - lastHourly.getTime()) >= 59 * 60 * 1000) {
+        logs.push('Executing scheduled hourly report...');
+        
+        // Run diagnostics checks
+        let dbOk = false;
+        try {
+          const { data } = await supabase.from('settings').select('id').eq('id', 1).single();
+          dbOk = !!data;
+        } catch {}
+
+        let binanceOk = false;
+        let balance = 0;
+        try {
+          const exchange = getBinanceClient(binance_api_key, binance_secret_key);
+          balance = await fetchFuturesBalance(exchange);
+          binanceOk = true;
+        } catch {}
+
+        // Fetch trades in last 1 hour
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+        const { data: hourlyTrades } = await supabase
+          .from('trades')
+          .select('*')
+          .eq('status', 'CLOSED')
+          .gte('closed_at', oneHourAgo.toISOString());
+
+        let tradesSummary = '• No trades closed in the last hour.';
+        if (hourlyTrades && hourlyTrades.length > 0) {
+          tradesSummary = hourlyTrades
+            .map((t: any) => `• <b>${t.pair}</b> ${t.direction}: <b>${parseFloat(t.pnl || 0) >= 0 ? '+' : ''}${parseFloat(t.pnl || 0).toFixed(2)} USDT</b>`)
+            .join('\n');
+        }
+
+        const hourlyMsg = `⏰ <b>HOURLY STATUS REPORT</b>\n` +
+          `-----------------------------------\n` +
+          `• <b>Database Connection</b>: ${dbOk ? '🟢 OK' : '🔴 ERROR'}\n` +
+          `• <b>Binance Balance</b>: ${binanceOk ? `🟢 ${balance.toFixed(2)} USDT` : '🔴 ERROR'}\n` +
+          `• <b>Engine Scanner</b>: 🟢 RUNNING\n` +
+          `-----------------------------------\n` +
+          `<b>Trades Closed Last 1h:</b>\n${tradesSummary}`;
+
+        await sendTelegramMessage(telegram_token, telegram_chat_id, hourlyMsg);
+        
+        // Update database timestamp
+        await supabase
+          .from('settings')
+          .update({ last_hourly_report_at: now.toISOString() })
+          .eq('id', 1);
+        
+        logs.push('Hourly report sent successfully.');
+      }
+    } catch (hourlyErr: any) {
+      logs.push(`Hourly report error: ${hourlyErr.message}`);
+    }
+
+    // 5. Daily Performance Report (9:00 PM Local Time / 18:00 UTC)
+    try {
+      const now = new Date();
+      const currentHourUtc = now.getUTCHours();
+      const lastDaily = settings.last_daily_report_at ? new Date(settings.last_daily_report_at) : null;
+      
+      // Check if it is 9 PM local time (18:00 UTC)
+      const is9PMLocal = currentHourUtc === 18;
+      const alreadySentToday = lastDaily && lastDaily.getUTCDate() === now.getUTCDate() && lastDaily.getUTCMonth() === now.getUTCMonth() && lastDaily.getUTCFullYear() === now.getUTCFullYear();
+
+      if (is9PMLocal && !alreadySentToday) {
+        logs.push('Executing scheduled daily report...');
+
+        // Fetch trades closed since start of local day (9 PM local today - 21 hours = 12 AM local today = 21:00 UTC previous day)
+        const startOfLocalDay = new Date(now);
+        startOfLocalDay.setUTCHours(21, 0, 0, 0);
+        if (startOfLocalDay > now) {
+          startOfLocalDay.setDate(startOfLocalDay.getDate() - 1);
+        }
+
+        const { data: dailyTrades } = await supabase
+          .from('trades')
+          .select('*')
+          .eq('status', 'CLOSED')
+          .gte('closed_at', startOfLocalDay.toISOString());
+
+        const totalTrades = dailyTrades?.length || 0;
+        const wins = dailyTrades?.filter((t: any) => parseFloat(t.pnl || 0) > 0).length || 0;
+        const losses = totalTrades - wins;
+        const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+        const netPnl = (dailyTrades || []).reduce((sum: number, t: any) => sum + parseFloat(t.pnl || 0), 0);
+
+        let tradesList = '• No trades completed today.';
+        if (dailyTrades && dailyTrades.length > 0) {
+          tradesList = dailyTrades
+            .map((t: any) => `• <b>${t.pair}</b> ${t.direction}: <b>${parseFloat(t.pnl || 0) >= 0 ? '+' : ''}${parseFloat(t.pnl || 0).toFixed(2)} USDT</b> (Exit: ${t.exit_price})`)
+            .join('\n');
+        }
+
+        const dailyMsg = `📊 <b>DAILY PERFORMANCE REPORT (9 PM)</b>\n` +
+          `-----------------------------------\n` +
+          `• <b>Total Trades</b>: <b>${totalTrades}</b>\n` +
+          `• <b>Wins / Losses</b>: <b>${wins} / ${losses}</b>\n` +
+          `• <b>Win Rate</b>: <b>${winRate.toFixed(1)}%</b>\n` +
+          `• <b>Net P&L</b>: <b>${netPnl >= 0 ? '+' : ''}${netPnl.toFixed(2)} USDT</b>\n` +
+          `-----------------------------------\n` +
+          `<b>Completed Trades Today:</b>\n${tradesList}`;
+
+        await sendTelegramMessage(telegram_token, telegram_chat_id, dailyMsg);
+
+        // Update database timestamp
+        await supabase
+          .from('settings')
+          .update({ last_daily_report_at: now.toISOString() })
+          .eq('id', 1);
+
+        logs.push('Daily report sent successfully.');
+      }
+    } catch (dailyErr: any) {
+      logs.push(`Daily report error: ${dailyErr.message}`);
     }
 
     const duration = Date.now() - startTime;

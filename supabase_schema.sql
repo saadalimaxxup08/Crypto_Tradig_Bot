@@ -18,6 +18,8 @@ CREATE TABLE settings (
   telegram_chat_id TEXT,
   binance_api_key TEXT,
   binance_secret_key TEXT,
+  last_hourly_report_at TIMESTAMP WITH TIME ZONE,
+  last_daily_report_at TIMESTAMP WITH TIME ZONE,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT null
 );
 
