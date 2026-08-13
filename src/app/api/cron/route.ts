@@ -151,6 +151,21 @@ async function handleCron() {
                   const netPnl = (allClosed || []).reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
                   const currentAccountBalance = 100.0 + netPnl;
 
+                  // Calculate duration
+                  const entryTime = new Date(trade.timestamp);
+                  const exitTime = new Date();
+                  const durationMs = exitTime.getTime() - entryTime.getTime();
+                  
+                  const totalSec = Math.floor(durationMs / 1000);
+                  const hrs = Math.floor(totalSec / 3600);
+                  const mins = Math.floor((totalSec % 3600) / 60);
+                  const secs = totalSec % 60;
+                  const durationStr = `${hrs > 0 ? `${hrs}h ` : ''}${mins > 0 ? `${mins}m ` : ''}${secs}s`;
+
+                  // Format dates using simple UTC strings for server reliability
+                  const entryTimeStr = entryTime.toUTCString();
+                  const exitTimeStr = exitTime.toUTCString();
+
                   // Send Telegram update
                   const pnlEmoji = realizedPnl >= 0 ? '🟢' : '🔴';
                   const sign = realizedPnl >= 0 ? '+' : '';
@@ -160,6 +175,11 @@ async function handleCron() {
                     `Pair: <b>${trade.pair}</b> ${trade.direction}\n` +
                     `Exit Price: <b>${exitPrice}</b>\n` +
                     `P&L: <b>${sign}${formattedPnl} USDT</b>\n` +
+                    `-----------------------------------\n` +
+                    `Start Time: <b>${entryTimeStr}</b>\n` +
+                    `End Time: <b>${exitTimeStr}</b>\n` +
+                    `Duration: <b>${durationStr}</b>\n` +
+                    `-----------------------------------\n` +
                     `Account Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>`;
 
                   await sendTelegramMessage(telegram_token, telegram_chat_id, msg);
@@ -323,11 +343,19 @@ async function handleCron() {
         } catch {}
 
         let binanceOk = false;
-        let balance = 0;
+        let simulatedBalance = 100.0;
         try {
           const exchange = getBinanceClient(binance_api_key, binance_secret_key);
-          balance = await fetchFuturesBalance(exchange);
+          await fetchFuturesBalance(exchange);
           binanceOk = true;
+
+          // Fetch all closed trades to compute simulated balance
+          const { data: allClosed } = await supabase
+            .from('trades')
+            .select('pnl')
+            .eq('status', 'CLOSED');
+          const netPnl = (allClosed || []).reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+          simulatedBalance = 100.0 + netPnl;
         } catch {}
 
         // Fetch trades in last 1 hour
@@ -348,7 +376,7 @@ async function handleCron() {
         const hourlyMsg = `⏰ <b>HOURLY STATUS REPORT</b>\n` +
           `-----------------------------------\n` +
           `• <b>Database Connection</b>: ${dbOk ? '🟢 OK' : '🔴 ERROR'}\n` +
-          `• <b>Binance Balance</b>: ${binanceOk ? `🟢 ${balance.toFixed(2)} USDT` : '🔴 ERROR'}\n` +
+          `• <b>Binance Balance</b>: ${binanceOk ? `🟢 ${simulatedBalance.toFixed(2)} USDT` : '🔴 ERROR'}\n` +
           `• <b>Engine Scanner</b>: 🟢 RUNNING\n` +
           `-----------------------------------\n` +
           `<b>Trades Closed Last 1h:</b>\n${tradesSummary}`;

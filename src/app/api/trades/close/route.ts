@@ -82,6 +82,21 @@ export async function POST(request: Request) {
     const netPnl = (allClosed || []).reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
     const currentAccountBalance = 100.0 + netPnl;
 
+    // Calculate duration
+    const entryTime = new Date(trade.timestamp);
+    const exitTime = new Date();
+    const durationMs = exitTime.getTime() - entryTime.getTime();
+    
+    const totalSec = Math.floor(durationMs / 1000);
+    const hrs = Math.floor(totalSec / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    const durationStr = `${hrs > 0 ? `${hrs}h ` : ''}${mins > 0 ? `${mins}m ` : ''}${secs}s`;
+
+    // Format dates using simple UTC strings for server reliability
+    const entryTimeStr = entryTime.toUTCString();
+    const exitTimeStr = exitTime.toUTCString();
+
     // 5. Send Telegram Notification
     const pnlEmoji = realizedPnl >= 0 ? '🟢' : '🔴';
     const sign = realizedPnl >= 0 ? '+' : '';
@@ -91,6 +106,11 @@ export async function POST(request: Request) {
       `Pair: <b>${trade.pair}</b> ${trade.direction}\n` +
       `Exit Price: <b>${currentPrice}</b>\n` +
       `P&L: <b>${sign}${formattedPnl} USDT</b>\n` +
+      `-----------------------------------\n` +
+      `Start Time: <b>${entryTimeStr}</b>\n` +
+      `End Time: <b>${exitTimeStr}</b>\n` +
+      `Duration: <b>${durationStr}</b>\n` +
+      `-----------------------------------\n` +
       `Account Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>`;
 
     await sendTelegramMessage(settings.telegram_token, settings.telegram_chat_id, msg);

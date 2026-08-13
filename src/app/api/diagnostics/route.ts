@@ -48,19 +48,30 @@ export async function POST() {
     const telegramChatId = settings?.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
 
     // 3. Test Binance Connection
-    let balance = 0;
+    let binanceOk = false;
+    let simulatedBalance = 100.0;
     if (!binanceApiKey || !binanceSecretKey) {
       report.binance = { status: 'ERROR', message: 'API keys are missing in configurations.' };
     } else {
       try {
         const exchange = getBinanceClient(binanceApiKey, binanceSecretKey);
-        balance = await fetchFuturesBalance(exchange);
+        await fetchFuturesBalance(exchange);
         // Fetch BTCUSDT current price as a ticker connection check
         const price = await fetchCurrentPrice(exchange, 'BTCUSDT');
+        binanceOk = true;
+
+        // Fetch all closed trades to compute simulated balance
+        const { data: allClosed } = await supabase
+          .from('trades')
+          .select('pnl')
+          .eq('status', 'CLOSED');
+        const netPnl = (allClosed || []).reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+        simulatedBalance = 100.0 + netPnl;
+
         report.binance = { 
           status: 'OK', 
-          message: `Connected successfully. Balance: ${balance.toFixed(2)} USDT. BTC Price: ${price}.`,
-          balance 
+          message: `Connected successfully. Balance: ${simulatedBalance.toFixed(2)} USDT. BTC Price: ${price}.`,
+          balance: simulatedBalance 
         };
       } catch (err: any) {
         report.binance = { status: 'ERROR', message: 'Binance connection failed: ' + err.message };
@@ -90,7 +101,7 @@ export async function POST() {
         const dbIcon = report.database.status === 'OK' ? '🟢' : '🔴';
         const binIcon = report.binance.status === 'OK' ? '🟢' : '🔴';
         const indIcon = report.indicators.status === 'OK' ? '🟢' : '🔴';
-        const balStr = report.binance.status === 'OK' ? `(${balance.toFixed(2)} USDT)` : '';
+        const balStr = report.binance.status === 'OK' ? `(${simulatedBalance.toFixed(2)} USDT)` : '';
 
         const msgText = `🔧 <b>SYSTEM DIAGNOSTIC REPORT</b>\n` +
           `-----------------------------------\n` +
