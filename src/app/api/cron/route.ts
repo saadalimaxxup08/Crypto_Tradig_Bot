@@ -72,11 +72,12 @@ async function handleCron() {
       sl_percent,
       risk_amount,
       pairs,
-      telegram_token,
-      telegram_chat_id,
-      binance_api_key,
-      binance_secret_key,
     } = settings;
+
+    const telegram_token = settings.telegram_token || process.env.TELEGRAM_TOKEN || '';
+    const telegram_chat_id = settings.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
+    const binance_api_key = settings.binance_api_key || process.env.BINANCE_API_KEY || '';
+    const binance_secret_key = settings.binance_secret_key || process.env.BINANCE_SECRET_KEY || '';
 
     // 2. Manage open positions (Check if TP/SL were hit and close them in DB)
     if (binance_api_key && binance_secret_key) {
