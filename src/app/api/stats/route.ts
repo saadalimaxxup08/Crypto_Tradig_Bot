@@ -12,14 +12,16 @@ export async function GET() {
   }
 
   try {
-    // 1. Fetch settings to get bot_enabled and credentials
+    // 1. Fetch settings to get bot_enabled, credentials, and last scan logs
     const { data: settings } = await supabase
       .from('settings')
-      .select('bot_enabled, binance_api_key, binance_secret_key')
+      .select('bot_enabled, binance_api_key, binance_secret_key, last_scan_at, last_scan_logs')
       .eq('id', 1)
       .single();
 
     const botEnabled = settings?.bot_enabled || false;
+    const lastScanAt = settings?.last_scan_at || null;
+    const lastScanLogs = settings?.last_scan_logs || [];
 
     // 2. Fetch live Binance Testnet balance
     let balance = 100.0; // Fallback default
@@ -80,6 +82,8 @@ export async function GET() {
       todayPnl,
       winRate,
       openTradesCount: openTradesCount || 0,
+      lastScanAt,
+      lastScanLogs,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

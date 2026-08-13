@@ -158,11 +158,13 @@ async function handleCron() {
 
     if (!bot_enabled) {
       logs.push('Bot is currently disabled. Skipping strategy scans.');
+      await saveCronHeartbeat(logs);
       return NextResponse.json({ success: true, status: 'BOT_DISABLED', logs, durationMs: Date.now() - startTime });
     }
 
     if (!binance_api_key || !binance_secret_key) {
       logs.push('Binance API credentials missing. Trading halted.');
+      await saveCronHeartbeat(logs);
       return NextResponse.json({ success: true, status: 'CREDENTIALS_MISSING', logs, durationMs: Date.now() - startTime });
     }
 
@@ -287,11 +289,31 @@ async function handleCron() {
 
     const duration = Date.now() - startTime;
     logs.push(`Cron complete. Duration: ${duration}ms`);
+    await saveCronHeartbeat(logs);
     return NextResponse.json({ success: true, logs, durationMs: duration });
 
   } catch (error: any) {
     const duration = Date.now() - startTime;
+    logs.push(`Fatal error: ${error.message}`);
     console.error('Cron job error:', error);
+    await saveCronHeartbeat(logs);
     return NextResponse.json({ success: false, error: error.message, logs, durationMs: duration }, { status: 500 });
+  }
+}
+
+async function saveCronHeartbeat(logs: string[]) {
+  try {
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+    if (supabaseKey) {
+      await supabase
+        .from('settings')
+        .update({
+          last_scan_at: new Date().toISOString(),
+          last_scan_logs: logs.slice(-15),
+        })
+        .eq('id', 1);
+    }
+  } catch (err) {
+    console.error('Failed to log cron heartbeat to Supabase:', err);
   }
 }

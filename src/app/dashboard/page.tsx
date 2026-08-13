@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Play,
   Square,
@@ -25,6 +25,8 @@ interface Stats {
   todayPnl: number;
   winRate: number;
   openTradesCount: number;
+  lastScanAt: string | null;
+  lastScanLogs: string[];
 }
 
 interface Trade {
@@ -50,6 +52,11 @@ export default function DashboardPage() {
   const [isTogglingBot, setIsTogglingBot] = useState(false);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
 
+  // Live price states via WebSocket
+  const [livePrices, setLivePrices] = useState<{ [symbol: string]: number }>({});
+  const [priceDirections, setPriceDirections] = useState<{ [symbol: string]: 'up' | 'down' | 'flat' }>({});
+  const wsRef = useRef<WebSocket | null>(null);
+
   const fetchDashboardData = async () => {
     try {
       const statsRes = await fetch('/api/stats');
@@ -64,7 +71,7 @@ export default function DashboardPage() {
       if (tradesData.success) {
         const allTrades: Trade[] = tradesData.trades || [];
         setActiveTrades(allTrades.filter((t) => t.status === 'OPEN'));
-        setRecentTrades(allTrades.filter((t) => t.status === 'CLOSED').slice(0, 5));
+        setRecentTrades(allTrades.filter((t) => t.status === 'CLOSED').slice(0, 10)); // Fetch up to 10 for chart data
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -78,6 +85,61 @@ export default function DashboardPage() {
     const interval = setInterval(fetchDashboardData, 10000); // refresh every 10 seconds
     return () => clearInterval(interval);
   }, []);
+
+  // Binance WebSocket connection for active trades (Live Floating P&L)
+  useEffect(() => {
+    if (activeTrades.length === 0) {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      return;
+    }
+
+    const symbols = activeTrades.map((t) => t.pair);
+    const streams = symbols.map((s) => `${s.toLowerCase()}@ticker`).join('/');
+    const wsUrl = `wss://fstream.binance.com/stream?streams=${streams}`;
+
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (!message.data || message.data.e !== '24hrTicker') return;
+
+        const symbol = message.data.s;
+        const closePrice = parseFloat(message.data.c);
+
+        setLivePrices((prev) => {
+          const oldPrice = prev[symbol] || 0;
+          let dir: 'up' | 'down' | 'flat' = 'flat';
+          if (closePrice > oldPrice) dir = 'up';
+          else if (closePrice < oldPrice) dir = 'down';
+
+          if (dir !== 'flat') {
+            setPriceDirections((prevDirs) => ({ ...prevDirs, [symbol]: dir }));
+            // Reset flash styling after 1s
+            setTimeout(() => {
+              setPriceDirections((prevDirs) => ({ ...prevDirs, [symbol]: 'flat' }));
+            }, 1000);
+          }
+
+          return { ...prev, [symbol]: closePrice };
+        });
+      } catch (err) {
+        console.error('Error parsing live price:', err);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('Overview WS closed');
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [activeTrades]);
 
   const toggleBot = async () => {
     if (!stats || isTogglingBot) return;
@@ -141,6 +203,24 @@ export default function DashboardPage() {
     } finally {
       setClosingTradeId(null);
     }
+  };
+
+  const getChartData = () => {
+    const completed = recentTrades.length > 0 ? [...recentTrades].reverse() : [];
+    if (completed.length === 0) {
+      return [{ time: 'Start', pnl: 0 }];
+    }
+    
+    let runningSum = 0;
+    const data = completed.map((trade) => {
+      runningSum += trade.pnl || 0;
+      return {
+        time: trade.closed_at ? new Date(trade.closed_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '',
+        pnl: parseFloat(runningSum.toFixed(2)),
+      };
+    });
+
+    return [{ time: 'Start', pnl: 0 }, ...data];
   };
 
   if (isLoading && !stats) {
@@ -289,6 +369,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Row: Visual Performance Chart & Heartbeat Logs Terminal */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2">
+          <PerformanceChart data={getChartData()} />
+        </div>
+        <div className="lg:col-span-1">
+          <EngineLogsConsole stats={stats} />
+        </div>
+      </div>
+
       {/* Grid: Open Positions & Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Open Positions List */}
@@ -298,7 +388,7 @@ export default function DashboardPage() {
               <h3 className="text-lg font-bold text-zinc-200">Active Positions</h3>
               <button
                 onClick={fetchDashboardData}
-                className="p-1.5 hover:bg-zinc-800/60 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors"
+                className="p-1.5 hover:bg-zinc-800/60 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -317,52 +407,78 @@ export default function DashboardPage() {
                       <th className="pb-3">Pair</th>
                       <th className="pb-3 text-center">Direction</th>
                       <th className="pb-3 text-right">Entry Price</th>
+                      <th className="pb-3 text-right">Live Price</th>
+                      <th className="pb-3 text-right">Live P&L</th>
                       <th className="pb-3 text-right">SL / TP</th>
-                      <th className="pb-3 text-right">Amount</th>
+                      <th className="pb-3 text-right">Size</th>
                       <th className="pb-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/50 text-sm">
-                    {activeTrades.map((trade) => (
-                      <tr key={trade.id} className="group">
-                        <td className="py-4 font-bold text-zinc-200">{trade.pair}</td>
-                        <td className="py-4 text-center">
-                          <span
-                            className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
-                              trade.direction === 'LONG'
-                                ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                                : 'bg-red-950/20 border-red-900/50 text-red-400'
-                            }`}
-                          >
-                            {trade.direction}
-                          </span>
-                        </td>
-                        <td className="py-4 text-right font-mono font-medium">
-                          {trade.entry_price.toFixed(4)}
-                        </td>
-                        <td className="py-4 text-right text-xs space-y-0.5">
-                          <div className="font-mono text-red-400/80 font-medium">
-                            SL: {trade.sl_price.toFixed(4)}
-                          </div>
-                          <div className="font-mono text-emerald-400/80 font-medium">
-                            TP: {trade.tp_price.toFixed(4)}
-                          </div>
-                        </td>
-                        <td className="py-4 text-right font-mono font-medium text-zinc-300">
-                          {trade.amount}
-                        </td>
-                        <td className="py-4 text-right">
-                          <button
-                            onClick={() => closePosition(trade.id, true)}
-                            disabled={closingTradeId === trade.id}
-                            className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
-                            title="Force Manual Close"
-                          >
-                            <XCircle className="w-5 h-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {activeTrades.map((trade) => {
+                      const currentPrice = livePrices[trade.pair] || trade.entry_price;
+                      const floatingPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
+                      const isProfit = floatingPnl >= 0;
+
+                      const flashClass =
+                        priceDirections[trade.pair] === 'up'
+                          ? 'text-emerald-400 bg-emerald-950/15'
+                          : priceDirections[trade.pair] === 'down'
+                          ? 'text-red-400 bg-red-950/15'
+                          : 'text-zinc-200';
+
+                      return (
+                        <tr key={trade.id} className="group">
+                          <td className="py-4 font-bold text-zinc-200">{trade.pair}</td>
+                          <td className="py-4 text-center">
+                            <span
+                              className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
+                                trade.direction === 'LONG'
+                                  ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+                                  : 'bg-red-950/20 border-red-900/50 text-red-400'
+                              }`}
+                            >
+                              {trade.direction}
+                            </span>
+                          </td>
+                          <td className="py-4 text-right font-mono font-medium">
+                            {trade.entry_price.toFixed(4)}
+                          </td>
+                          <td className="py-4 text-right font-mono font-bold">
+                            <span className={`px-2 py-0.5 rounded transition-all duration-300 ${flashClass}`}>
+                              {currentPrice.toFixed(4)}
+                            </span>
+                          </td>
+                          <td className="py-4 text-right font-mono font-bold">
+                            <span className={isProfit ? 'text-emerald-400' : 'text-red-400'}>
+                              {isProfit ? '+' : ''}
+                              {floatingPnl.toFixed(2)} USDT
+                            </span>
+                          </td>
+                          <td className="py-4 text-right text-xs space-y-0.5">
+                            <div className="font-mono text-red-400/80 font-medium">
+                              SL: {trade.sl_price.toFixed(4)}
+                            </div>
+                            <div className="font-mono text-emerald-400/80 font-medium">
+                              TP: {trade.tp_price.toFixed(4)}
+                            </div>
+                          </td>
+                          <td className="py-4 text-right font-mono font-medium text-zinc-300">
+                            {trade.amount}
+                          </td>
+                          <td className="py-4 text-right">
+                            <button
+                              onClick={() => closePosition(trade.id, isProfit)}
+                              disabled={closingTradeId === trade.id}
+                              className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
+                              title="Force Manual Close"
+                            >
+                              <XCircle className="w-5 h-5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -381,7 +497,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {recentTrades.map((trade) => {
+              {recentTrades.slice(0, 5).map((trade) => {
                 const pnl = trade.pnl || 0;
                 const isWin = pnl >= 0;
                 return (
@@ -429,6 +545,176 @@ export default function DashboardPage() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------
+// Custom SVG Cumulative P&L Area/Line Chart
+// ---------------------------------------------------------
+function PerformanceChart({ data }: { data: { time: string; pnl: number }[] }) {
+  const width = 500;
+  const height = 150;
+  const padding = 20;
+
+  const pnls = data.map((d) => d.pnl);
+  const minPnl = Math.min(...pnls, 0);
+  const maxPnl = Math.max(...pnls, 5); // default min max range
+
+  const pnlRange = maxPnl - minPnl;
+  const xStep = (width - padding * 2) / (data.length - 1 || 1);
+
+  // Generate coordinates (x, y)
+  const points = data.map((d, i) => {
+    const x = padding + i * xStep;
+    // Normalize Y to range [padding, height - padding]
+    const y = height - padding - ((d.pnl - minPnl) / (pnlRange || 1)) * (height - padding * 2);
+    return { x, y, ...d };
+  });
+
+  // Create path strings
+  const linePath = points.reduce(
+    (path, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${path} L ${p.x} ${p.y}`),
+    ''
+  );
+
+  const areaPath = points.length > 0
+    ? `${linePath} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`
+    : '';
+
+  return (
+    <div className="w-full bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
+      <div className="flex justify-between items-center mb-4">
+        <div>
+          <h3 className="text-md font-bold text-zinc-200">P&L Performance</h3>
+          <p className="text-xs text-zinc-500 font-medium">Cumulative account profit growth</p>
+        </div>
+      </div>
+      <div className="relative w-full h-[160px] flex items-center justify-center">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+          <defs>
+            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {/* Grid lines */}
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#1e1e24" strokeWidth="1" />
+          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#1e1e24" strokeWidth="1" strokeDasharray="3,3" />
+
+          {/* Area under the line */}
+          {areaPath && <path d={areaPath} fill="url(#areaGrad)" />}
+
+          {/* Glowing Line */}
+          {linePath && (
+            <path
+              d={linePath}
+              fill="none"
+              stroke="#10b981"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              className="drop-shadow-[0_2px_8px_rgba(16,185,129,0.3)]"
+            />
+          )}
+
+          {/* Data Points */}
+          {points.map((p, i) => (
+            <g key={i} className="group/dot">
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r="4.5"
+                fill="#09090b"
+                stroke="#10b981"
+                strokeWidth="2.5"
+                className="transition-all duration-200 hover:r-6 cursor-pointer"
+              />
+              <title>{`${p.time}: ${p.pnl.toFixed(2)} USDT`}</title>
+            </g>
+          ))}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------
+// Heartbeat Monitor & Console Logs Terminal Panel
+// ---------------------------------------------------------
+function EngineLogsConsole({ stats }: { stats: Stats | null }) {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 5000);
+    return () => clearInterval(t);
+  }, []);
+
+  if (!stats) return null;
+
+  // Determine health
+  const lastScan = stats.lastScanAt ? new Date(stats.lastScanAt) : null;
+  
+  // Consider online if last scan was within 90 seconds and bot is enabled
+  const isOnline = stats.botEnabled && lastScan && (now.getTime() - lastScan.getTime()) < 90000;
+  
+  let statusBadge = '🔴 SYSTEM OFFLINE';
+  let badgeColor = 'bg-red-950/20 border-red-900/50 text-red-400';
+  if (stats.botEnabled) {
+    if (isOnline) {
+      statusBadge = '🟢 ENGINE ACTIVE';
+      badgeColor = 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400 shadow-md shadow-emerald-500/5';
+    } else {
+      statusBadge = '⚠️ CRON LAG';
+      badgeColor = 'bg-amber-950/20 border-amber-900/50 text-amber-400 shadow-md shadow-amber-500/5';
+    }
+  } else {
+    statusBadge = '⚪ ENGINE PAUSED';
+    badgeColor = 'bg-zinc-900/60 border-zinc-800 text-zinc-500';
+  }
+
+  // Format relative time for last scan
+  const getRelativeTimeString = () => {
+    if (!lastScan) return 'Never';
+    const secAgo = Math.floor((now.getTime() - lastScan.getTime()) / 1000);
+    if (secAgo < 5) return 'Just now';
+    if (secAgo < 60) return `${secAgo}s ago`;
+    return `${Math.floor(secAgo / 60)}m ago`;
+  };
+
+  return (
+    <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 flex flex-col h-[280px] justify-between group hover:border-zinc-700/80 transition-all duration-300">
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-md font-bold text-zinc-200">Terminal Scans Log</h3>
+          <div className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg border ${badgeColor}`}>
+            {statusBadge}
+          </div>
+        </div>
+
+        <div className="bg-black/40 border border-zinc-800/60 rounded-xl p-3 h-[160px] overflow-y-auto font-mono text-[11px] text-zinc-400 space-y-1.5 scrollbar-thin scrollbar-thumb-zinc-800">
+          {stats.lastScanLogs && stats.lastScanLogs.length > 0 ? (
+            stats.lastScanLogs.map((log, i) => {
+              let color = 'text-zinc-500';
+              if (log.includes('Triggered')) color = 'text-emerald-400 font-bold';
+              else if (log.includes('Failed') || log.includes('Error')) color = 'text-red-400';
+              else if (log.includes('Executing')) color = 'text-blue-400 font-semibold';
+              
+              return (
+                <div key={i} className={color}>
+                  {log}
+                </div>
+              );
+            })
+          ) : (
+            <div className="text-zinc-600 italic">No logs recorded yet. Toggling bot ON will start engine logging...</div>
+          )}
+        </div>
+      </div>
+      <div className="flex justify-between items-center text-[10px] text-zinc-500 font-medium border-t border-zinc-800/50 pt-3">
+        <span>Pulse frequency: 60s</span>
+        <span>Last scan: {getRelativeTimeString()}</span>
       </div>
     </div>
   );
