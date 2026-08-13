@@ -23,8 +23,7 @@ export async function GET() {
     const lastScanAt = settings?.last_scan_at || null;
     const lastScanLogs = settings?.last_scan_logs || [];
 
-    // 2. Fetch live Binance Testnet balance
-    let balance = 100.0; // Fallback default
+    // 2. Connect to Binance Testnet (Credential and connection check)
     let balanceFetched = false;
     let balanceError = '';
 
@@ -34,11 +33,12 @@ export async function GET() {
           settings.binance_api_key,
           settings.binance_secret_key
         );
-        balance = await fetchFuturesBalance(exchange);
+        // Test connection by fetching balance (verifies API key viability)
+        await fetchFuturesBalance(exchange);
         balanceFetched = true;
       } catch (err: any) {
         balanceError = err.message;
-        console.error('Failed to fetch live balance:', err);
+        console.error('Failed to verify Binance connection:', err);
       }
     }
 
@@ -72,6 +72,13 @@ export async function GET() {
       .from('trades')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'OPEN');
+
+    // 6. Calculate Simulated Account Balance (Starting Capital 100 USDT + Net Historical P&L)
+    const netHistoricalPnl = (allClosedTrades || []).reduce(
+      (sum, t) => sum + parseFloat(t.pnl || 0),
+      0
+    );
+    const balance = 100.0 + netHistoricalPnl;
 
     return NextResponse.json({
       success: true,

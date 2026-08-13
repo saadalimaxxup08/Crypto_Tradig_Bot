@@ -118,9 +118,10 @@ async function handleCron() {
                   .find((t: any) => t.side.toLowerCase() === exitSide && parseFloat(t.amount) > 0);
 
                 const exitPrice = exitTrade && exitTrade.price ? (exitTrade.price as number) : (trade.direction === 'LONG' ? trade.tp_price : trade.sl_price);
-                const realizedPnl = exitTrade && (exitTrade as any).realizedPnl !== undefined && exitTrade.fee
-                  ? Number((exitTrade as any).realizedPnl) - Number(exitTrade.fee.cost || 0)
-                  : (exitPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
+                const grossPnl = (exitPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
+                const entryFee = trade.entry_price * trade.amount * 0.0005; // 0.05% entry fee
+                const exitFee = exitPrice * trade.amount * 0.0005; // 0.05% exit fee
+                const realizedPnl = grossPnl - (entryFee + exitFee);
 
                 // Cancel any orphaned SL/TP orders on Binance
                 await cancelAllOpenOrders(exchange, trade.pair as string);
@@ -140,10 +141,27 @@ async function handleCron() {
                   logs.push(`Error updating trade in DB: ${updateErr.message}`);
                 } else {
                   logs.push(`Closed trade ${trade.id} in DB.`);
+                  
+                  // Fetch the new simulated balance
+                  const { data: allClosed } = await supabase
+                    .from('trades')
+                    .select('pnl')
+                    .eq('status', 'CLOSED');
+
+                  const netPnl = (allClosed || []).reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+                  const currentAccountBalance = 100.0 + netPnl;
+
                   // Send Telegram update
                   const pnlEmoji = realizedPnl >= 0 ? '🟢' : '🔴';
+                  const sign = realizedPnl >= 0 ? '+' : '';
                   const formattedPnl = realizedPnl.toFixed(2);
-                  const msg = `${pnlEmoji} <b>TRADE CLOSED</b>\nPair: <b>${trade.pair}</b> ${trade.direction}\nExit Price: <b>${exitPrice}</b>\nP&L: <b>${formattedPnl} USDT</b>`;
+
+                  const msg = `${pnlEmoji} <b>TRADE CLOSED</b>\n` +
+                    `Pair: <b>${trade.pair}</b> ${trade.direction}\n` +
+                    `Exit Price: <b>${exitPrice}</b>\n` +
+                    `P&L: <b>${sign}${formattedPnl} USDT</b>\n` +
+                    `Account Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>`;
+
                   await sendTelegramMessage(telegram_token, telegram_chat_id, msg);
                 }
               }

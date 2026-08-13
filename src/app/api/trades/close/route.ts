@@ -52,8 +52,11 @@ export async function POST(request: Request) {
     console.log(`Manually closing position for ${trade.pair}: size ${trade.amount}`);
     await closeActivePosition(exchange, trade.pair, trade.direction, trade.amount);
 
-    // Calculate realized P&L
-    const realizedPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
+    // Calculate realized P&L (gross minus 0.05% entry and 0.05% exit taker fees)
+    const grossPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
+    const entryFee = trade.entry_price * trade.amount * 0.0005; // 0.05%
+    const exitFee = currentPrice * trade.amount * 0.0005; // 0.05%
+    const realizedPnl = grossPnl - (entryFee + exitFee);
 
     // 4. Update Database
     const { error: updateErr } = await supabase
@@ -70,11 +73,25 @@ export async function POST(request: Request) {
       throw new Error(`Failed to update trade in DB: ${updateErr.message}`);
     }
 
+    // Fetch the new simulated balance
+    const { data: allClosed } = await supabase
+      .from('trades')
+      .select('pnl')
+      .eq('status', 'CLOSED');
+
+    const netPnl = (allClosed || []).reduce((sum, t) => sum + parseFloat(t.pnl || 0), 0);
+    const currentAccountBalance = 100.0 + netPnl;
+
     // 5. Send Telegram Notification
-    const msg = `🔴 <b>TRADE CLOSED MANUALLY</b>\n` +
+    const pnlEmoji = realizedPnl >= 0 ? '🟢' : '🔴';
+    const sign = realizedPnl >= 0 ? '+' : '';
+    const formattedPnl = realizedPnl.toFixed(2);
+
+    const msg = `${pnlEmoji} <b>TRADE CLOSED MANUALLY</b>\n` +
       `Pair: <b>${trade.pair}</b> ${trade.direction}\n` +
       `Exit Price: <b>${currentPrice}</b>\n` +
-      `P&L: <b>${realizedPnl.toFixed(2)} USDT</b>`;
+      `P&L: <b>${sign}${formattedPnl} USDT</b>\n` +
+      `Account Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>`;
 
     await sendTelegramMessage(settings.telegram_token, settings.telegram_chat_id, msg);
 
