@@ -44,8 +44,8 @@ async function handleCron() {
         risk_amount: 10.0,
         pairs: [
           'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
-          'DOGEUSDT', 'ADAUSDT', 'TONUSDT', 'SHIBUSDT', 'TRXUSDT',
-          'AVAXUSDT', 'DOTUSDT', 'MATICUSDT', 'LTCUSDT', 'LINKUSDT',
+          'DOGEUSDT', 'ADAUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT',
+          'AVAXUSDT', 'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT',
           'ATOMUSDT', 'XLMUSDT', 'BCHUSDT', 'OPUSDT', 'ARBUSDT'
         ],
         telegram_token: process.env.TELEGRAM_TOKEN || '',

@@ -14,8 +14,8 @@ export function getBinanceClient(apiKey: string, secretKey: string) {
     enableRateLimit: true,
   });
 
-  // Always use Sandbox (Testnet) for safety unless configured otherwise
-  exchange.setSandboxMode(true);
+  // Enable Binance Demo Trading (which replaces deprecated Sandbox/Testnet)
+  exchange.enableDemoTrading(true);
 
   return exchange;
 }
