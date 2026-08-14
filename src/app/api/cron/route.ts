@@ -185,6 +185,20 @@ async function handleCron() {
                   const tradeLeverage = trade.leverage || 20;
                   const totalSizeVal = tradeMargin * tradeLeverage;
 
+                  // Fetch Real Account Balance from Real keys in settings
+                  let realBalanceText = 'Not Configured';
+                  const realKey = settings.binance_real_api_key || '';
+                  const realSecret = settings.binance_real_secret_key || '';
+                  if (realKey && realSecret) {
+                    try {
+                      const realExchange = getBinanceClient(realKey, realSecret, false);
+                      const realBal = await fetchFuturesBalance(realExchange);
+                      realBalanceText = `${realBal.toFixed(2)} USDT`;
+                    } catch (e: any) {
+                      realBalanceText = `Error: ${e.message}`;
+                    }
+                  }
+
                   const msg = `${pnlEmoji} <b>TRADE CLOSED</b>\n` +
                     `Pair: <b>${trade.pair}</b> ${trade.direction}\n` +
                     `Margin: <b>${tradeMargin.toFixed(2)} USDT</b>\n` +
@@ -197,7 +211,8 @@ async function handleCron() {
                     `End Time: <b>${exitTimeStr}</b>\n` +
                     `Duration: <b>${durationStr}</b>\n` +
                     `-----------------------------------\n` +
-                    `Account Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>`;
+                    `Demo Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>\n` +
+                    `Real Balance: <b>${realBalanceText}</b>`;
 
                   await sendTelegramMessage(telegram_token, telegram_chat_id, msg);
                 }

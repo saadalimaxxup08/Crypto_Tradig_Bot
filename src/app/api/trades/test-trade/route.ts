@@ -179,6 +179,21 @@ export async function POST() {
     if (telegram_token && telegram_chat_id) {
       const pnlEmoji = netRealizedPnl >= 0 ? '🟢' : '🔴';
       const sign = netRealizedPnl >= 0 ? '+' : '';
+
+      // Fetch Real Account Balance from Real keys in settings
+      let realBalanceText = 'Not Configured';
+      const realKey = settings.binance_real_api_key || '';
+      const realSecret = settings.binance_real_secret_key || '';
+      if (realKey && realSecret) {
+        try {
+          const realExchange = getBinanceClient(realKey, realSecret, false);
+          const realBal = await fetchFuturesBalance(realExchange);
+          realBalanceText = `${realBal.toFixed(2)} USDT`;
+        } catch (e: any) {
+          realBalanceText = `Error: ${e.message}`;
+        }
+      }
+
       const closeMsg = `🧪 <b>TEST TRADE SUCCESSFULLY CLOSED</b>\n` +
         `-----------------------------------\n` +
         `Mode: <b>${isDemo ? '🟡 DEMO SANDBOX' : '🟢 REAL LIVE'}</b>\n` +
@@ -191,7 +206,8 @@ export async function POST() {
         `End Time: <b>${exitTime.toUTCString()}</b>\n` +
         `Duration: <b>${durationStr}</b>\n` +
         `-----------------------------------\n` +
-        `Account Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>`;
+        `Demo Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>\n` +
+        `Real Balance: <b>${realBalanceText}</b>`;
       await sendTelegramMessage(telegram_token, telegram_chat_id, closeMsg);
     }
 
