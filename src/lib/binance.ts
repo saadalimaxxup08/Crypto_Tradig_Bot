@@ -101,6 +101,10 @@ export async function placeFuturesOrder(
     // Get actual entry price from order details if available, otherwise fallback to currentPrice
     const entryPrice = entryOrder.average || entryOrder.price || currentPrice;
 
+    // Add a short delay (500ms) to allow Binance (especially Testnet) 
+    // to settle the position before placing reduceOnly orders.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
     // Calculate TP/SL prices
     let tpPrice: number;
     let slPrice: number;
