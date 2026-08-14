@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getSessionUser } from '@/lib/auth';
+import { getBinanceClient, fetchFuturesBalance } from '@/lib/binance';
 
 export const dynamic = 'force-dynamic';
 
@@ -122,6 +123,54 @@ export async function POST(request: Request) {
     }
 
     updateData.updated_at = new Date().toISOString();
+
+    // Fetch existing settings to use as fallbacks for verification
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    // Verify new Binance API keys if they are submitted/changed
+    const isModeDemo = (body.trading_mode || settings?.trading_mode || 'DEMO') === 'DEMO';
+    const isNewDemoKey = body.binance_demo_api_key && !body.binance_demo_api_key.includes('...');
+    const isNewDemoSecret = body.binance_demo_secret_key && !body.binance_demo_secret_key.includes('...');
+    const isNewRealKey = body.binance_real_api_key && !body.binance_real_api_key.includes('...');
+    const isNewRealSecret = body.binance_real_secret_key && !body.binance_real_secret_key.includes('...');
+
+    // If Demo Mode is active and Demo keys are changing, test connection
+    if ((isNewDemoKey || isNewDemoSecret) && isModeDemo) {
+      const testKey = isNewDemoKey ? body.binance_demo_api_key : (settings?.binance_demo_api_key || '');
+      const testSecret = isNewDemoSecret ? body.binance_demo_secret_key : (settings?.binance_demo_secret_key || '');
+
+      if (testKey && testSecret) {
+        try {
+          const exchange = getBinanceClient(testKey, testSecret, true);
+          await fetchFuturesBalance(exchange);
+        } catch (err: any) {
+          return NextResponse.json({
+            error: `Binance Demo API Key validation failed: ${err.message}. Please check your keys.`
+          }, { status: 400 });
+        }
+      }
+    }
+
+    // If Real Mode is active and Real keys are changing, test connection
+    if ((isNewRealKey || isNewRealSecret) && !isModeDemo) {
+      const testKey = isNewRealKey ? body.binance_real_api_key : (settings?.binance_real_api_key || '');
+      const testSecret = isNewRealSecret ? body.binance_real_secret_key : (settings?.binance_real_secret_key || '');
+
+      if (testKey && testSecret) {
+        try {
+          const exchange = getBinanceClient(testKey, testSecret, false);
+          await fetchFuturesBalance(exchange);
+        } catch (err: any) {
+          return NextResponse.json({
+            error: `Binance Live API Key validation failed: ${err.message}. Make sure your API key has "Enable Futures" active on Binance.`
+          }, { status: 400 });
+        }
+      }
+    }
 
     const { data, error } = await supabase
       .from('settings')

@@ -84,22 +84,45 @@ export async function POST() {
       }
     }
 
-    // 4. Test Indicators (Mathematical calculations)
-    try {
-      const mockPrices = [
-        10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,
-        9, 8, 7, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
-      ];
-      const result = analyzeStrategy(mockPrices);
-      if (isNaN(result.rsi)) {
-        throw new Error('RSI calculation returned NaN');
+    // 4. Test Indicators (Mathematical calculations on live Binance data if online)
+    if (binanceApiKey && binanceSecretKey && binanceOk) {
+      try {
+        const exchange = getBinanceClient(binanceApiKey, binanceSecretKey, isDemo);
+        // Fetch 50 actual recent 1m candles for BTCUSDT to test data parser
+        const ohlcv = await exchange.fetchOHLCV('BTCUSDT', '1m', undefined, 50);
+        const prices = ohlcv.map((c: any) => c[4]); // Closing prices
+        const result = analyzeStrategy(prices);
+        
+        if (isNaN(result.rsi)) {
+          throw new Error('RSI calculation returned NaN on live candles');
+        }
+        report.indicators = { 
+          status: 'OK', 
+          message: `Calculations verified on real candles. BTC RSI: ${result.rsi.toFixed(2)}, MACD: ${result.macdLine.toFixed(2)}.` 
+        };
+      } catch (err: any) {
+        report.indicators = { 
+          status: 'ERROR', 
+          message: `Live candle indicator test failed: ${err.message}` 
+        };
       }
-      report.indicators = { status: 'OK', message: 'Calculations verified. Strategy outputs are 100% operational.' };
-    } catch (err: any) {
-      report.indicators = { status: 'ERROR', message: 'Indicator calculation failed: ' + err.message };
+    } else {
+      try {
+        const mockPrices = [
+          10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,
+          9, 8, 7, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+        ];
+        const result = analyzeStrategy(mockPrices);
+        if (isNaN(result.rsi)) {
+          throw new Error('RSI calculation returned NaN');
+        }
+        report.indicators = { status: 'OK', message: 'Calculations verified using mock fallback data.' };
+      } catch (err: any) {
+        report.indicators = { status: 'ERROR', message: 'Mock indicator test failed: ' + err.message };
+      }
     }
 
-    // 5. Test Telegram Bot Connection
+    // 5. Test Telegram Bot Connection & System Performance Check
     if (!telegramToken || !telegramChatId) {
       report.telegram = { status: 'ERROR', message: 'Telegram Token or Chat ID is missing.' };
     } else {
@@ -109,11 +132,30 @@ export async function POST() {
         const indIcon = report.indicators.status === 'OK' ? '🟢' : '🔴';
         const balStr = report.binance.status === 'OK' ? `(${simulatedBalance.toFixed(2)} USDT)` : '';
 
+        // Calculate Cron scheduler heartbeat liveness
+        const lastScan = settings?.last_scan_at ? new Date(settings.last_scan_at) : null;
+        const now = new Date();
+        let cronIcon = '🔴';
+        let cronStatusText = 'OFFLINE (Never executed)';
+        
+        if (lastScan) {
+          const diffMin = Math.floor((now.getTime() - lastScan.getTime()) / (1000 * 60));
+          if (diffMin <= 3) {
+            cronIcon = '🟢';
+            cronStatusText = 'ACTIVE (Running fine)';
+          } else {
+            cronIcon = '🟡';
+            cronStatusText = `DELAYED (Last scan: ${diffMin} min ago)`;
+          }
+        }
+
         const msgText = `🔧 <b>SYSTEM DIAGNOSTIC REPORT</b>\n` +
           `-----------------------------------\n` +
-          `• <b>Database Connection</b>: ${dbIcon} ${report.database.status}\n` +
-          `• <b>Binance API Key Check</b>: ${binIcon} ${report.binance.status} ${balStr}\n` +
-          `• <b>Mathematical Indicators</b>: ${indIcon} ${report.indicators.status}\n` +
+          `• <b>Trading Mode</b>: <b>${isDemo ? '🟡 DEMO SANDBOX' : '🟢 REAL LIVE'}</b>\n` +
+          `• <b>Cron Scheduler</b>: ${cronIcon} <b>${cronStatusText}</b>\n` +
+          `• <b>Database Link</b>: ${dbIcon} ${report.database.status}\n` +
+          `• <b>Binance Client</b>: ${binIcon} ${report.binance.status} ${balStr}\n` +
+          `• <b>Strategy Indicators</b>: ${indIcon} ${report.indicators.status}\n` +
           `• <b>Telegram Alert Route</b>: 🟢 OK\n` +
           `-----------------------------------\n` +
           `All systems check triggered manually. Dashboard report view verified.`;
