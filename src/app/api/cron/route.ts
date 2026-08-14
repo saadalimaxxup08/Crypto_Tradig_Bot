@@ -346,6 +346,12 @@ async function handleCron() {
 
         } catch (err: any) {
           logs.push(`Failed to execute trade for ${pair}: ${err.message}`);
+          // Send instant alert to Telegram for failed trade execution
+          const failMsg = `⚠️ <b>TRADE EXECUTION FAILED</b>\n` +
+            `Pair: <b>${pair}</b> ${direction}\n` +
+            `Error: <code>${err.message}</code>\n` +
+            `Please check your Binance wallet balance, margin settings, or API key permissions.`;
+          await sendTelegramMessage(telegram_token, telegram_chat_id, failMsg);
         }
       }
     }
