@@ -40,26 +40,29 @@ export async function POST() {
     const telegram_chat_id = settings.telegram_chat_id || '';
     const leverage = settings.leverage || 20;
 
+    // We use XRPUSDT for test trades because it requires almost zero margin (5 XRP is ~$3 notional size)
+    const testSymbol = 'XRPUSDT';
+    const testSymbolText = 'XRPUSDT';
+    const amount = 5.0; // 5 XRP is the absolute minimum position size (requires ~$0.15 margin at 20x)
+
     // 2. Initialize Binance client
     const exchange = getBinanceClient(binance_api_key, binance_secret_key, isDemo);
 
     // Set leverage on Binance prior to trade
     try {
-      await exchange.setLeverage(leverage, 'BTCUSDT');
+      await exchange.setLeverage(leverage, testSymbol);
     } catch (e: any) {
       console.warn('Could not set leverage on Binance:', e.message);
     }
 
-    const entryPrice = await fetchCurrentPrice(exchange, 'BTCUSDT');
-    // Minimum contract size for BTCUSDT is 0.001 BTC
-    const amount = 0.001; 
+    const entryPrice = await fetchCurrentPrice(exchange, testSymbol);
     const entryTime = new Date();
 
     // 3. Open Test Position (Market BUY)
-    console.log(`Executing test trade BUY for BTCUSDT: size ${amount}`);
+    console.log(`Executing test trade BUY for ${testSymbol}: size ${amount}`);
     let buyOrder;
     try {
-      buyOrder = await exchange.createMarketBuyOrder('BTCUSDT', amount);
+      buyOrder = await exchange.createMarketBuyOrder(testSymbol, amount);
     } catch (err: any) {
       const errorMsg = `Failed to open test position: ${err.message}`;
       if (telegram_token && telegram_chat_id) {
@@ -77,7 +80,7 @@ export async function POST() {
     const { data: dbTrade, error: dbError } = await supabase
       .from('trades')
       .insert([{
-        pair: 'BTCUSDT',
+        pair: testSymbol,
         direction: 'LONG',
         amount: amount,
         entry_price: entryPrice,
@@ -98,10 +101,10 @@ export async function POST() {
       const openMsg = `🧪 <b>TEST TRADE EXECUTION STARTED</b>\n` +
         `-----------------------------------\n` +
         `Mode: <b>${isDemo ? '🟡 DEMO SANDBOX' : '🟢 REAL LIVE'}</b>\n` +
-        `Pair: <b>BTCUSDT LONG</b>\n` +
-        `Margin: <b>${tradeMargin.toFixed(2)} USDT</b>\n` +
+        `Pair: <b>${testSymbolText} LONG</b>\n` +
+        `Margin: <b>${tradeMargin.toFixed(4)} USDT</b>\n` +
         `Leverage: <b>${leverage}x</b>\n` +
-        `Size: <b>${(amount * entryPrice).toFixed(2)} USDT (${amount} BTC)</b>\n` +
+        `Size: <b>${(amount * entryPrice).toFixed(2)} USDT (${amount} XRP)</b>\n` +
         `Entry Price: <b>${entryPrice}</b>\n` +
         `Time: <b>${entryTime.toUTCString()}</b>\n` +
         `-----------------------------------\n` +
@@ -113,20 +116,20 @@ export async function POST() {
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 5. Close Test Position (Market SELL)
-    const exitPrice = await fetchCurrentPrice(exchange, 'BTCUSDT');
+    const exitPrice = await fetchCurrentPrice(exchange, testSymbol);
     const exitTime = new Date();
     
-    console.log(`Executing test trade SELL to close for BTCUSDT: size ${amount}`);
+    console.log(`Executing test trade SELL to close for ${testSymbol}: size ${amount}`);
     let sellOrder;
     try {
-      sellOrder = await exchange.createMarketSellOrder('BTCUSDT', amount);
+      sellOrder = await exchange.createMarketSellOrder(testSymbol, amount);
     } catch (err: any) {
       const errorMsg = `Test position opened but failed to close: ${err.message}. Please close it manually on Binance!`;
       if (telegram_token && telegram_chat_id) {
         await sendTelegramMessage(
           telegram_token,
           telegram_chat_id,
-          `🚨 <b>CRITICAL: TEST TRADE CLOSE FAILED</b>\nError: <code>${err.message}</code>\n<b>Please close the 0.001 BTC LONG position manually on Binance!</b>`
+          `🚨 <b>CRITICAL: TEST TRADE CLOSE FAILED</b>\nError: <code>${err.message}</code>\n<b>Please close the 5 XRP LONG position manually on Binance!</b>`
         );
       }
       return NextResponse.json({ error: errorMsg }, { status: 500 });
@@ -147,7 +150,6 @@ export async function POST() {
     // Fetch current wallet balance to show net balance
     let currentAccountBalance = 100.0;
     try {
-      // Calculate simulated balance: 100 + historical P&L
       const { data: allClosed } = await supabase
         .from('trades')
         .select('pnl')
@@ -180,7 +182,7 @@ export async function POST() {
       const closeMsg = `🧪 <b>TEST TRADE SUCCESSFULLY CLOSED</b>\n` +
         `-----------------------------------\n` +
         `Mode: <b>${isDemo ? '🟡 DEMO SANDBOX' : '🟢 REAL LIVE'}</b>\n` +
-        `Pair: <b>BTCUSDT LONG</b>\n` +
+        `Pair: <b>${testSymbolText} LONG</b>\n` +
         `Exit Price: <b>${exitPrice}</b>\n` +
         `Fees Deducted: <b>${totalFees.toFixed(4)} USDT</b>\n` +
         `Net P&L: <b>${sign}${netRealizedPnl.toFixed(4)} USDT</b> ${pnlEmoji}\n` +
