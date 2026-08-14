@@ -111,7 +111,11 @@ async function handleCron() {
             try {
               // ccxt fetchPositions returns all active positions
               const positions = await exchange.fetchPositions([trade.pair as string]);
-              const position = positions.find((p: any) => p.symbol === trade.pair);
+              const position = positions.find((p: any) => {
+                const ccxtSym = p.symbol.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                const dbSym = (trade.pair as string).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                return ccxtSym.startsWith(dbSym) || ccxtSym === dbSym;
+              });
 
               // If position size is 0 or undefined, it has been closed by TP/SL
               const currentSize = position ? parseFloat((position as any).contracts || (position as any).positionAmt || 0) : 0;
