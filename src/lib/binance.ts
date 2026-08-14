@@ -17,6 +17,11 @@ export function getBinanceClient(apiKey: string, secretKey: string, isDemo: bool
   // Enable/Disable Binance Demo Trading dynamically
   exchange.enableDemoTrading(isDemo);
 
+  // Configure outbound HTTP proxy if set in env (essential for Vercel static IP whitelisting)
+  if (process.env.BINANCE_PROXY) {
+    exchange.proxy = process.env.BINANCE_PROXY;
+  }
+
   return exchange;
 }
 
