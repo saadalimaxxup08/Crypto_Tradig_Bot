@@ -73,7 +73,10 @@ async function handleCron() {
       sl_percent,
       risk_amount,
       pairs,
+      leverage,
     } = settings;
+
+    const leverage_val = leverage || 20;
 
     const telegram_token = settings.telegram_token || process.env.TELEGRAM_TOKEN || '';
     const telegram_chat_id = settings.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
@@ -171,8 +174,15 @@ async function handleCron() {
                   const sign = realizedPnl >= 0 ? '+' : '';
                   const formattedPnl = realizedPnl.toFixed(2);
 
+                  const tradeMargin = trade.margin ? parseFloat(trade.margin) : 10.0;
+                  const tradeLeverage = trade.leverage || 20;
+                  const totalSizeVal = tradeMargin * tradeLeverage;
+
                   const msg = `${pnlEmoji} <b>TRADE CLOSED</b>\n` +
                     `Pair: <b>${trade.pair}</b> ${trade.direction}\n` +
+                    `Margin: <b>${tradeMargin.toFixed(2)} USDT</b>\n` +
+                    `Leverage: <b>${tradeLeverage}x</b>\n` +
+                    `Total Size: <b>${totalSizeVal.toFixed(2)} USDT</b>\n` +
                     `Exit Price: <b>${exitPrice}</b>\n` +
                     `P&L: <b>${sign}${formattedPnl} USDT</b>\n` +
                     `-----------------------------------\n` +
@@ -260,14 +270,15 @@ async function handleCron() {
         try {
           logs.push(`Executing ${direction} order on Binance Testnet for ${pair}...`);
           
-          // Place trade and auto brackets on Binance
+          // Place trade and auto brackets on Binance with configured leverage
           const order = await placeFuturesOrder(
             exchange,
             pair,
             direction,
             risk_amount,
             tp_percent,
-            sl_percent
+            sl_percent,
+            leverage_val
           );
 
           const entryPrice = order.entryPrice;
@@ -292,7 +303,7 @@ async function handleCron() {
             logs.push(`Failed to save signal to DB: ${sigErr.message}`);
           }
 
-          // Save trade to Supabase
+          // Save trade to Supabase including Margin and Leverage
           const { error: tradeErr } = await supabase
             .from('trades')
             .insert([{
@@ -303,6 +314,8 @@ async function handleCron() {
               tp_price: tpPrice,
               sl_price: slPrice,
               status: 'OPEN',
+              leverage: leverage_val,
+              margin: risk_amount,
               binance_order_id: order.entryOrder.id,
             }]);
 
@@ -310,10 +323,14 @@ async function handleCron() {
             logs.push(`Failed to save trade to DB: ${tradeErr.message}`);
           }
 
-          // Send Telegram Alert
+          // Send Telegram Alert with Margin & Leverage details
+          const totalPositionVal = risk_amount * leverage_val;
           const telegramMessage = `🟢 <b>NEW SIGNAL: ${pair} ${direction}</b>\n` +
             `Reason: RSI + MACD Cross\n` +
-            `Entry: <b>${entryPrice}</b>\n` +
+            `Margin: <b>${risk_amount.toFixed(2)} USDT</b>\n` +
+            `Leverage: <b>${leverage_val}x</b>\n` +
+            `Total Size: <b>${totalPositionVal.toFixed(2)} USDT</b>\n` +
+            `Entry Price: <b>${entryPrice}</b>\n` +
             `SL: <b>${slPrice.toFixed(4)}</b>\n` +
             `TP: <b>${tpPrice.toFixed(4)}</b>`;
 

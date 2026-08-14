@@ -43,6 +43,8 @@ interface Trade {
   status: 'OPEN' | 'CLOSED';
   pnl: number | null;
   closed_at: string | null;
+  leverage?: number;
+  margin?: number;
 }
 
 export default function DashboardPage() {
@@ -450,7 +452,8 @@ export default function DashboardPage() {
                       <th className="pb-3 text-right">Live Price</th>
                       <th className="pb-3 text-right">Live P&L</th>
                       <th className="pb-3 text-right">SL / TP</th>
-                      <th className="pb-3 text-right">Size</th>
+                      <th className="pb-3 text-right">Leverage</th>
+                      <th className="pb-3 text-right">Margin / Size</th>
                       <th className="pb-3 text-right">Action</th>
                     </tr>
                   </thead>
@@ -466,6 +469,10 @@ export default function DashboardPage() {
                           : priceDirections[trade.pair] === 'down'
                           ? 'text-red-400 bg-red-950/15'
                           : 'text-zinc-200';
+
+                      const margin = trade.margin || 10.0;
+                      const leverage = trade.leverage || 20;
+                      const notionalSize = trade.entry_price * trade.amount;
 
                       return (
                         <tr key={trade.id} className="group">
@@ -503,8 +510,12 @@ export default function DashboardPage() {
                               TP: {trade.tp_price.toFixed(4)}
                             </div>
                           </td>
-                          <td className="py-4 text-right font-mono font-medium text-zinc-300">
-                            {trade.amount}
+                          <td className="py-4 text-right font-mono font-bold text-emerald-400">
+                            {leverage}x
+                          </td>
+                          <td className="py-4 text-right font-mono text-zinc-300">
+                            <div className="text-zinc-200 font-bold">{notionalSize.toFixed(2)} USDT</div>
+                            <div className="text-[10px] text-zinc-500 font-medium">Margin: {margin.toFixed(1)} USDT</div>
                           </td>
                           <td className="py-4 text-right">
                             <button

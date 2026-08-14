@@ -9,6 +9,7 @@ export default function SettingsPage() {
   const [tpPercent, setTpPercent] = useState('2.0');
   const [slPercent, setSlPercent] = useState('1.0');
   const [riskAmount, setRiskAmount] = useState('10.0');
+  const [leverage, setLeverage] = useState('20');
   const [pairsText, setPairsText] = useState('');
   const [telegramToken, setTelegramToken] = useState('');
   const [telegramChatId, setTelegramChatId] = useState('');
@@ -33,6 +34,7 @@ export default function SettingsPage() {
         setTpPercent(String(data.tp_percent));
         setSlPercent(String(data.sl_percent));
         setRiskAmount(String(data.risk_amount));
+        setLeverage(String(data.leverage || 20));
         setPairsText((data.pairs || []).join(', '));
         setTelegramToken(data.telegram_token || '');
         setTelegramChatId(data.telegram_chat_id || '');
@@ -66,6 +68,7 @@ export default function SettingsPage() {
       tp_percent: parseFloat(tpPercent),
       sl_percent: parseFloat(slPercent),
       risk_amount: parseFloat(riskAmount),
+      leverage: parseInt(leverage),
       pairs: pairsArray,
       telegram_token: telegramToken,
       telegram_chat_id: telegramChatId,
@@ -132,7 +135,7 @@ export default function SettingsPage() {
             <span>Strategy Parameters</span>
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Take Profit */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
@@ -175,11 +178,11 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Risk Amount */}
+            {/* Margin per Trade */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                <span>Risk Per Trade (Lot USDT)</span>
-                <span title="Notional position allocation size in USDT"><HelpCircle className="w-3.5 h-3.5 text-zinc-600" /></span>
+                <span>Margin Per Trade</span>
+                <span title="Collateral margin size in USDT"><HelpCircle className="w-3.5 h-3.5 text-zinc-600" /></span>
               </label>
               <div className="relative">
                 <input
@@ -192,6 +195,29 @@ export default function SettingsPage() {
                 />
                 <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-bold text-zinc-500">
                   USDT
+                </span>
+              </div>
+            </div>
+
+            {/* Leverage Multiplier */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <span>Leverage Multiplier</span>
+                <span title="Binance Futures leverage coefficient"><HelpCircle className="w-3.5 h-3.5 text-zinc-600" /></span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="1"
+                  required
+                  min="1"
+                  max="125"
+                  value={leverage}
+                  onChange={(e) => setLeverage(e.target.value)}
+                  className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
+                />
+                <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-bold text-zinc-500">
+                  x
                 </span>
               </div>
             </div>

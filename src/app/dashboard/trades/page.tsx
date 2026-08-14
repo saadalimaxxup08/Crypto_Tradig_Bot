@@ -16,6 +16,8 @@ interface Trade {
   status: 'OPEN' | 'CLOSED';
   pnl: number | null;
   closed_at: string | null;
+  leverage?: number;
+  margin?: number;
 }
 
 export default function TradesHistoryPage() {
@@ -89,7 +91,8 @@ export default function TradesHistoryPage() {
                   <th className="pb-4 text-right">Entry Price</th>
                   <th className="pb-4 text-right">Exit Price</th>
                   <th className="pb-4 text-right">SL / TP</th>
-                  <th className="pb-4 text-right">Size</th>
+                  <th className="pb-4 text-right">Leverage</th>
+                  <th className="pb-4 text-right">Margin / Size</th>
                   <th className="pb-4 text-right">P&L (USDT)</th>
                   <th className="pb-4 text-center">Status</th>
                 </tr>
@@ -127,8 +130,12 @@ export default function TradesHistoryPage() {
                         <div className="font-mono text-red-400/70">SL: {trade.sl_price.toFixed(4)}</div>
                         <div className="font-mono text-emerald-400/70">TP: {trade.tp_price.toFixed(4)}</div>
                       </td>
-                      <td className="py-4 text-right font-mono text-zinc-400 font-semibold">
-                        {trade.amount}
+                      <td className="py-4 text-right font-mono font-bold text-emerald-400">
+                        {trade.leverage || 20}x
+                      </td>
+                      <td className="py-4 text-right font-mono text-zinc-300">
+                        <div className="text-zinc-200 font-bold">{(trade.entry_price * trade.amount).toFixed(2)} USDT</div>
+                        <div className="text-[10px] text-zinc-500 font-medium">Margin: {parseFloat(String(trade.margin || 10)).toFixed(1)} USDT</div>
                       </td>
                       <td className="py-4 text-right">
                         {trade.status === 'CLOSED' ? (

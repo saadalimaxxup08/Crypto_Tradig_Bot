@@ -33,10 +33,11 @@ export async function GET() {
       tp_percent: 2.0,
       sl_percent: 1.0,
       risk_amount: 10.0,
+      leverage: 20,
       pairs: [
         'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
-        'DOGEUSDT', 'ADAUSDT', 'TONUSDT', 'SHIBUSDT', 'TRXUSDT',
-        'AVAXUSDT', 'DOTUSDT', 'MATICUSDT', 'LTCUSDT', 'LINKUSDT',
+        'DOGEUSDT', 'ADAUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT',
+        'AVAXUSDT', 'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT',
         'ATOMUSDT', 'XLMUSDT', 'BCHUSDT', 'OPUSDT', 'ARBUSDT'
       ],
       telegram_token: '',
@@ -77,6 +78,7 @@ export async function POST(request: Request) {
       'tp_percent',
       'sl_percent',
       'risk_amount',
+      'leverage',
       'pairs',
       'telegram_chat_id',
     ];

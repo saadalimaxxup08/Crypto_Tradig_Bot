@@ -54,9 +54,10 @@ export async function placeFuturesOrder(
   exchange: any,
   symbol: string,
   direction: 'LONG' | 'SHORT',
-  riskAmount: number, // e.g. 10 USDT
+  riskAmount: number, // Margin per trade (e.g. 10 USDT)
   tpPercent: number,  // e.g. 2.0 (representing 2%)
-  slPercent: number   // e.g. 1.0 (representing 1%)
+  slPercent: number,  // e.g. 1.0 (representing 1%)
+  leverage: number = 20 // Leverage (e.g. 20x)
 ): Promise<{
   entryOrder: any;
   tpOrder: any;
@@ -65,15 +66,26 @@ export async function placeFuturesOrder(
   amount: number;
 }> {
   try {
+    // Set leverage on Binance USD-M Futures before opening the trade
+    try {
+      await exchange.setLeverage(leverage, symbol);
+      console.log(`Successfully set leverage to ${leverage}x for ${symbol}`);
+    } catch (e: any) {
+      console.warn(`Failed to set leverage for ${symbol}: ${e.message}. Proceeding with default.`);
+    }
+
     // 1. Get current price to calculate size and TP/SL levels
     const currentPrice = await fetchCurrentPrice(exchange, symbol);
 
+    // Position Size = Margin (riskAmount) * Leverage
+    const totalPositionSize = riskAmount * leverage;
+
     // Calculate order amount in base currency (e.g. BTC)
-    const rawAmount = riskAmount / currentPrice;
+    const rawAmount = totalPositionSize / currentPrice;
     const amount = parseFloat(exchange.amountToPrecision(symbol, rawAmount));
 
     if (amount <= 0) {
-      throw new Error(`Calculated size ${amount} is too small for risk amount ${riskAmount} USDT.`);
+      throw new Error(`Calculated size ${amount} is too small for position size ${totalPositionSize} USDT.`);
     }
 
     // 2. Place entry Market Order

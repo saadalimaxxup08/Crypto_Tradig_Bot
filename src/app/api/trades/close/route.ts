@@ -97,6 +97,10 @@ export async function POST(request: Request) {
     const entryTimeStr = entryTime.toUTCString();
     const exitTimeStr = exitTime.toUTCString();
 
+    const tradeMargin = trade.margin ? parseFloat(trade.margin) : 10.0;
+    const tradeLeverage = trade.leverage || 20;
+    const totalSizeVal = tradeMargin * tradeLeverage;
+
     // 5. Send Telegram Notification
     const pnlEmoji = realizedPnl >= 0 ? '🟢' : '🔴';
     const sign = realizedPnl >= 0 ? '+' : '';
@@ -104,6 +108,9 @@ export async function POST(request: Request) {
 
     const msg = `${pnlEmoji} <b>TRADE CLOSED MANUALLY</b>\n` +
       `Pair: <b>${trade.pair}</b> ${trade.direction}\n` +
+      `Margin: <b>${tradeMargin.toFixed(2)} USDT</b>\n` +
+      `Leverage: <b>${tradeLeverage}x</b>\n` +
+      `Total Size: <b>${totalSizeVal.toFixed(2)} USDT</b>\n` +
       `Exit Price: <b>${currentPrice}</b>\n` +
       `P&L: <b>${sign}${formattedPnl} USDT</b>\n` +
       `-----------------------------------\n` +

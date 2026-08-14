@@ -20,6 +20,7 @@ CREATE TABLE settings (
   binance_secret_key TEXT,
   last_hourly_report_at TIMESTAMP WITH TIME ZONE,
   last_daily_report_at TIMESTAMP WITH TIME ZONE,
+  leverage INT DEFAULT 20,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT null
 );
 
@@ -49,6 +50,8 @@ CREATE TABLE trades (
   status TEXT NOT NULL DEFAULT 'OPEN', -- 'OPEN' | 'CLOSED'
   pnl NUMERIC,
   closed_at TIMESTAMP WITH TIME ZONE,
+  leverage INT DEFAULT 20,
+  margin NUMERIC DEFAULT 10.0,
   binance_order_id TEXT
 );
 
@@ -59,14 +62,16 @@ INSERT INTO settings (
   tp_percent, 
   sl_percent, 
   risk_amount, 
-  pairs
+  pairs,
+  leverage
 ) VALUES (
   1, 
   false, 
   2.0, 
   1.0, 
   10.0, 
-  ARRAY['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT', 'AVAXUSDT', 'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT', 'ATOMUSDT', 'XLMUSDT', 'BCHUSDT', 'OPUSDT', 'ARBUSDT']
+  ARRAY['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT', 'AVAXUSDT', 'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT', 'ATOMUSDT', 'XLMUSDT', 'BCHUSDT', 'OPUSDT', 'ARBUSDT'],
+  20
 ) ON CONFLICT (id) DO NOTHING;
 
 -- 6. Disable RLS policies for simplicity or enable them as needed
