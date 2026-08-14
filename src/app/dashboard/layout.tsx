@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 import {
   TrendingUp,
@@ -10,12 +11,13 @@ import {
   LogOut,
   User,
   Shield,
+  Menu,
 } from 'lucide-react';
 import React from 'react';
 
 export const dynamic = 'force-dynamic';
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -25,14 +27,28 @@ export default function DashboardLayout({
     redirect('/login');
   }
 
+  // Fetch trading mode for dynamic header badge
+  const { data: settings } = await supabase
+    .from('settings')
+    .select('trading_mode')
+    .eq('id', 1)
+    .single();
+  const isReal = settings?.trading_mode === 'REAL';
+
   return (
     <div className="min-h-screen bg-[#09090b] text-[#fafafa] flex overflow-hidden font-sans">
+      {/* Sidebar mobile toggle checkbox (CSS peer trigger) */}
+      <input type="checkbox" id="sidebar-toggle" className="hidden peer" />
+
+      {/* Sidebar Mobile Backdrop Overlay */}
+      <label htmlFor="sidebar-toggle" className="fixed inset-0 z-25 bg-black/60 backdrop-blur-sm hidden peer-checked:block lg:hidden cursor-pointer" />
+
       {/* Dynamic Background Gradients */}
       <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[120px] pointer-events-none" />
 
       {/* Sidebar Navigation */}
-      <aside className="w-64 border-r border-zinc-800/80 bg-[#0c0c0f]/80 backdrop-blur-xl flex flex-col justify-between z-20 shrink-0">
+      <aside className="fixed inset-y-0 left-0 w-64 border-r border-zinc-800/80 bg-[#0c0c0f]/95 backdrop-blur-xl flex flex-col justify-between z-30 shrink-0 -translate-x-full transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 peer-checked:translate-x-0">
         <div>
           {/* Sidebar Header */}
           <div className="p-6 border-b border-zinc-800/80 flex items-center gap-3">
@@ -126,18 +142,30 @@ export default function DashboardLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden z-10">
         {/* Top Header bar */}
-        <header className="h-16 border-b border-zinc-800/80 bg-[#0c0c0f]/50 backdrop-blur-xl px-8 flex items-center justify-end z-20 shrink-0">
-          <div className="flex items-center gap-4">
-            {/* Live Indicator Dot */}
-            <div className="flex items-center gap-2 bg-emerald-950/30 border border-emerald-900/50 rounded-full px-3 py-1 text-xs text-emerald-400 font-semibold shadow-inner shadow-emerald-500/5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              <span>TESTNET LIVE</span>
-            </div>
+        <header className="h-16 border-b border-zinc-800/80 bg-[#0c0c0f]/50 backdrop-blur-xl px-4 lg:px-8 flex items-center justify-between z-20 shrink-0">
+          {/* Mobile Menu Burger Trigger */}
+          <label htmlFor="sidebar-toggle" className="lg:hidden p-2 text-zinc-400 hover:text-zinc-200 cursor-pointer flex items-center justify-center rounded-xl hover:bg-zinc-800/40 transition-colors">
+            <Menu className="w-5 h-5" />
+          </label>
+
+          <div className="flex items-center gap-4 ml-auto">
+            {/* Dynamic Live Indicator Dot */}
+            {isReal ? (
+              <div className="flex items-center gap-2 bg-emerald-950/30 border border-emerald-900/50 rounded-full px-3 py-1 text-xs text-emerald-400 font-semibold shadow-inner shadow-emerald-500/5 animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                <span>LIVE MAINNET</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 bg-amber-950/20 border border-amber-900/50 rounded-full px-3 py-1 text-xs text-amber-500 font-semibold shadow-inner shadow-amber-500/5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                <span>TESTNET LIVE</span>
+              </div>
+            )}
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-8 relative">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
           {children}
         </main>
       </div>
