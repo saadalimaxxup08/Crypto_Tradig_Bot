@@ -21,6 +21,7 @@ import confetti from 'canvas-confetti';
 interface Stats {
   botEnabled: boolean;
   balance: number;
+  realBalance?: number;
   balanceFetched: boolean;
   balanceError: string;
   todayPnl: number;
@@ -346,6 +347,12 @@ export default function DashboardPage() {
               {stats?.balance.toFixed(2)}
               <span className="text-sm font-medium text-zinc-500 ml-1.5">USDT</span>
             </h3>
+            {stats?.realBalance !== undefined && stats?.balanceFetched && (
+              <p className="text-[10px] text-zinc-500 font-semibold mt-1.5 flex items-center gap-1">
+                <span>Binance Wallet:</span>
+                <span className="text-zinc-300 font-bold">{stats.realBalance.toFixed(2)} USDT</span>
+              </p>
+            )}
             {stats?.balanceError && (
               <p className="text-[10px] text-amber-500 mt-2 flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5" />

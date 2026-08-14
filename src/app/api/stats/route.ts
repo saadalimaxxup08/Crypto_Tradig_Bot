@@ -26,6 +26,7 @@ export async function GET() {
     // 2. Connect to Binance (Credential and connection check based on active mode)
     let balanceFetched = false;
     let balanceError = '';
+    let realBalance = 0;
 
     const isDemo = (settings?.trading_mode || 'DEMO') === 'DEMO';
     const binance_api_key = isDemo 
@@ -43,7 +44,7 @@ export async function GET() {
           isDemo
         );
         // Test connection by fetching balance (verifies API key viability)
-        await fetchFuturesBalance(exchange);
+        realBalance = await fetchFuturesBalance(exchange);
         balanceFetched = true;
       } catch (err: any) {
         balanceError = err.message;
@@ -93,6 +94,7 @@ export async function GET() {
       success: true,
       botEnabled,
       balance,
+      realBalance,
       balanceFetched,
       balanceError,
       todayPnl,
