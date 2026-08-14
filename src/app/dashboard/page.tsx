@@ -15,6 +15,7 @@ import {
   ArrowDownRight,
   History as HistoryIcon,
   Activity,
+  FlaskConical,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -66,6 +67,37 @@ export default function DashboardPage() {
   const [isTesting, setIsTesting] = useState(false);
   const [testReport, setTestReport] = useState<any>(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [isTestingTrade, setIsTestingTrade] = useState(false);
+
+  const runTestTrade = async () => {
+    if (isTestingTrade) return;
+    const confirmTest = window.confirm(
+      `Are you sure you want to execute a market TEST TRADE (0.001 BTC)?\n\n` +
+      `This will instantly open a position on your active account (${stats?.tradingMode === 'REAL' ? 'REAL LIVE' : 'DEMO SANDBOX'}) and close it 1 second later to test the complete execution cycle.`
+    );
+    if (!confirmTest) return;
+
+    try {
+      setIsTestingTrade(true);
+      const res = await fetch('/api/trades/test-trade', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Success: Test trade executed and closed!\nP&L: ${data.pnl >= 0 ? '+' : ''}${data.pnl.toFixed(4)} USDT`);
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+        fetchDashboardData();
+      } else {
+        alert(`Test trade execution failed: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert(`Network error executing test trade: ${err.message}`);
+    } finally {
+      setIsTestingTrade(false);
+    }
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -303,6 +335,15 @@ export default function DashboardPage() {
           >
             <Activity className={`w-4 h-4 text-emerald-400 ${isTesting ? 'animate-pulse' : ''}`} />
             <span>Test Project</span>
+          </button>
+
+          <button
+            onClick={runTestTrade}
+            disabled={isTestingTrade}
+            className="flex items-center gap-2 px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-850 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
+          >
+            <FlaskConical className={`w-4 h-4 text-purple-400 ${isTestingTrade ? 'animate-spin' : ''}`} />
+            <span>Test Trade</span>
           </button>
 
           <button
