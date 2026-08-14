@@ -80,13 +80,20 @@ async function handleCron() {
 
     const telegram_token = settings.telegram_token || process.env.TELEGRAM_TOKEN || '';
     const telegram_chat_id = settings.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
-    const binance_api_key = settings.binance_api_key || process.env.BINANCE_API_KEY || '';
-    const binance_secret_key = settings.binance_secret_key || process.env.BINANCE_SECRET_KEY || '';
+
+    // Dynamically select API credentials based on active trading mode
+    const isDemo = (settings.trading_mode || 'DEMO') === 'DEMO';
+    const binance_api_key = isDemo 
+      ? (settings.binance_demo_api_key || settings.binance_api_key || process.env.BINANCE_API_KEY || '')
+      : (settings.binance_real_api_key || process.env.BINANCE_API_KEY || '');
+    const binance_secret_key = isDemo 
+      ? (settings.binance_demo_secret_key || settings.binance_secret_key || process.env.BINANCE_SECRET_KEY || '')
+      : (settings.binance_real_secret_key || process.env.BINANCE_SECRET_KEY || '');
 
     // 2. Manage open positions (Check if TP/SL were hit and close them in DB)
     if (binance_api_key && binance_secret_key) {
       try {
-        const exchange = getBinanceClient(binance_api_key, binance_secret_key);
+        const exchange = getBinanceClient(binance_api_key, binance_secret_key, isDemo);
         
         // Fetch all open trades in DB
         const { data: openTrades, error: dbError } = await supabase
@@ -217,7 +224,7 @@ async function handleCron() {
       return NextResponse.json({ success: true, status: 'CREDENTIALS_MISSING', logs, durationMs: Date.now() - startTime });
     }
 
-    const exchange = getBinanceClient(binance_api_key, binance_secret_key);
+    const exchange = getBinanceClient(binance_api_key, binance_secret_key, isDemo);
 
     // 3. Scan all pairs in parallel
     logs.push(`Scanning ${pairs.length} pairs concurrently...`);
@@ -362,7 +369,7 @@ async function handleCron() {
         let binanceOk = false;
         let simulatedBalance = 100.0;
         try {
-          const exchange = getBinanceClient(binance_api_key, binance_secret_key);
+          const exchange = getBinanceClient(binance_api_key, binance_secret_key, isDemo);
           await fetchFuturesBalance(exchange);
           binanceOk = true;
 

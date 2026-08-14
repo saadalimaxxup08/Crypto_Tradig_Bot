@@ -28,6 +28,7 @@ interface Stats {
   openTradesCount: number;
   lastScanAt: string | null;
   lastScanLogs: string[];
+  tradingMode: 'DEMO' | 'REAL';
 }
 
 interface Trade {
@@ -273,9 +274,22 @@ export default function DashboardPage() {
       {/* Welcome & Global Toggle Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[#0c0c0f]/40 backdrop-blur-md border border-zinc-800/80 p-6 rounded-3xl">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-tight">VIP Dashboard</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-extrabold tracking-tight">VIP Dashboard</h2>
+            {stats?.tradingMode === 'REAL' ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full bg-emerald-950/30 text-emerald-400 border border-emerald-900/50 animate-pulse tracking-wide">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                Live Mode
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full bg-amber-950/20 text-amber-500 border border-amber-900/50 tracking-wide">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Demo Mode
+              </span>
+            )}
+          </div>
           <p className="text-sm text-zinc-400 mt-1">
-            Real-time Binance Testnet engine tracker.
+            Real-time Binance {stats?.tradingMode === 'REAL' ? 'Live Production' : 'Demo Sandbox'} engine tracker.
           </p>
         </div>
 

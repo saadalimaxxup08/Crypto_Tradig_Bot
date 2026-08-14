@@ -15,7 +15,7 @@ export async function GET() {
     // 1. Fetch settings to get bot_enabled, credentials, and last scan logs
     const { data: settings } = await supabase
       .from('settings')
-      .select('bot_enabled, binance_api_key, binance_secret_key, last_scan_at, last_scan_logs')
+      .select('bot_enabled, binance_api_key, binance_secret_key, trading_mode, binance_demo_api_key, binance_demo_secret_key, binance_real_api_key, binance_real_secret_key, last_scan_at, last_scan_logs')
       .eq('id', 1)
       .single();
 
@@ -23,15 +23,24 @@ export async function GET() {
     const lastScanAt = settings?.last_scan_at || null;
     const lastScanLogs = settings?.last_scan_logs || [];
 
-    // 2. Connect to Binance Testnet (Credential and connection check)
+    // 2. Connect to Binance (Credential and connection check based on active mode)
     let balanceFetched = false;
     let balanceError = '';
 
-    if (settings?.binance_api_key && settings?.binance_secret_key) {
+    const isDemo = (settings?.trading_mode || 'DEMO') === 'DEMO';
+    const binance_api_key = isDemo 
+      ? (settings?.binance_demo_api_key || settings?.binance_api_key || '')
+      : (settings?.binance_real_api_key || '');
+    const binance_secret_key = isDemo 
+      ? (settings?.binance_demo_secret_key || settings?.binance_secret_key || '')
+      : (settings?.binance_real_secret_key || '');
+
+    if (binance_api_key && binance_secret_key) {
       try {
         const exchange = getBinanceClient(
-          settings.binance_api_key,
-          settings.binance_secret_key
+          binance_api_key,
+          binance_secret_key,
+          isDemo
         );
         // Test connection by fetching balance (verifies API key viability)
         await fetchFuturesBalance(exchange);
@@ -91,6 +100,7 @@ export async function GET() {
       openTradesCount: openTradesCount || 0,
       lastScanAt,
       lastScanLogs,
+      tradingMode: settings?.trading_mode || 'DEMO',
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

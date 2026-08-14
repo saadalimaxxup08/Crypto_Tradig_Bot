@@ -34,6 +34,11 @@ export async function GET() {
       sl_percent: 1.0,
       risk_amount: 10.0,
       leverage: 20,
+      trading_mode: 'DEMO',
+      binance_demo_api_key: '',
+      binance_demo_secret_key: '',
+      binance_real_api_key: '',
+      binance_real_secret_key: '',
       pairs: [
         'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
         'DOGEUSDT', 'ADAUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT',
@@ -54,6 +59,10 @@ export async function GET() {
       telegram_token: maskString(finalSettings.telegram_token || ''),
       binance_api_key: maskString(finalSettings.binance_api_key || ''),
       binance_secret_key: maskString(finalSettings.binance_secret_key || ''),
+      binance_demo_api_key: maskString(finalSettings.binance_demo_api_key || ''),
+      binance_demo_secret_key: maskString(finalSettings.binance_demo_secret_key || ''),
+      binance_real_api_key: maskString(finalSettings.binance_real_api_key || ''),
+      binance_real_secret_key: maskString(finalSettings.binance_real_secret_key || ''),
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -79,6 +88,7 @@ export async function POST(request: Request) {
       'sl_percent',
       'risk_amount',
       'leverage',
+      'trading_mode',
       'pairs',
       'telegram_chat_id',
     ];
@@ -97,6 +107,18 @@ export async function POST(request: Request) {
     }
     if (body.binance_secret_key && !body.binance_secret_key.includes('...')) {
       updateData.binance_secret_key = body.binance_secret_key;
+    }
+    if (body.binance_demo_api_key && !body.binance_demo_api_key.includes('...')) {
+      updateData.binance_demo_api_key = body.binance_demo_api_key;
+    }
+    if (body.binance_demo_secret_key && !body.binance_demo_secret_key.includes('...')) {
+      updateData.binance_demo_secret_key = body.binance_demo_secret_key;
+    }
+    if (body.binance_real_api_key && !body.binance_real_api_key.includes('...')) {
+      updateData.binance_real_api_key = body.binance_real_api_key;
+    }
+    if (body.binance_real_secret_key && !body.binance_real_secret_key.includes('...')) {
+      updateData.binance_real_secret_key = body.binance_real_secret_key;
     }
 
     updateData.updated_at = new Date().toISOString();

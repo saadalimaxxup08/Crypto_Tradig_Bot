@@ -42,8 +42,14 @@ export async function POST() {
       .eq('id', 1)
       .single();
 
-    const binanceApiKey = settings?.binance_api_key || process.env.BINANCE_API_KEY || '';
-    const binanceSecretKey = settings?.binance_secret_key || process.env.BINANCE_SECRET_KEY || '';
+    const isDemo = (settings?.trading_mode || 'DEMO') === 'DEMO';
+    const binanceApiKey = isDemo 
+      ? (settings?.binance_demo_api_key || settings?.binance_api_key || process.env.BINANCE_API_KEY || '')
+      : (settings?.binance_real_api_key || process.env.BINANCE_API_KEY || '');
+    const binanceSecretKey = isDemo 
+      ? (settings?.binance_demo_secret_key || settings?.binance_secret_key || process.env.BINANCE_SECRET_KEY || '')
+      : (settings?.binance_real_secret_key || process.env.BINANCE_SECRET_KEY || '');
+
     const telegramToken = settings?.telegram_token || process.env.TELEGRAM_TOKEN || '';
     const telegramChatId = settings?.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
 
@@ -54,7 +60,7 @@ export async function POST() {
       report.binance = { status: 'ERROR', message: 'API keys are missing in configurations.' };
     } else {
       try {
-        const exchange = getBinanceClient(binanceApiKey, binanceSecretKey);
+        const exchange = getBinanceClient(binanceApiKey, binanceSecretKey, isDemo);
         await fetchFuturesBalance(exchange);
         // Fetch BTCUSDT current price as a ticker connection check
         const price = await fetchCurrentPrice(exchange, 'BTCUSDT');

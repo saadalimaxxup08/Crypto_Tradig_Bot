@@ -3,7 +3,7 @@ import ccxt from 'ccxt';
 /**
  * Get configured Binance client (configured for Futures Testnet by default)
  */
-export function getBinanceClient(apiKey: string, secretKey: string) {
+export function getBinanceClient(apiKey: string, secretKey: string, isDemo: boolean = true) {
   if (!apiKey || !secretKey) {
     throw new Error('Binance API Key and Secret are required.');
   }
@@ -14,8 +14,8 @@ export function getBinanceClient(apiKey: string, secretKey: string) {
     enableRateLimit: true,
   });
 
-  // Enable Binance Demo Trading (which replaces deprecated Sandbox/Testnet)
-  exchange.enableDemoTrading(true);
+  // Enable/Disable Binance Demo Trading dynamically
+  exchange.enableDemoTrading(isDemo);
 
   return exchange;
 }

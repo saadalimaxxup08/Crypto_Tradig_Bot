@@ -13,12 +13,17 @@ export default function SettingsPage() {
   const [pairsText, setPairsText] = useState('');
   const [telegramToken, setTelegramToken] = useState('');
   const [telegramChatId, setTelegramChatId] = useState('');
-  const [binanceApiKey, setBinanceApiKey] = useState('');
-  const [binanceSecretKey, setBinanceSecretKey] = useState('');
+  const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
+  const [binanceDemoApiKey, setBinanceDemoApiKey] = useState('');
+  const [binanceDemoSecretKey, setBinanceDemoSecretKey] = useState('');
+  const [binanceRealApiKey, setBinanceRealApiKey] = useState('');
+  const [binanceRealSecretKey, setBinanceRealSecretKey] = useState('');
 
   const [showTelegram, setShowTelegram] = useState(false);
-  const [showBinanceKey, setShowBinanceKey] = useState(false);
-  const [showBinanceSecret, setShowBinanceSecret] = useState(false);
+  const [showBinanceDemoKey, setShowBinanceDemoKey] = useState(false);
+  const [showBinanceDemoSecret, setShowBinanceDemoSecret] = useState(false);
+  const [showBinanceRealKey, setShowBinanceRealKey] = useState(false);
+  const [showBinanceRealSecret, setShowBinanceRealSecret] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -38,8 +43,11 @@ export default function SettingsPage() {
         setPairsText((data.pairs || []).join(', '));
         setTelegramToken(data.telegram_token || '');
         setTelegramChatId(data.telegram_chat_id || '');
-        setBinanceApiKey(data.binance_api_key || '');
-        setBinanceSecretKey(data.binance_secret_key || '');
+        setTradingMode(data.trading_mode || 'DEMO');
+        setBinanceDemoApiKey(data.binance_demo_api_key || '');
+        setBinanceDemoSecretKey(data.binance_demo_secret_key || '');
+        setBinanceRealApiKey(data.binance_real_api_key || '');
+        setBinanceRealSecretKey(data.binance_real_secret_key || '');
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -69,11 +77,14 @@ export default function SettingsPage() {
       sl_percent: parseFloat(slPercent),
       risk_amount: parseFloat(riskAmount),
       leverage: parseInt(leverage),
+      trading_mode: tradingMode,
       pairs: pairsArray,
       telegram_token: telegramToken,
       telegram_chat_id: telegramChatId,
-      binance_api_key: binanceApiKey,
-      binance_secret_key: binanceSecretKey,
+      binance_demo_api_key: binanceDemoApiKey,
+      binance_demo_secret_key: binanceDemoSecretKey,
+      binance_real_api_key: binanceRealApiKey,
+      binance_real_secret_key: binanceRealSecretKey,
     };
 
     try {
@@ -287,70 +298,164 @@ export default function SettingsPage() {
 
         {/* Binance API credentials */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-          <div className="border-b border-zinc-800/50 pb-3 flex justify-between items-center">
-            <h3 className="text-lg font-bold text-zinc-200">Binance API Settings</h3>
-            <span className="text-[10px] text-amber-500 bg-amber-950/20 border border-amber-900/50 rounded px-2 py-0.5 font-bold uppercase tracking-wider">
-              Testnet Mode Enabled
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                API Key
-              </label>
-              <div className="relative">
-                <input
-                  type={showBinanceKey ? 'text' : 'password'}
-                  placeholder="Binance Testnet API Key"
-                  value={binanceApiKey}
-                  onChange={(e) => setBinanceApiKey(e.target.value)}
-                  className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 pl-4 pr-11 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowBinanceKey(!showBinanceKey)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
-                >
-                  {showBinanceKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                Secret Key
-              </label>
-              <div className="relative">
-                <input
-                  type={showBinanceSecret ? 'text' : 'password'}
-                  placeholder="Binance Testnet Secret Key"
-                  value={binanceSecretKey}
-                  onChange={(e) => setBinanceSecretKey(e.target.value)}
-                  className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 pl-4 pr-11 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowBinanceSecret(!showBinanceSecret)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
-                >
-                  {showBinanceSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="p-4 bg-amber-950/20 border border-amber-900/50 rounded-2xl flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="border-b border-zinc-800/50 pb-3 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
             <div>
-              <p className="text-xs font-bold text-amber-500 uppercase tracking-wide">
-                Warning / Alert
-              </p>
-              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                Ensure your Binance Futures Testnet API Key has **Enable Futures** checked. Do not use Mainnet API credentials! The system is locked to the sandbox environment for capital safety.
-              </p>
+              <h3 className="text-lg font-bold text-zinc-200">Binance API Settings</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">Toggle between Demo Sandbox and Real Account trading</p>
+            </div>
+            
+            {/* Segmented Switcher */}
+            <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setTradingMode('DEMO')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  tradingMode === 'DEMO'
+                    ? 'bg-amber-500 text-zinc-950 shadow-md'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                DEMO SANDBOX
+              </button>
+              <button
+                type="button"
+                onClick={() => setTradingMode('REAL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  tradingMode === 'REAL'
+                    ? 'bg-emerald-500 text-zinc-950 shadow-md animate-pulse'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                REAL LIVE
+              </button>
             </div>
           </div>
+
+          {tradingMode === 'DEMO' ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Demo API Key */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                    Demo API Key
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showBinanceDemoKey ? 'text' : 'password'}
+                      placeholder="Binance Testnet API Key"
+                      value={binanceDemoApiKey}
+                      onChange={(e) => setBinanceDemoApiKey(e.target.value)}
+                      className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/20 rounded-xl py-3 pl-4 pr-11 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowBinanceDemoKey(!showBinanceDemoKey)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      {showBinanceDemoKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Demo Secret Key */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                    Demo Secret Key
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showBinanceDemoSecret ? 'text' : 'password'}
+                      placeholder="Binance Testnet Secret Key"
+                      value={binanceDemoSecretKey}
+                      onChange={(e) => setBinanceDemoSecretKey(e.target.value)}
+                      className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-amber-500/80 focus:ring-1 focus:ring-amber-500/20 rounded-xl py-3 pl-4 pr-11 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowBinanceDemoSecret(!showBinanceDemoSecret)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      {showBinanceDemoSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-amber-950/15 border border-amber-900/30 rounded-2xl flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-amber-500 uppercase tracking-wide">
+                    Demo Sandbox Settings
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    Make sure to use keys generated from the <b>Binance Futures Testnet / Demo trading</b> website. Ensure the key has <b>Enable Futures</b> checked in its API restrictions.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {/* Real API Key */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                    Live Real API Key
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showBinanceRealKey ? 'text' : 'password'}
+                      placeholder="Binance Mainnet API Key"
+                      value={binanceRealApiKey}
+                      onChange={(e) => setBinanceRealApiKey(e.target.value)}
+                      className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 pl-4 pr-11 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowBinanceRealKey(!showBinanceRealKey)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      {showBinanceRealKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Real Secret Key */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                    Live Real Secret Key
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showBinanceRealSecret ? 'text' : 'password'}
+                      placeholder="Binance Mainnet Secret Key"
+                      value={binanceRealSecretKey}
+                      onChange={(e) => setBinanceRealSecretKey(e.target.value)}
+                      className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 pl-4 pr-11 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowBinanceRealSecret(!showBinanceRealSecret)}
+                      className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
+                    >
+                      {showBinanceRealSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-red-950/20 border border-red-900/50 rounded-2xl flex items-start gap-3 animate-pulse">
+                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-red-400 uppercase tracking-wide">
+                    🚨 LIVE TRADING RISK WARNING
+                  </p>
+                  <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+                    You are enabling <b>Live Trading mode</b>. Every signal triggered will execute positions on the real Binance Futures market using <b>REAL CAPITAL</b>. Ensure your API Key restrictions are set to **Enable Futures** and that **Enable Withdrawals is UNCHECKED (Disabled)** for security.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Status Msg & Save Trigger */}

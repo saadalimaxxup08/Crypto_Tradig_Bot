@@ -34,16 +34,28 @@ export async function POST(request: Request) {
     // 2. Fetch Binance credentials from settings
     const { data: settings } = await supabase
       .from('settings')
-      .select('binance_api_key, binance_secret_key, telegram_token, telegram_chat_id')
+      .select('binance_api_key, binance_secret_key, telegram_token, telegram_chat_id, trading_mode, binance_demo_api_key, binance_demo_secret_key, binance_real_api_key, binance_real_secret_key')
       .eq('id', 1)
       .single();
 
-    if (!settings?.binance_api_key || !settings?.binance_secret_key) {
+    if (!settings) {
+      return NextResponse.json({ error: 'Settings not found' }, { status: 400 });
+    }
+
+    const isDemo = (settings.trading_mode || 'DEMO') === 'DEMO';
+    const binance_api_key = isDemo 
+      ? (settings?.binance_demo_api_key || settings?.binance_api_key || '')
+      : (settings?.binance_real_api_key || '');
+    const binance_secret_key = isDemo 
+      ? (settings?.binance_demo_secret_key || settings?.binance_secret_key || '')
+      : (settings?.binance_real_secret_key || '');
+
+    if (!binance_api_key || !binance_secret_key) {
       return NextResponse.json({ error: 'Binance API credentials missing in settings' }, { status: 400 });
     }
 
     // 3. Initialize Binance Client & Close Position
-    const exchange = getBinanceClient(settings.binance_api_key, settings.binance_secret_key);
+    const exchange = getBinanceClient(binance_api_key, binance_secret_key, isDemo);
     
     // Fetch current price for final calculations
     const currentPrice = await fetchCurrentPrice(exchange, trade.pair);
@@ -120,7 +132,7 @@ export async function POST(request: Request) {
       `-----------------------------------\n` +
       `Account Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>`;
 
-    await sendTelegramMessage(settings.telegram_token, settings.telegram_chat_id, msg);
+    await sendTelegramMessage(settings?.telegram_token || '', settings?.telegram_chat_id || '', msg);
 
     return NextResponse.json({ success: true, exitPrice: currentPrice, pnl: realizedPnl });
   } catch (err: any) {
