@@ -22,6 +22,8 @@ export default function SummaryPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [trades, setTrades] = useState<Trade[]>([]);
+  const [activeTrades, setActiveTrades] = useState<Trade[]>([]);
+  const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
@@ -51,6 +53,7 @@ export default function SummaryPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         const allTrades: Trade[] = data.trades || [];
+        setLivePrices(data.livePrices || {});
         
         const filtered = allTrades.filter((t) => {
           if (t.status !== 'CLOSED' || !t.closed_at) return false;
@@ -73,8 +76,11 @@ export default function SummaryPage() {
 
         // Sort ascending by close time
         filtered.sort((a, b) => new Date(a.closed_at).getTime() - new Date(b.closed_at).getTime());
-
         setTrades(filtered);
+
+        // Fetch active trades
+        const active = allTrades.filter((t) => t.status === 'OPEN');
+        setActiveTrades(active);
       }
     } catch (err) {
       console.error('Failed to load summary:', err);
@@ -462,6 +468,89 @@ export default function SummaryPage() {
           </h3>
           <p className="text-[9px] text-zinc-500 mt-1">Mean return per operation</p>
         </div>
+      </div>
+
+      {/* Active Running Positions Section */}
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4 print-card">
+        <h3 className="text-md font-bold text-zinc-200 pb-2 border-b border-zinc-800/50 flex items-center justify-between">
+          <span>Active Running Positions</span>
+          <span className="px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[10px] font-bold text-zinc-400">
+            {activeTrades.length} positions
+          </span>
+        </h3>
+
+        {activeTrades.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 border border-dashed border-zinc-800/80 rounded-2xl">
+            <p className="text-xs text-zinc-500 font-medium">No active positions currently running in the market.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                  <th className="pb-3">Open Time</th>
+                  <th className="pb-3">Pair</th>
+                  <th className="pb-3 text-center">Direction</th>
+                  <th className="pb-3 text-right">Entry Price</th>
+                  <th className="pb-3 text-right">Live Price</th>
+                  <th className="pb-3 text-center">Time In Market</th>
+                  <th className="pb-3 text-right">Margin / Size</th>
+                  <th className="pb-3 text-right">Floating P&L</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/50 text-xs">
+                {activeTrades.map((t) => {
+                  const currentPrice = livePrices[t.pair] || t.entry_price;
+                  const floatingPnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                  const isProfit = floatingPnl >= 0;
+                  
+                  const entryTime = new Date(t.timestamp);
+                  const durationMs = Date.now() - entryTime.getTime();
+                  const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+                  const durationMins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+                  const durationStr = durationHours > 0 ? `${durationHours}h ${durationMins}m` : `${durationMins}m`;
+
+                  return (
+                    <tr key={t.id} className="hover:bg-zinc-900/10">
+                      <td className="py-3.5 font-mono text-zinc-400">{entryTime.toLocaleString()}</td>
+                      <td className="py-3.5 font-bold text-zinc-200">{t.pair}</td>
+                      <td className="py-3.5 text-center">
+                        <span
+                          className={`px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase ${
+                            t.direction === 'LONG'
+                              ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+                              : 'bg-red-950/20 border-red-900/50 text-red-400'
+                          }`}
+                        >
+                          {t.direction}
+                        </span>
+                      </td>
+                      <td className="py-3.5 text-right font-mono text-zinc-400">{t.entry_price.toFixed(4)}</td>
+                      <td className="py-3.5 text-right font-mono text-zinc-200 font-bold">{currentPrice.toFixed(4)}</td>
+                      <td className="py-3.5 text-center text-zinc-300 font-medium">{durationStr}</td>
+                      <td className="py-3.5 text-right font-mono text-zinc-400">
+                        {t.margin ? `${t.margin.toFixed(1)} USDT` : '1.0 USDT'} <span className="text-[10px] text-zinc-600">({t.leverage || 20}x)</span>
+                      </td>
+                      <td className="py-3.5 text-right font-mono font-bold">
+                        <div
+                          className={`flex items-center justify-end gap-0.5 ${
+                            isProfit ? 'text-emerald-400' : 'text-red-400'
+                          }`}
+                        >
+                          {isProfit ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                          <span>
+                            {isProfit ? '+' : ''}
+                            {floatingPnl.toFixed(4)} USDT
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Detailed Ledger List */}
