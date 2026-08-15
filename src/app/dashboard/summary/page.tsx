@@ -25,6 +25,7 @@ export default function SummaryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+  const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
 
   // Default date ranges setup
   useEffect(() => {
@@ -51,17 +52,23 @@ export default function SummaryPage() {
       if (res.ok && data.success) {
         const allTrades: Trade[] = data.trades || [];
         
-        // Convert input dates to comparable ISO boundaries (Local start/end of days)
-        const startBoundary = new Date(startDate);
-        startBoundary.setHours(0, 0, 0, 0);
-
-        const endBoundary = new Date(endDate);
-        endBoundary.setHours(23, 59, 59, 999);
-
         const filtered = allTrades.filter((t) => {
           if (t.status !== 'CLOSED' || !t.closed_at) return false;
           const closedTime = new Date(t.closed_at);
-          return closedTime >= startBoundary && closedTime <= endBoundary;
+          
+          if (hourlyFilter !== 'none') {
+            const hours = hourlyFilter === '1h' ? 1 : hourlyFilter === '3h' ? 3 : hourlyFilter === '6h' ? 6 : 12;
+            const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+            return closedTime >= cutoff;
+          } else {
+            // Convert input dates to comparable ISO boundaries (Local start/end of days)
+            const startBoundary = new Date(startDate);
+            startBoundary.setHours(0, 0, 0, 0);
+
+            const endBoundary = new Date(endDate);
+            endBoundary.setHours(23, 59, 59, 999);
+            return closedTime >= startBoundary && closedTime <= endBoundary;
+          }
         });
 
         // Sort ascending by close time
@@ -78,10 +85,11 @@ export default function SummaryPage() {
 
   useEffect(() => {
     fetchSummaryTrades();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, hourlyFilter]);
 
   // Set quick ranges
   const setRangeQuick = (rangeType: 'today' | 'yesterday' | 'week' | 'month') => {
+    setHourlyFilter('none');
     const today = new Date();
     const formatDateStr = (d: Date) => d.toISOString().split('T')[0];
 
@@ -104,6 +112,13 @@ export default function SummaryPage() {
       setStartDate(formatDateStr(monthAgo));
       setEndDate(formatDateStr(today));
     }
+  };
+
+  const setRangeHourly = (filter: '1h' | '3h' | '6h' | '12h') => {
+    setHourlyFilter(filter);
+    const today = new Date().toISOString().split('T')[0];
+    setStartDate(today);
+    setEndDate(today);
   };
 
   // Compile calculations
@@ -266,7 +281,10 @@ export default function SummaryPage() {
                 <input
                   type="date"
                   value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setHourlyFilter('none');
+                  }}
                   className="bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500 rounded-xl py-2 px-3 text-xs text-zinc-200 font-mono focus:outline-none"
                 />
               </div>
@@ -277,39 +295,113 @@ export default function SummaryPage() {
                 <input
                   type="date"
                   value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setHourlyFilter('none');
+                  }}
                   className="bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500 rounded-xl py-2 px-3 text-xs text-zinc-200 font-mono focus:outline-none"
                 />
               </div>
             </div>
           </div>
 
-          {/* Quick Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setRangeQuick('today')}
-              className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-all cursor-pointer"
-            >
-              Today
-            </button>
-            <button
-              onClick={() => setRangeQuick('yesterday')}
-              className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-all cursor-pointer"
-            >
-              Yesterday
-            </button>
-            <button
-              onClick={() => setRangeQuick('week')}
-              className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-all cursor-pointer"
-            >
-              Last 7 Days
-            </button>
-            <button
-              onClick={() => setRangeQuick('month')}
-              className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-zinc-400 hover:text-zinc-200 transition-all cursor-pointer"
-            >
-              Last 30 Days
-            </button>
+          {/* Quick Buttons Grid */}
+          <div className="flex flex-col gap-2.5">
+            {/* Date-based Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setRangeQuick('today')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === 'none' && startDate === new Date().toISOString().split('T')[0] && endDate === new Date().toISOString().split('T')[0]
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Today
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeQuick('yesterday')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === 'none' && startDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] && endDate === new Date(Date.now() - 86400000).toISOString().split('T')[0]
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Yesterday
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeQuick('week')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === 'none' && startDate === new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Last 7 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeQuick('month')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === 'none' && startDate === new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Last 30 Days
+              </button>
+            </div>
+
+            {/* Hour-based Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setRangeHourly('1h')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === '1h'
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Last Hour
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeHourly('3h')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === '3h'
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Last 3 Hours
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeHourly('6h')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === '6h'
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Last 6 Hours
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeHourly('12h')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === '12h'
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Last 12 Hours
+              </button>
+            </div>
           </div>
         </div>
 
