@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FileText, Calendar, Download, Send, ArrowUpRight, ArrowDownRight, Layers, HelpCircle } from 'lucide-react';
 
 interface Trade {
@@ -32,6 +32,7 @@ export default function SandboxPage() {
   const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA'>('BOLLINGER_RSI');
   const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
   const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Default date ranges setup (Last 7 days)
   useEffect(() => {
@@ -122,6 +123,48 @@ export default function SandboxPage() {
     fetchSandboxTrades();
   }, [startDate, endDate, hourlyFilter]);
 
+  // Binance WebSocket connection for active trades (Live Floating P&L updates)
+  useEffect(() => {
+    if (activeTrades.length === 0) {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      return;
+    }
+
+    const symbols = activeTrades.map((t) => t.pair).sort();
+    const streams = symbols.map((s) => `${s.toLowerCase()}@ticker`).join('/');
+    const wsUrl = `wss://fstream.binance.com/stream?streams=${streams}`;
+
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        if (!message.data) return;
+
+        const symbol = message.data.s;
+        const closePrice = parseFloat(message.data.c);
+
+        if (symbol && !isNaN(closePrice)) {
+          setLivePrices((prev) => ({ ...prev, [symbol]: closePrice }));
+        }
+      } catch (err) {
+        console.error('Error parsing live price in sandbox:', err);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('Sandbox WS closed');
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [activeTrades.map(t => t.pair).sort().join(',')]);
+
   // Set quick ranges
   const setRangeQuick = (rangeType: 'today' | 'yesterday' | 'week' | 'month') => {
     setHourlyFilter('none');
@@ -161,7 +204,19 @@ export default function SandboxPage() {
   const wins = trades.filter((t) => (t.pnl || 0) > 0).length;
   const losses = totalTrades - wins;
   const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
-  const netPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+
+  // Realized Net P&L (closed trades in range)
+  const realizedNetPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+
+  // Total Floating P&L (open trades in this strategy)
+  const totalFloatingPnl = activeTrades.reduce((sum, t) => {
+    const curPrice = livePrices[t.pair] || t.entry_price;
+    return sum + ((curPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1));
+  }, 0);
+
+  // Total P&L = Realized P&L + Floating P&L
+  const totalPnl = realizedNetPnl + totalFloatingPnl;
+  const currentBalance = 100.0 + totalPnl;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -372,16 +427,16 @@ export default function SandboxPage() {
 
         {/* Sandbox Wallet Balance */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden">
-          <span className={`text-[10px] font-bold uppercase tracking-widest ${netPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Total P&L</span>
-          <h3 className={`text-2xl font-extrabold mt-2 ${netPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {netPnl >= 0 ? '+' : ''}
-            {netPnl.toFixed(4)}
+          <span className={`text-[10px] font-bold uppercase tracking-widest ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Total P&L</span>
+          <h3 className={`text-2xl font-extrabold mt-2 ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {totalPnl >= 0 ? '+' : ''}
+            {totalPnl.toFixed(4)}
             <span className="text-xs font-medium ml-1">USDT</span>
           </h3>
           <p className="text-[9px] text-zinc-500 mt-1">
             {selectedStrategy !== activeStrategySetting 
-              ? `Balance: ${(100.0 + netPnl).toFixed(2)} USDT (Starts: 100)`
-              : `Balance: ${(100.0 + netPnl).toFixed(2)} USDT (Live Baseline)`}
+              ? `Balance: ${currentBalance.toFixed(2)} USDT (Starts: 100)`
+              : `Balance: ${currentBalance.toFixed(2)} USDT (Live Baseline)`}
           </p>
         </div>
 
@@ -416,6 +471,30 @@ export default function SandboxPage() {
             {activeTrades.length} positions
           </span>
         </h3>
+
+        {activeTrades.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-zinc-950/20 border border-zinc-800/60 rounded-2xl">
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block">Total Margin Used</span>
+              <div className="text-sm font-extrabold text-zinc-200">
+                {activeTrades.reduce((sum, t) => sum + (t.margin || 1.0), 0).toFixed(2)} <span className="text-[10px] font-medium text-zinc-400">USDT</span>
+              </div>
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block">Leverage</span>
+              <div className="text-sm font-extrabold text-zinc-200">
+                {activeTrades[0]?.leverage || 20}x
+              </div>
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block">Total Unrealized P&L</span>
+              <div className={`text-sm font-extrabold flex items-center gap-0.5 ${totalFloatingPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                {totalFloatingPnl >= 0 ? '+' : ''}
+                {totalFloatingPnl.toFixed(4)} <span className="text-[10px] font-medium">USDT</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {activeTrades.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 border border-dashed border-zinc-800/80 rounded-2xl">
