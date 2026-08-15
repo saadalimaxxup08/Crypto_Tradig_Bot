@@ -16,6 +16,8 @@ import {
   History as HistoryIcon,
   Activity,
   FlaskConical,
+  Eye,
+  X,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -68,6 +70,7 @@ export default function DashboardPage() {
   const [testReport, setTestReport] = useState<any>(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [isTestingTrade, setIsTestingTrade] = useState(false);
+  const [selectedChartSymbol, setSelectedChartSymbol] = useState<string | null>(null);
 
   const runTestTrade = async () => {
     if (isTestingTrade) return;
@@ -332,11 +335,30 @@ export default function DashboardPage() {
         </div>
 
         {/* Bot Toggle Switch & Diagnostics */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Select Symbol to View Chart */}
+          <div className="relative">
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  setSelectedChartSymbol(e.target.value);
+                  e.target.value = ''; // Reset select after select
+                }
+              }}
+              defaultValue=""
+              className="px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer outline-none max-w-[150px]"
+            >
+              <option value="" disabled>View Charts</option>
+              {['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT', 'TRXUSDT', 'XRPUSDT', 'LTCUSDT', 'AVAXUSDT', 'XLMUSDT', 'ADAUSDT', 'DOTUSDT', '1000SHIBUSDT', 'ARBUSDT', 'BCHUSDT', 'ATOMUSDT', 'LINKUSDT', 'POLUSDT'].map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+
           <button
             onClick={runDiagnostics}
             disabled={isTesting}
-            className="flex items-center gap-2 px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-850 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
           >
             <Activity className={`w-4 h-4 text-emerald-400 ${isTesting ? 'animate-pulse' : ''}`} />
             <span>Test Project</span>
@@ -584,16 +606,23 @@ export default function DashboardPage() {
                             <div className="text-zinc-200 font-bold">{notionalSize.toFixed(2)} USDT</div>
                             <div className="text-[10px] text-zinc-500 font-medium">Margin: {margin.toFixed(1)} USDT</div>
                           </td>
-                          <td className="py-4 text-right">
-                            <button
-                              onClick={() => closePosition(trade.id, isProfit)}
-                              disabled={closingTradeId === trade.id}
-                              className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
-                              title="Force Manual Close"
-                            >
-                              <XCircle className="w-5 h-5" />
-                            </button>
-                          </td>
+                           <td className="py-4 text-right flex items-center justify-end gap-1">
+                             <button
+                               onClick={() => setSelectedChartSymbol(trade.pair)}
+                               className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-950/20 rounded-lg transition-colors cursor-pointer"
+                               title="View Live Chart"
+                             >
+                               <Eye className="w-5 h-5" />
+                             </button>
+                             <button
+                               onClick={() => closePosition(trade.id, isProfit)}
+                               disabled={closingTradeId === trade.id}
+                               className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
+                               title="Force Manual Close"
+                             >
+                               <XCircle className="w-5 h-5" />
+                             </button>
+                           </td>
                         </tr>
                       );
                     })}
@@ -747,6 +776,50 @@ export default function DashboardPage() {
             >
               Close Diagnostics
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* TradingView Advanced Real-Time Chart Modal */}
+      {selectedChartSymbol && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+          <div className="relative w-full max-w-5xl bg-[#0c0c0f] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-4 pb-2 border-b border-zinc-800/80">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <h3 className="text-lg font-bold text-zinc-200 uppercase tracking-wide">
+                  Live Market Chart: {selectedChartSymbol}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedChartSymbol(null)}
+                className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/50 border border-zinc-800/60 rounded-lg transition-colors cursor-pointer"
+                title="Close Chart"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* TradingView Widget Frame */}
+            <div className="w-full h-[500px] bg-black/30 rounded-2xl overflow-hidden border border-zinc-800/60">
+              <iframe
+                src={`https://s.tradingview.com/widgetembed/?symbol=BINANCE:${selectedChartSymbol.toUpperCase()}&theme=dark&interval=1&hidesidetoolbar=0&symboledit=0&saveimage=1&toolbarbg=1c1d22&style=1&timezone=Etc%2FUTC&locale=en`}
+                className="w-full h-full border-0"
+                allowFullScreen
+              />
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="mt-4 text-right">
+              <button
+                onClick={() => setSelectedChartSymbol(null)}
+                className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all duration-200 cursor-pointer"
+              >
+                Close View
+              </button>
+            </div>
           </div>
         </div>
       )}
