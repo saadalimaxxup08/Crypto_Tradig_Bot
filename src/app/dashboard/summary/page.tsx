@@ -151,7 +151,7 @@ export default function SummaryPage() {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text("Performance Summary Report & Active Ledger", 14, 25);
-    doc.text(`Period: ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`, 14, 30);
+    doc.text(`Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}`, 14, 30);
     doc.line(14, 33, 196, 33);
 
     // Summary Metrics Section
@@ -197,7 +197,7 @@ export default function SummaryPage() {
         }
         const curPrice = livePrices[t.pair] || t.entry_price;
         const pnl = (curPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-        const entryTime = new Date(t.timestamp).toLocaleDateString() + ' ' + new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const entryTime = new Date(t.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' });
         
         const timeInMarket = new Date(t.timestamp);
         const durationMs = Date.now() - timeInMarket.getTime();
@@ -250,7 +250,7 @@ export default function SummaryPage() {
         doc.addPage();
         currentY = 20;
       }
-      const closeTime = new Date(t.closed_at).toLocaleDateString() + ' ' + new Date(t.closed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const closeTime = new Date(t.closed_at).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' });
       const sign = (t.pnl || 0) >= 0 ? '+' : '';
 
       doc.text(closeTime, 14, currentY);
@@ -641,7 +641,7 @@ export default function SummaryPage() {
 
                   return (
                     <tr key={t.id} className="hover:bg-zinc-900/10">
-                      <td className="py-3.5 font-mono text-zinc-400">{entryTime.toLocaleString()}</td>
+                      <td className="py-3.5 font-mono text-zinc-400">{entryTime.toLocaleString('en-US', { timeZone: 'Asia/Riyadh' })}</td>
                       <td className="py-3.5 font-bold text-zinc-200">{t.pair}</td>
                       <td className="py-3.5 text-center">
                         <span
@@ -713,7 +713,7 @@ export default function SummaryPage() {
               <tbody className="divide-y divide-zinc-800/50 text-xs">
                 {trades.map((t) => {
                   const isWin = (t.pnl || 0) > 0;
-                  const closeTime = new Date(t.closed_at).toLocaleString();
+                  const closeTime = new Date(t.closed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
                   return (
                     <tr key={t.id} className="hover:bg-zinc-900/10">
                       <td className="py-3.5 font-mono text-zinc-400">{closeTime}</td>

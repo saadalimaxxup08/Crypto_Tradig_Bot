@@ -104,7 +104,7 @@ export default function TradesHistoryPage() {
                   return (
                     <tr key={trade.id} className="hover:bg-zinc-900/10 transition-colors">
                       <td className="py-4 text-zinc-400 font-medium text-xs">
-                        {new Date(trade.timestamp).toLocaleString()}
+                        {new Date(trade.timestamp).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' })}
                       </td>
                       <td className="py-4 font-bold text-zinc-200">{trade.pair}</td>
                       <td className="py-4 text-center">

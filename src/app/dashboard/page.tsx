@@ -698,7 +698,7 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       <span className="text-[10px] text-zinc-500 font-medium">
-                        {trade.closed_at ? new Date(trade.closed_at).toLocaleTimeString() : ''}
+                        {trade.closed_at ? new Date(trade.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh' }) : ''}
                       </span>
                     </div>
 

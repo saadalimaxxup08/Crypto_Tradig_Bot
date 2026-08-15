@@ -92,7 +92,7 @@ export default function SignalsPage() {
                 {signals.map((sig) => (
                   <tr key={sig.id} className="hover:bg-zinc-900/10 transition-colors">
                     <td className="py-4 text-zinc-400 font-medium">
-                      {new Date(sig.timestamp).toLocaleString()}
+                      {new Date(sig.timestamp).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' })}
                     </td>
                     <td className="py-4 font-bold text-zinc-200">{sig.pair}</td>
                     <td className="py-4 text-center">
