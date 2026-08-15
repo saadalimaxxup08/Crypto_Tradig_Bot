@@ -35,6 +35,7 @@ export async function GET() {
       sl_percent: 1.0,
       risk_amount: 10.0,
       leverage: 20,
+      active_strategy: 'RSI_MACD',
       trading_mode: 'DEMO',
       binance_demo_api_key: '',
       binance_demo_secret_key: '',
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
       'pairs',
       'telegram_chat_id',
       'pair_overrides',
+      'active_strategy',
     ];
 
     for (const field of fields) {

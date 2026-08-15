@@ -139,12 +139,9 @@ export function calculateMACD(
 }
 
 /**
- * Analyze technical indicators and determine buy/sell signals.
- * Strategy:
- * - Buy (LONG): RSI < 30 AND MACD Bullish Cross
- * - Sell (SHORT): RSI > 70 AND MACD Bearish Cross
+ * Analyze technical indicators and determine buy/sell signals using RSI + MACD momentum strategy.
  */
-export function analyzeStrategy(prices: number[]): {
+export function analyzeRsiMacd(prices: number[]): {
   rsi: number;
   macdLine: number;
   signalLine: number;
@@ -198,4 +195,152 @@ export function analyzeStrategy(prices: number[]): {
     signalLine: currentSignal,
     direction,
   };
+}
+
+/**
+ * Calculate Bollinger Bands
+ */
+export function calculateBollingerBands(
+  prices: number[],
+  period: number = 20,
+  multiplier: number = 2
+): { upper: number[]; middle: number[]; lower: number[] } {
+  const upper: number[] = [];
+  const middle: number[] = [];
+  const lower: number[] = [];
+  const len = prices.length;
+
+  if (len < period) {
+    const nans = new Array(len).fill(NaN);
+    return { upper: nans, middle: nans, lower: nans };
+  }
+
+  for (let i = 0; i < len; i++) {
+    if (i < period - 1) {
+      upper.push(NaN);
+      middle.push(NaN);
+      lower.push(NaN);
+      continue;
+    }
+
+    const windowSlice = prices.slice(i - period + 1, i + 1);
+    const sma = windowSlice.reduce((sum, p) => sum + p, 0) / period;
+    const variance = windowSlice.reduce((sum, p) => sum + Math.pow(p - sma, 2), 0) / period;
+    const stdDev = Math.sqrt(variance);
+
+    middle.push(sma);
+    upper.push(sma + multiplier * stdDev);
+    lower.push(sma - multiplier * stdDev);
+  }
+
+  return { upper, middle, lower };
+}
+
+/**
+ * Bollinger Bands + RSI Range Reversion Strategy
+ */
+export function analyzeBollingerRsi(prices: number[]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = prices.length;
+  if (len < 30) {
+    return { rsi: NaN, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  const rsi = calculateRSI(prices, 14);
+  const { upper, lower } = calculateBollingerBands(prices, 20, 2);
+
+  const currentIdx = len - 1;
+  const currentRsi = rsi[currentIdx];
+  const currentPrice = prices[currentIdx];
+  const currentUpper = upper[currentIdx];
+  const currentLower = lower[currentIdx];
+
+  if (isNaN(currentRsi) || isNaN(currentUpper) || isNaN(currentLower)) {
+    return { rsi: currentRsi, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (currentPrice <= currentLower && currentRsi <= 35) {
+    direction = 'LONG';
+  } else if (currentPrice >= currentUpper && currentRsi >= 65) {
+    direction = 'SHORT';
+  }
+
+  return {
+    rsi: currentRsi,
+    macdLine: 0,
+    signalLine: 0,
+    direction,
+  };
+}
+
+/**
+ * Double EMA Crossover Trend Following Strategy (EMA 9 & 21)
+ */
+export function analyzeDoubleEma(prices: number[]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = prices.length;
+  if (len < 30) {
+    return { rsi: NaN, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  const ema9 = calculateEMA(prices, 9);
+  const ema21 = calculateEMA(prices, 21);
+  const rsi = calculateRSI(prices, 14);
+
+  const currentIdx = len - 1;
+  const prevIdx = len - 2;
+
+  const cEma9 = ema9[currentIdx];
+  const cEma21 = ema21[currentIdx];
+  const pEma9 = ema9[prevIdx];
+  const pEma21 = ema21[prevIdx];
+  const currentRsi = rsi[currentIdx] || 50;
+
+  if (isNaN(cEma9) || isNaN(cEma21) || isNaN(pEma9) || isNaN(pEma21)) {
+    return { rsi: currentRsi, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (pEma9 <= pEma21 && cEma9 > cEma21) {
+    direction = 'LONG';
+  } else if (pEma9 >= pEma21 && cEma9 < cEma21) {
+    direction = 'SHORT';
+  }
+
+  return {
+    rsi: currentRsi,
+    macdLine: cEma9,
+    signalLine: cEma21,
+    direction,
+  };
+}
+
+/**
+ * Main Dispatcher Strategy analysis function.
+ */
+export function analyzeStrategy(
+  prices: number[],
+  strategy: string = 'RSI_MACD'
+): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  if (strategy === 'BOLLINGER_RSI') {
+    return analyzeBollingerRsi(prices);
+  } else if (strategy === 'DOUBLE_EMA') {
+    return analyzeDoubleEma(prices);
+  } else {
+    return analyzeRsiMacd(prices);
+  }
 }

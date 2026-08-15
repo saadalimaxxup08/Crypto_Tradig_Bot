@@ -74,9 +74,11 @@ async function handleCron() {
       risk_amount,
       pairs,
       leverage,
+      active_strategy,
     } = settings;
 
     const leverage_val = leverage || 20;
+    const currentStrategy = active_strategy || 'RSI_MACD';
 
     const telegram_token = settings.telegram_token || process.env.TELEGRAM_TOKEN || '';
     const telegram_chat_id = settings.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
@@ -258,7 +260,7 @@ async function handleCron() {
           }
 
           const closePrices = ohlcv.map((candle: any) => candle[4]); // Index 4 is Close
-          const analysis = analyzeStrategy(closePrices);
+          const analysis = analyzeStrategy(closePrices, currentStrategy);
 
           return { pair, analysis };
         } catch (error: any) {
@@ -359,9 +361,15 @@ async function handleCron() {
           }
 
           // Send Telegram Alert with Margin & Leverage details
+          const strategyName = currentStrategy === 'BOLLINGER_RSI'
+            ? 'Bollinger Bands + RSI Reversion'
+            : currentStrategy === 'DOUBLE_EMA'
+            ? 'Double EMA Crossover'
+            : 'RSI + MACD Momentum Crossover';
+
           const totalPositionVal = activeRiskAmount * activeLeverage;
           const telegramMessage = `🟢 <b>NEW SIGNAL: ${pair} ${direction}</b>\n` +
-            `Reason: RSI + MACD Cross\n` +
+            `Reason: <b>${strategyName}</b>\n` +
             `Margin: <b>${activeRiskAmount.toFixed(2)} USDT</b>\n` +
             `Leverage: <b>${activeLeverage}x</b>\n` +
             `Total Size: <b>${totalPositionVal.toFixed(2)} USDT</b>\n` +

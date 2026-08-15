@@ -10,6 +10,7 @@ export default function SettingsPage() {
   const [slPercent, setSlPercent] = useState('1.0');
   const [riskAmount, setRiskAmount] = useState('10.0');
   const [leverage, setLeverage] = useState('20');
+  const [activeStrategy, setActiveStrategy] = useState('RSI_MACD');
   const [pairsText, setPairsText] = useState('');
   const [telegramToken, setTelegramToken] = useState('');
   const [telegramChatId, setTelegramChatId] = useState('');
@@ -91,6 +92,7 @@ export default function SettingsPage() {
         setBinanceRealApiKey(data.binance_real_api_key || '');
         setBinanceRealSecretKey(data.binance_real_secret_key || '');
         setPairOverrides(data.pair_overrides || {});
+        setActiveStrategy(data.active_strategy || 'RSI_MACD');
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -120,6 +122,7 @@ export default function SettingsPage() {
       sl_percent: parseFloat(slPercent),
       risk_amount: parseFloat(riskAmount),
       leverage: parseInt(leverage),
+      active_strategy: activeStrategy,
       trading_mode: tradingMode,
       pairs: pairsArray,
       telegram_token: telegramToken,
@@ -276,6 +279,23 @@ export default function SettingsPage() {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Active Trading Strategy Selector */}
+          <div className="space-y-2 max-w-md">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+              <span>Active Trading Strategy</span>
+              <span title="Select the indicator strategy used by the automated bot"><HelpCircle className="w-3.5 h-3.5 text-zinc-600" /></span>
+            </label>
+            <select
+              value={activeStrategy}
+              onChange={(e) => setActiveStrategy(e.target.value)}
+              className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3.5 px-4 font-bold text-zinc-200 focus:outline-none transition-all duration-200 text-sm cursor-pointer"
+            >
+              <option value="RSI_MACD">📊 RSI + MACD Momentum Crossover (Default)</option>
+              <option value="BOLLINGER_RSI">↕️ Bollinger Bands + RSI Range Reversion</option>
+              <option value="DOUBLE_EMA">🎢 Double EMA Crossover Trend Following</option>
+            </select>
           </div>
 
           {/* Active Pairs Array List */}

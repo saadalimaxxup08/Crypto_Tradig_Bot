@@ -27,6 +27,7 @@ CREATE TABLE settings (
   last_daily_report_at TIMESTAMP WITH TIME ZONE,
   leverage INT DEFAULT 20,
   pair_overrides JSONB DEFAULT '{}'::jsonb,
+  active_strategy TEXT DEFAULT 'RSI_MACD',
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
