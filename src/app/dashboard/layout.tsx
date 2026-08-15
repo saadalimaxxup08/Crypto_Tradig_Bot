@@ -13,6 +13,7 @@ import {
   Shield,
   Menu,
   X,
+  FileText,
 } from 'lucide-react';
 import React from 'react';
 
@@ -108,6 +109,14 @@ export default async function DashboardLayout({
             >
               <History className="w-5 h-5 text-zinc-400" />
               <span>Trades History</span>
+            </Link>
+
+            <Link
+              href="/dashboard/summary"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
+            >
+              <FileText className="w-5 h-5 text-zinc-400" />
+              <span>Summary Report</span>
             </Link>
 
             <Link
