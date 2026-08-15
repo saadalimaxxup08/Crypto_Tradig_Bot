@@ -92,6 +92,7 @@ export async function POST(request: Request) {
       'trading_mode',
       'pairs',
       'telegram_chat_id',
+      'pair_overrides',
     ];
 
     for (const field of fields) {

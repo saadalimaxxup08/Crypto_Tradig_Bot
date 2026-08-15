@@ -296,20 +296,29 @@ async function handleCron() {
         try {
           logs.push(`Executing ${direction} order on Binance Testnet for ${pair}...`);
           
-          // Place trade and auto brackets on Binance with configured leverage
+          // Check overrides for this specific pair
+          const overrides = settings.pair_overrides || {};
+          const pairOverride = overrides[pair] || {};
+
+          const activeLeverage = pairOverride.leverage !== undefined ? parseInt(pairOverride.leverage) : (leverage_val || 20);
+          const activeRiskAmount = pairOverride.risk_amount !== undefined ? parseFloat(pairOverride.risk_amount) : (risk_amount || 1.0);
+          const activeTpPercent = pairOverride.tp_percent !== undefined ? parseFloat(pairOverride.tp_percent) : (tp_percent || 2.0);
+          const activeSlPercent = pairOverride.sl_percent !== undefined ? parseFloat(pairOverride.sl_percent) : (sl_percent || 1.0);
+
+          // Place trade and auto brackets on Binance with resolved leverage
           const order = await placeFuturesOrder(
             exchange,
             pair,
             direction,
-            risk_amount,
-            tp_percent,
-            sl_percent,
-            leverage_val
+            activeRiskAmount,
+            activeTpPercent,
+            activeSlPercent,
+            activeLeverage
           );
 
           const entryPrice = order.entryPrice;
-          const tpPrice = direction === 'LONG' ? entryPrice * (1 + tp_percent / 100) : entryPrice * (1 - tp_percent / 100);
-          const slPrice = direction === 'LONG' ? entryPrice * (1 - sl_percent / 100) : entryPrice * (1 + sl_percent / 100);
+          const tpPrice = direction === 'LONG' ? entryPrice * (1 + activeTpPercent / 100) : entryPrice * (1 - activeTpPercent / 100);
+          const slPrice = direction === 'LONG' ? entryPrice * (1 - activeSlPercent / 100) : entryPrice * (1 + activeSlPercent / 100);
 
           // Save signal to Supabase
           const { data: savedSignal, error: sigErr } = await supabase
@@ -340,8 +349,8 @@ async function handleCron() {
               tp_price: tpPrice,
               sl_price: slPrice,
               status: 'OPEN',
-              leverage: leverage_val,
-              margin: risk_amount,
+              leverage: activeLeverage,
+              margin: activeRiskAmount,
               binance_order_id: order.entryOrder.id,
             }]);
 
@@ -350,11 +359,11 @@ async function handleCron() {
           }
 
           // Send Telegram Alert with Margin & Leverage details
-          const totalPositionVal = risk_amount * leverage_val;
+          const totalPositionVal = activeRiskAmount * activeLeverage;
           const telegramMessage = `🟢 <b>NEW SIGNAL: ${pair} ${direction}</b>\n` +
             `Reason: RSI + MACD Cross\n` +
-            `Margin: <b>${risk_amount.toFixed(2)} USDT</b>\n` +
-            `Leverage: <b>${leverage_val}x</b>\n` +
+            `Margin: <b>${activeRiskAmount.toFixed(2)} USDT</b>\n` +
+            `Leverage: <b>${activeLeverage}x</b>\n` +
             `Total Size: <b>${totalPositionVal.toFixed(2)} USDT</b>\n` +
             `Entry Price: <b>${entryPrice}</b>\n` +
             `SL: <b>${slPrice.toFixed(4)}</b>\n` +

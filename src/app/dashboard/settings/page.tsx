@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Save, AlertTriangle, HelpCircle, Eye, EyeOff } from 'lucide-react';
+import { Settings, Save, AlertTriangle, HelpCircle, Eye, EyeOff, TrendingUp } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function SettingsPage() {
@@ -18,6 +18,48 @@ export default function SettingsPage() {
   const [binanceDemoSecretKey, setBinanceDemoSecretKey] = useState('');
   const [binanceRealApiKey, setBinanceRealApiKey] = useState('');
   const [binanceRealSecretKey, setBinanceRealSecretKey] = useState('');
+
+  // Pair Specific Overrides States
+  const [pairOverrides, setPairOverrides] = useState<Record<string, any>>({});
+  const [overridePair, setOverridePair] = useState('');
+  const [overrideLeverage, setOverrideLeverage] = useState('');
+  const [overrideMargin, setOverrideMargin] = useState('');
+  const [overrideTp, setOverrideTp] = useState('');
+  const [overrideSl, setOverrideSl] = useState('');
+
+  const addOverride = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!overridePair) return;
+    const newOverrides = { ...pairOverrides };
+    newOverrides[overridePair] = {
+      leverage: overrideLeverage ? parseInt(overrideLeverage) : undefined,
+      risk_amount: overrideMargin ? parseFloat(overrideMargin) : undefined,
+      tp_percent: overrideTp ? parseFloat(overrideTp) : undefined,
+      sl_percent: overrideSl ? parseFloat(overrideSl) : undefined,
+    };
+    // Strip undefined values to keep the database tidy
+    Object.keys(newOverrides[overridePair]).forEach(k => {
+      if (newOverrides[overridePair][k] === undefined) {
+        delete newOverrides[overridePair][k];
+      }
+    });
+    // Remove entire object if completely empty
+    if (Object.keys(newOverrides[overridePair]).length === 0) {
+      delete newOverrides[overridePair];
+    }
+    setPairOverrides(newOverrides);
+    setOverridePair('');
+    setOverrideLeverage('');
+    setOverrideMargin('');
+    setOverrideTp('');
+    setOverrideSl('');
+  };
+
+  const deleteOverride = (pairToDel: string) => {
+    const newOverrides = { ...pairOverrides };
+    delete newOverrides[pairToDel];
+    setPairOverrides(newOverrides);
+  };
 
   const [showTelegram, setShowTelegram] = useState(false);
   const [showBinanceDemoKey, setShowBinanceDemoKey] = useState(false);
@@ -48,6 +90,7 @@ export default function SettingsPage() {
         setBinanceDemoSecretKey(data.binance_demo_secret_key || '');
         setBinanceRealApiKey(data.binance_real_api_key || '');
         setBinanceRealSecretKey(data.binance_real_secret_key || '');
+        setPairOverrides(data.pair_overrides || {});
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -85,6 +128,7 @@ export default function SettingsPage() {
       binance_demo_secret_key: binanceDemoSecretKey,
       binance_real_api_key: binanceRealApiKey,
       binance_real_secret_key: binanceRealSecretKey,
+      pair_overrides: pairOverrides,
     };
 
     try {
@@ -249,6 +293,148 @@ export default function SettingsPage() {
             <p className="text-[10px] text-zinc-500 font-medium">
               Must enter valid Binance perpetual futures symbols in uppercase separated by commas.
             </p>
+          </div>
+        </div>
+
+        {/* Pair Specific Overrides */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-zinc-200 border-b border-zinc-800/50 pb-3 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
+              <span>Pair-Specific Risk Overrides</span>
+            </h3>
+            <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+              Set custom leverage, margin size, or TP/SL targets for specific assets (e.g. higher margin for BTC/ETH to satisfy exchange minimum limits, lower leverage for high-volatility pairs). If no override exists, the global strategy settings above are used automatically.
+            </p>
+          </div>
+
+          {/* Add Override Form */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end bg-zinc-950/20 border border-zinc-800/50 p-4 rounded-2xl">
+            {/* Pair Select */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-400">Target Asset</label>
+              <select
+                value={overridePair}
+                onChange={(e) => setOverridePair(e.target.value)}
+                className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500 rounded-xl py-3 px-3 font-mono text-zinc-100 focus:outline-none text-xs"
+              >
+                <option value="">Select Pair...</option>
+                {pairsText.split(',').map(p => p.trim().toUpperCase()).filter(p => p.length > 0).map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Custom Margin */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-400">Margin (USDT)</label>
+              <input
+                type="number"
+                step="0.1"
+                placeholder="e.g. 5.0"
+                value={overrideMargin}
+                onChange={(e) => setOverrideMargin(e.target.value)}
+                className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500 rounded-xl py-3 px-3 font-mono text-zinc-100 focus:outline-none text-xs"
+              />
+            </div>
+
+            {/* Custom Leverage */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-400">Leverage (X)</label>
+              <input
+                type="number"
+                step="1"
+                placeholder="e.g. 10"
+                value={overrideLeverage}
+                onChange={(e) => setOverrideLeverage(e.target.value)}
+                className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500 rounded-xl py-3 px-3 font-mono text-zinc-100 focus:outline-none text-xs"
+              />
+            </div>
+
+            {/* Custom TP / SL */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-400">TP / SL (%)</label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="TP %"
+                  value={overrideTp}
+                  onChange={(e) => setOverrideTp(e.target.value)}
+                  className="w-1/2 bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500 rounded-xl py-3 px-2 font-mono text-zinc-100 focus:outline-none text-xs text-center"
+                />
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="SL %"
+                  value={overrideSl}
+                  onChange={(e) => setOverrideSl(e.target.value)}
+                  className="w-1/2 bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500 rounded-xl py-3 px-2 font-mono text-zinc-100 focus:outline-none text-xs text-center"
+                />
+              </div>
+            </div>
+
+            {/* Add Button */}
+            <button
+              type="button"
+              onClick={addOverride}
+              className="py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 text-xs font-bold uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              Add Override
+            </button>
+          </div>
+
+          {/* Active Overrides Table/List */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Active Pair Overrides</h4>
+            {Object.keys(pairOverrides).length === 0 ? (
+              <div className="p-6 border border-dashed border-zinc-800/80 rounded-2xl text-center text-zinc-500 text-xs">
+                No active overrides. All pairs are using global settings.
+              </div>
+            ) : (
+              <div className="overflow-x-auto border border-zinc-800/60 rounded-2xl bg-zinc-950/10">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800/80 bg-zinc-950/20 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <th className="p-3">Asset</th>
+                      <th className="p-3 text-right">Margin Size</th>
+                      <th className="p-3 text-right">Leverage</th>
+                      <th className="p-3 text-right">Take Profit</th>
+                      <th className="p-3 text-right">Stop Loss</th>
+                      <th className="p-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/50">
+                    {Object.entries(pairOverrides).map(([pair, o]: [string, any]) => (
+                      <tr key={pair} className="hover:bg-zinc-900/10 transition-colors">
+                        <td className="p-3 font-bold text-zinc-200">{pair}</td>
+                        <td className="p-3 text-right font-mono text-zinc-300">
+                          {o.risk_amount !== undefined ? `${o.risk_amount.toFixed(1)} USDT` : <span className="text-zinc-600 italic">Global fallback</span>}
+                        </td>
+                        <td className="p-3 text-right font-mono text-zinc-300">
+                          {o.leverage !== undefined ? `${o.leverage}x` : <span className="text-zinc-600 italic">Global fallback</span>}
+                        </td>
+                        <td className="p-3 text-right font-mono text-zinc-300">
+                          {o.tp_percent !== undefined ? `${o.tp_percent.toFixed(1)}%` : <span className="text-zinc-600 italic">Global fallback</span>}
+                        </td>
+                        <td className="p-3 text-right font-mono text-zinc-300">
+                          {o.sl_percent !== undefined ? `${o.sl_percent.toFixed(1)}%` : <span className="text-zinc-600 italic">Global fallback</span>}
+                        </td>
+                        <td className="p-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => deleteOverride(pair)}
+                            className="text-red-400 hover:text-red-300 font-bold px-2 py-1 rounded hover:bg-red-950/25 transition-all cursor-pointer text-xs"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
 

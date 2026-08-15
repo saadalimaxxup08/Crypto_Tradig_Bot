@@ -26,7 +26,8 @@ CREATE TABLE settings (
   last_hourly_report_at TIMESTAMP WITH TIME ZONE,
   last_daily_report_at TIMESTAMP WITH TIME ZONE,
   leverage INT DEFAULT 20,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT null
+  pair_overrides JSONB DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- 3. Create signals Table
