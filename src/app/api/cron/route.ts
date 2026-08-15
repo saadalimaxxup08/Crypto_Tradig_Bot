@@ -124,7 +124,7 @@ async function handleCron() {
                 logs.push(`Position for ${trade.pair} is closed on Binance. Resolving trade details...`);
 
                 // Fetch recent user trades to calculate exact exit price & pnl
-                const recentTrades = await exchange.fetchMyTrades(trade.pair as string, undefined, 5);
+                const recentTrades = await exchange.fetchMyTrades(trade.pair as string, undefined, 20);
                 // Look for the last trade that was an exit
                 const exitSide = trade.direction === 'LONG' ? 'sell' : 'buy';
                 const exitTrade = recentTrades

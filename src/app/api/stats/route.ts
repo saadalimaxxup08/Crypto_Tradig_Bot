@@ -83,12 +83,17 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'OPEN');
 
-    // 6. Calculate Simulated Account Balance (Starting Capital 100 USDT + Net Historical P&L)
+    // 6. Calculate Account Balance (Reflecting actual Binance wallet with simulated fallback)
     const netHistoricalPnl = (allClosedTrades || []).reduce(
       (sum, t) => sum + parseFloat(t.pnl || 0),
       0
     );
-    const balance = 100.0 + netHistoricalPnl;
+    let balance = 100.0 + netHistoricalPnl;
+    if (balanceFetched) {
+      balance = realBalance;
+    } else {
+      balance = isDemo ? (5000.0 + netHistoricalPnl) : (100.0 + netHistoricalPnl);
+    }
 
     return NextResponse.json({
       success: true,

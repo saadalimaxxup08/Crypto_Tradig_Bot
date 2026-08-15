@@ -138,7 +138,7 @@ export default function DashboardPage() {
       return;
     }
 
-    const symbols = activeTrades.map((t) => t.pair);
+    const symbols = activeTrades.map((t) => t.pair).sort();
     const streams = symbols.map((s) => `${s.toLowerCase()}@ticker`).join('/');
     const wsUrl = `wss://fstream.binance.com/stream?streams=${streams}`;
 
@@ -148,27 +148,29 @@ export default function DashboardPage() {
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        if (!message.data || message.data.e !== '24hrTicker') return;
+        if (!message.data) return;
 
         const symbol = message.data.s;
         const closePrice = parseFloat(message.data.c);
 
-        setLivePrices((prev) => {
-          const oldPrice = prev[symbol] || 0;
-          let dir: 'up' | 'down' | 'flat' = 'flat';
-          if (closePrice > oldPrice) dir = 'up';
-          else if (closePrice < oldPrice) dir = 'down';
+        if (symbol && !isNaN(closePrice)) {
+          setLivePrices((prev) => {
+            const oldPrice = prev[symbol] || 0;
+            let dir: 'up' | 'down' | 'flat' = 'flat';
+            if (closePrice > oldPrice) dir = 'up';
+            else if (closePrice < oldPrice) dir = 'down';
 
-          if (dir !== 'flat') {
-            setPriceDirections((prevDirs) => ({ ...prevDirs, [symbol]: dir }));
-            // Reset flash styling after 1s
-            setTimeout(() => {
-              setPriceDirections((prevDirs) => ({ ...prevDirs, [symbol]: 'flat' }));
-            }, 1000);
-          }
+            if (dir !== 'flat') {
+              setPriceDirections((prevDirs) => ({ ...prevDirs, [symbol]: dir }));
+              // Reset flash styling after 1s
+              setTimeout(() => {
+                setPriceDirections((prevDirs) => ({ ...prevDirs, [symbol]: 'flat' }));
+              }, 1000);
+            }
 
-          return { ...prev, [symbol]: closePrice };
-        });
+            return { ...prev, [symbol]: closePrice };
+          });
+        }
       } catch (err) {
         console.error('Error parsing live price:', err);
       }
@@ -181,7 +183,7 @@ export default function DashboardPage() {
     return () => {
       ws.close();
     };
-  }, [activeTrades]);
+  }, [activeTrades.map(t => t.pair).sort().join(',')]);
 
   const toggleBot = async () => {
     if (!stats || isTogglingBot) return;
