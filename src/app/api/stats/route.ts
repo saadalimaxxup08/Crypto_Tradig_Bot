@@ -60,6 +60,7 @@ export async function GET() {
       .from('trades')
       .select('pnl')
       .eq('status', 'CLOSED')
+      .eq('is_paper', false)
       .gte('closed_at', startOfToday.toISOString());
 
     const todayPnl = (todayTrades || []).reduce(
@@ -71,7 +72,8 @@ export async function GET() {
     const { data: allClosedTrades } = await supabase
       .from('trades')
       .select('pnl')
-      .eq('status', 'CLOSED');
+      .eq('status', 'CLOSED')
+      .eq('is_paper', false);
 
     const totalClosed = allClosedTrades?.length || 0;
     const wins = allClosedTrades?.filter((t) => parseFloat(t.pnl || 0) > 0).length || 0;
@@ -81,7 +83,8 @@ export async function GET() {
     const { count: openTradesCount } = await supabase
       .from('trades')
       .select('*', { count: 'exact', head: true })
-      .eq('status', 'OPEN');
+      .eq('status', 'OPEN')
+      .eq('is_paper', false);
 
     // 6. Calculate Account Balance (Reflecting actual Binance wallet with simulated fallback)
     const netHistoricalPnl = (allClosedTrades || []).reduce(

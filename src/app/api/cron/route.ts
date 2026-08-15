@@ -92,16 +92,17 @@ async function handleCron() {
       ? (settings.binance_demo_secret_key || settings.binance_secret_key || process.env.BINANCE_SECRET_KEY || '')
       : (settings.binance_real_secret_key || process.env.BINANCE_SECRET_KEY || '');
 
-    // 2. Manage open positions (Check if TP/SL were hit and close them in DB)
+    // 2. Manage open positions (Check if TP/SL were hit and close them in DB) - Live Only
     if (binance_api_key && binance_secret_key) {
       try {
         const exchange = getBinanceClient(binance_api_key, binance_secret_key, isDemo);
         
-        // Fetch all open trades in DB
+        // Fetch all open live trades in DB
         const { data: openTrades, error: dbError } = await supabase
           .from('trades')
           .select('*')
-          .eq('status', 'OPEN');
+          .eq('status', 'OPEN')
+          .eq('is_paper', false);
 
         if (dbError) {
           logs.push('DB Error fetching open trades: ' + dbError.message);
@@ -260,93 +261,178 @@ async function handleCron() {
           }
 
           const closePrices = ohlcv.map((candle: any) => candle[4]); // Index 4 is Close
-          const analysis = analyzeStrategy(closePrices, currentStrategy);
+          const currentPrice = closePrices[closePrices.length - 1];
 
-          return { pair, analysis };
+          const rsiMacdAnalysis = analyzeStrategy(closePrices, 'RSI_MACD');
+          const bbRsiAnalysis = analyzeStrategy(closePrices, 'BOLLINGER_RSI');
+          const doubleEmaAnalysis = analyzeStrategy(closePrices, 'DOUBLE_EMA');
+
+          return {
+            pair,
+            currentPrice,
+            analyses: {
+              RSI_MACD: rsiMacdAnalysis,
+              BOLLINGER_RSI: bbRsiAnalysis,
+              DOUBLE_EMA: doubleEmaAnalysis,
+            }
+          };
         } catch (error: any) {
           return { pair, error: error.message };
         }
       })
     );
 
-    // Process scan results
+    // Build prices map for paper trade matching
+    const pricesMap: Record<string, number> = {};
     for (const result of scanResults) {
-      if ('error' in result) {
-        logs.push(`Error scanning ${result.pair}: ${result.error}`);
+      if (result && 'currentPrice' in result) {
+        pricesMap[result.pair] = result.currentPrice;
+      }
+    }
+
+    // 3b. Manage Open Paper Trades (Hypothetical Simulation)
+    try {
+      const { data: openPaperTrades } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('status', 'OPEN')
+        .eq('is_paper', true);
+
+      if (openPaperTrades && openPaperTrades.length > 0) {
+        logs.push(`Found ${openPaperTrades.length} open paper trades. Evaluating exits...`);
+        for (const trade of openPaperTrades) {
+          const livePrice = pricesMap[trade.pair];
+          if (!livePrice) continue;
+
+          const entryPrice = parseFloat(trade.entry_price as any);
+          const tpPrice = parseFloat(trade.tp_price as any);
+          const slPrice = parseFloat(trade.sl_price as any);
+          const isLong = trade.direction === 'LONG';
+
+          let hitTp = false;
+          let hitSl = false;
+
+          if (isLong) {
+            if (livePrice >= tpPrice) hitTp = true;
+            else if (livePrice <= slPrice) hitSl = true;
+          } else {
+            // SHORT
+            if (livePrice <= tpPrice) hitTp = true;
+            else if (livePrice >= slPrice) hitSl = true;
+          }
+
+          if (hitTp || hitSl) {
+            const exitPrice = hitTp ? tpPrice : slPrice;
+            const priceDiff = exitPrice - entryPrice;
+            const leverage = trade.leverage || 20;
+            const margin = parseFloat(trade.margin as any || 1.0);
+            const pnlFactor = priceDiff / entryPrice;
+            const pnl = pnlFactor * leverage * margin * (isLong ? 1 : -1);
+
+            const { error: closeErr } = await supabase
+              .from('trades')
+              .update({
+                status: 'CLOSED',
+                exit_price: exitPrice,
+                pnl: pnl,
+                closed_at: new Date().toISOString(),
+              })
+              .eq('id', trade.id);
+
+            if (closeErr) {
+              logs.push(`Failed to close paper trade ${trade.id}: ${closeErr.message}`);
+            } else {
+              logs.push(`[Paper Sandbox] Closed ${trade.pair} ${trade.strategy} ${trade.direction} trade at exit price ${exitPrice} (PnL: ${pnl.toFixed(2)} USDT)`);
+            }
+          }
+        }
+      }
+    } catch (paperErr: any) {
+      logs.push(`Error managing paper trades: ${paperErr.message}`);
+    }
+
+    // 3c. Evaluate and place signals for all strategies
+    const strategiesList = ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA'];
+
+    for (const result of scanResults) {
+      if (!result || 'error' in result) {
+        if (result) logs.push(`Error scanning ${result.pair}: ${result.error}`);
         continue;
       }
 
-      const { pair, analysis } = result;
-      const { direction, rsi, macdLine, signalLine } = analysis;
+      const { pair, currentPrice, analyses } = result;
 
-      if (direction !== 'NEUTRAL') {
-        logs.push(`Triggered ${direction} signal for ${pair} (RSI: ${rsi.toFixed(2)})`);
+      for (const strategyName of strategiesList) {
+        const analysis = analyses[strategyName as keyof typeof analyses];
+        if (!analysis || analysis.direction === 'NEUTRAL') continue;
 
-        // Check if there is an active trade for this pair
-        const { data: activeTrades } = await supabase
+        const { direction, rsi, macdLine, signalLine } = analysis;
+        const isPaper = strategyName !== currentStrategy;
+
+        logs.push(`Signal generated: ${pair} ${direction} via ${strategyName} (isPaper: ${isPaper})`);
+
+        // Check if there is an active trade for this pair under this strategy and paper status
+        const { data: existingTrades } = await supabase
           .from('trades')
           .select('id')
           .eq('pair', pair)
+          .eq('strategy', strategyName)
+          .eq('is_paper', isPaper)
           .eq('status', 'OPEN');
 
-        if (activeTrades && activeTrades.length > 0) {
-          logs.push(`Trade already open for ${pair}. Skipping signal.`);
+        if (existingTrades && existingTrades.length > 0) {
+          logs.push(`Trade already open for ${pair} [Strategy: ${strategyName}, isPaper: ${isPaper}]. Skipping.`);
           continue;
         }
 
-        // Place trade
-        try {
-          logs.push(`Executing ${direction} order on Binance Testnet for ${pair}...`);
-          
-          // Check overrides for this specific pair
-          const overrides = settings.pair_overrides || {};
-          const pairOverride = overrides[pair] || {};
+        // Determine parameters (use overrides if configured in settings)
+        const overrides = settings.pair_overrides || {};
+        const pairOverride = overrides[pair] || {};
 
-          const activeLeverage = pairOverride.leverage !== undefined ? parseInt(pairOverride.leverage) : (leverage_val || 20);
-          const activeRiskAmount = pairOverride.risk_amount !== undefined ? parseFloat(pairOverride.risk_amount) : (risk_amount || 1.0);
-          const activeTpPercent = pairOverride.tp_percent !== undefined ? parseFloat(pairOverride.tp_percent) : (tp_percent || 2.0);
-          const activeSlPercent = pairOverride.sl_percent !== undefined ? parseFloat(pairOverride.sl_percent) : (sl_percent || 1.0);
+        const activeLeverage = pairOverride.leverage !== undefined ? parseInt(pairOverride.leverage) : 20;
+        
+        let activeRiskAmount = 1.0;
+        if (pairOverride.risk_amount !== undefined) {
+          activeRiskAmount = parseFloat(pairOverride.risk_amount);
+        } else if (pair.startsWith('BTC') || pair.startsWith('ETH')) {
+          activeRiskAmount = 5.0; // Higher default margin for BTC/ETH
+        }
 
-          // Place trade and auto brackets on Binance with resolved leverage
-          const order = await placeFuturesOrder(
-            exchange,
-            pair,
-            direction,
-            activeRiskAmount,
-            activeTpPercent,
-            activeSlPercent,
-            activeLeverage
-          );
+        const activeTpPercent = pairOverride.tp_percent !== undefined ? parseFloat(pairOverride.tp_percent) : (tp_percent || 2.0);
+        const activeSlPercent = pairOverride.sl_percent !== undefined ? parseFloat(pairOverride.sl_percent) : (sl_percent || 1.0);
 
-          const entryPrice = order.entryPrice;
-          const tpPrice = direction === 'LONG' ? entryPrice * (1 + activeTpPercent / 100) : entryPrice * (1 - activeTpPercent / 100);
-          const slPrice = direction === 'LONG' ? entryPrice * (1 - activeSlPercent / 100) : entryPrice * (1 + activeSlPercent / 100);
+        const tpPrice = direction === 'LONG' ? currentPrice * (1 + activeTpPercent / 100) : currentPrice * (1 - activeTpPercent / 100);
+        const slPrice = direction === 'LONG' ? currentPrice * (1 - activeSlPercent / 100) : currentPrice * (1 + activeSlPercent / 100);
 
-          // Save signal to Supabase
-          const { data: savedSignal, error: sigErr } = await supabase
-            .from('signals')
-            .insert([{
+        if (!isPaper) {
+          // --- LIVE TRADING (Binance execution) ---
+          try {
+            logs.push(`Executing ${direction} order on Binance for ${pair} via active strategy ${strategyName}...`);
+            const order = await placeFuturesOrder(
+              exchange,
+              pair,
+              direction,
+              activeRiskAmount,
+              activeTpPercent,
+              activeSlPercent,
+              activeLeverage
+            );
+
+            // Save signal
+            await supabase.from('signals').insert([{
               pair,
               direction,
               rsi,
               macd_line: macdLine,
               signal_line: signalLine,
-              price: entryPrice,
-            }])
-            .select()
-            .single();
+              price: order.entryPrice,
+            }]);
 
-          if (sigErr) {
-            logs.push(`Failed to save signal to DB: ${sigErr.message}`);
-          }
-
-          // Save trade to Supabase including Margin and Leverage
-          const { error: tradeErr } = await supabase
-            .from('trades')
-            .insert([{
+            // Save live trade
+            await supabase.from('trades').insert([{
               pair,
               direction,
-              entry_price: entryPrice,
+              entry_price: order.entryPrice,
               amount: order.amount,
               tp_price: tpPrice,
               sl_price: slPrice,
@@ -354,40 +440,62 @@ async function handleCron() {
               leverage: activeLeverage,
               margin: activeRiskAmount,
               binance_order_id: order.entryOrder.id,
+              strategy: strategyName,
+              is_paper: false,
             }]);
 
-          if (tradeErr) {
-            logs.push(`Failed to save trade to DB: ${tradeErr.message}`);
+            // Send Telegram alert
+            const finalStrategyName = strategyName === 'BOLLINGER_RSI'
+              ? 'Bollinger Bands + RSI Reversion'
+              : strategyName === 'DOUBLE_EMA'
+              ? 'Double EMA Crossover'
+              : 'RSI + MACD Momentum Crossover';
+
+            const totalVal = activeRiskAmount * activeLeverage;
+            const telegramMessage = `🟢 <b>NEW SIGNAL: ${pair} ${direction}</b>\n` +
+              `Reason: <b>${finalStrategyName}</b>\n` +
+              `Margin: <b>${activeRiskAmount.toFixed(2)} USDT</b>\n` +
+              `Leverage: <b>${activeLeverage}x</b>\n` +
+              `Total Size: <b>${totalVal.toFixed(2)} USDT</b>\n` +
+              `Entry Price: <b>${order.entryPrice}</b>\n` +
+              `SL: <b>${slPrice.toFixed(4)}</b>\n` +
+              `TP: <b>${tpPrice.toFixed(4)}</b>`;
+
+            await sendTelegramMessage(telegram_token, telegram_chat_id, telegramMessage);
+            logs.push(`Successfully opened live trade for ${pair}.`);
+
+          } catch (err: any) {
+            logs.push(`Failed to execute live trade for ${pair}: ${err.message}`);
+            const failMsg = `⚠️ <b>TRADE EXECUTION FAILED</b>\n` +
+              `Pair: <b>${pair}</b> ${direction}\n` +
+              `Error: <code>${err.message}</code>\n` +
+              `Please check your Binance wallet balance, margin settings, or API key permissions.`;
+            await sendTelegramMessage(telegram_token, telegram_chat_id, failMsg);
           }
+        } else {
+          // --- PAPER TRADING (Virtual Sandbox simulation only) ---
+          try {
+            logs.push(`Logging [Paper Sandbox] trade for ${pair} via strategy ${strategyName}...`);
+            const paperAmount = (activeRiskAmount * activeLeverage) / currentPrice;
 
-          // Send Telegram Alert with Margin & Leverage details
-          const strategyName = currentStrategy === 'BOLLINGER_RSI'
-            ? 'Bollinger Bands + RSI Reversion'
-            : currentStrategy === 'DOUBLE_EMA'
-            ? 'Double EMA Crossover'
-            : 'RSI + MACD Momentum Crossover';
+            await supabase.from('trades').insert([{
+              pair,
+              direction,
+              entry_price: currentPrice,
+              amount: paperAmount,
+              tp_price: tpPrice,
+              sl_price: slPrice,
+              status: 'OPEN',
+              leverage: activeLeverage,
+              margin: activeRiskAmount,
+              strategy: strategyName,
+              is_paper: true,
+            }]);
 
-          const totalPositionVal = activeRiskAmount * activeLeverage;
-          const telegramMessage = `🟢 <b>NEW SIGNAL: ${pair} ${direction}</b>\n` +
-            `Reason: <b>${strategyName}</b>\n` +
-            `Margin: <b>${activeRiskAmount.toFixed(2)} USDT</b>\n` +
-            `Leverage: <b>${activeLeverage}x</b>\n` +
-            `Total Size: <b>${totalPositionVal.toFixed(2)} USDT</b>\n` +
-            `Entry Price: <b>${entryPrice}</b>\n` +
-            `SL: <b>${slPrice.toFixed(4)}</b>\n` +
-            `TP: <b>${tpPrice.toFixed(4)}</b>`;
-
-          await sendTelegramMessage(telegram_token, telegram_chat_id, telegramMessage);
-          logs.push(`Successfully opened trade and notified Telegram for ${pair}.`);
-
-        } catch (err: any) {
-          logs.push(`Failed to execute trade for ${pair}: ${err.message}`);
-          // Send instant alert to Telegram for failed trade execution
-          const failMsg = `⚠️ <b>TRADE EXECUTION FAILED</b>\n` +
-            `Pair: <b>${pair}</b> ${direction}\n` +
-            `Error: <code>${err.message}</code>\n` +
-            `Please check your Binance wallet balance, margin settings, or API key permissions.`;
-          await sendTelegramMessage(telegram_token, telegram_chat_id, failMsg);
+            logs.push(`Successfully logged open paper trade for ${pair}.`);
+          } catch (paperTradeErr: any) {
+            logs.push(`Failed to save paper trade to DB: ${paperTradeErr.message}`);
+          }
         }
       }
     }

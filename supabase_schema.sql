@@ -59,7 +59,9 @@ CREATE TABLE trades (
   closed_at TIMESTAMP WITH TIME ZONE,
   leverage INT DEFAULT 20,
   margin NUMERIC DEFAULT 10.0,
-  binance_order_id TEXT
+  binance_order_id TEXT,
+  strategy TEXT DEFAULT 'RSI_MACD',
+  is_paper BOOLEAN DEFAULT false
 );
 
 -- 5. Insert default configurations (Single row settings entry)

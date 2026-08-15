@@ -17,6 +17,8 @@ interface Trade {
   closed_at: string;
   leverage: number;
   margin: number;
+  strategy?: string;
+  is_paper?: boolean;
 }
 
 export default function SummaryPage() {
@@ -29,6 +31,9 @@ export default function SummaryPage() {
   const [isSending, setIsSending] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
+  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA'>('RSI_MACD');
+  const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
+  const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
 
   // Default date ranges setup
   useEffect(() => {
@@ -44,44 +49,65 @@ export default function SummaryPage() {
     setEndDate(formatDateStr(today));
   }, []);
 
+  const applyFilters = (allTrades: Trade[], activeStrat = activeStrategySetting) => {
+    // 1. Filter by strategy & paper status
+    const isTabPaper = selectedStrategy !== activeStrat;
+    const strategyTrades = allTrades.filter((t) => 
+      (t.strategy || 'RSI_MACD') === selectedStrategy && 
+      (isTabPaper ? t.is_paper === true : !t.is_paper)
+    );
+
+    // 2. Filter by date/hours cutoff
+    const filteredClosed = strategyTrades.filter((t) => {
+      if (t.status !== 'CLOSED' || !t.closed_at) return false;
+      const closedTime = new Date(t.closed_at);
+      
+      if (hourlyFilter !== 'none') {
+        const hours = hourlyFilter === '1h' ? 1 : hourlyFilter === '3h' ? 3 : hourlyFilter === '6h' ? 6 : 12;
+        const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+        return closedTime >= cutoff;
+      } else {
+        const startBoundary = new Date(startDate);
+        startBoundary.setHours(0, 0, 0, 0);
+
+        const endBoundary = new Date(endDate);
+        endBoundary.setHours(23, 59, 59, 999);
+        return closedTime >= startBoundary && closedTime <= endBoundary;
+      }
+    });
+
+    // Sort ascending by close time
+    filteredClosed.sort((a, b) => new Date(a.closed_at).getTime() - new Date(b.closed_at).getTime());
+    setTrades(filteredClosed);
+
+    // Filter active trades
+    const active = strategyTrades.filter((t) => t.status === 'OPEN');
+    setActiveTrades(active);
+  };
+
   const fetchSummaryTrades = async () => {
     if (!startDate || !endDate) return;
     setIsLoading(true);
     setStatusMsg({ type: '', text: '' });
 
     try {
+      // 1. Fetch active strategy setting first
+      const settingsRes = await fetch('/api/settings');
+      const settingsData = await settingsRes.json();
+      let currentActiveStrategy = 'RSI_MACD';
+      if (settingsRes.ok && settingsData.active_strategy) {
+        currentActiveStrategy = settingsData.active_strategy;
+        setActiveStrategySetting(currentActiveStrategy);
+      }
+
+      // 2. Fetch all trades
       const res = await fetch('/api/trades');
       const data = await res.json();
       if (res.ok && data.success) {
         const allTrades: Trade[] = data.trades || [];
         setLivePrices(data.livePrices || {});
-        
-        const filtered = allTrades.filter((t) => {
-          if (t.status !== 'CLOSED' || !t.closed_at) return false;
-          const closedTime = new Date(t.closed_at);
-          
-          if (hourlyFilter !== 'none') {
-            const hours = hourlyFilter === '1h' ? 1 : hourlyFilter === '3h' ? 3 : hourlyFilter === '6h' ? 6 : 12;
-            const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
-            return closedTime >= cutoff;
-          } else {
-            // Convert input dates to comparable ISO boundaries (Local start/end of days)
-            const startBoundary = new Date(startDate);
-            startBoundary.setHours(0, 0, 0, 0);
-
-            const endBoundary = new Date(endDate);
-            endBoundary.setHours(23, 59, 59, 999);
-            return closedTime >= startBoundary && closedTime <= endBoundary;
-          }
-        });
-
-        // Sort ascending by close time
-        filtered.sort((a, b) => new Date(a.closed_at).getTime() - new Date(b.closed_at).getTime());
-        setTrades(filtered);
-
-        // Fetch active trades
-        const active = allTrades.filter((t) => t.status === 'OPEN');
-        setActiveTrades(active);
+        setAllRawTrades(allTrades);
+        applyFilters(allTrades, currentActiveStrategy);
       }
     } catch (err) {
       console.error('Failed to load summary:', err);
@@ -89,6 +115,12 @@ export default function SummaryPage() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (allRawTrades.length > 0) {
+      applyFilters(allRawTrades);
+    }
+  }, [selectedStrategy, startDate, endDate, hourlyFilter, activeStrategySetting]);
 
   useEffect(() => {
     fetchSummaryTrades();
@@ -405,6 +437,51 @@ export default function SummaryPage() {
         </div>
       </div>
 
+      {/* Strategy Selection Tabs */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-zinc-850 pb-3 no-print">
+        <button
+          onClick={() => setSelectedStrategy('RSI_MACD')}
+          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+            selectedStrategy === 'RSI_MACD'
+              ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+              : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+          }`}
+        >
+          <span>📊 RSI + MACD</span>
+          <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'RSI_MACD' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+            {activeStrategySetting === 'RSI_MACD' ? 'LIVE' : 'SANDBOX'}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSelectedStrategy('BOLLINGER_RSI')}
+          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+            selectedStrategy === 'BOLLINGER_RSI'
+              ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+              : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+          }`}
+        >
+          <span>↕️ Bollinger + RSI</span>
+          <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'BOLLINGER_RSI' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+            {activeStrategySetting === 'BOLLINGER_RSI' ? 'LIVE' : 'SANDBOX'}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSelectedStrategy('DOUBLE_EMA')}
+          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+            selectedStrategy === 'DOUBLE_EMA'
+              ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+              : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+          }`}
+        >
+          <span>🎢 Double EMA</span>
+          <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'DOUBLE_EMA' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+            {activeStrategySetting === 'DOUBLE_EMA' ? 'LIVE' : 'SANDBOX'}
+          </span>
+        </button>
+      </div>
+
       {/* Date Pickers & Quick Filters (Hidden in print) */}
       <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6 no-print">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -577,25 +654,42 @@ export default function SummaryPage() {
           <p className="text-[9px] text-zinc-500 mt-1">Wins: {wins} | Losses: {losses}</p>
         </div>
 
-        {/* Net Profit */}
+        {/* Net Profit / Total P&L */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden print-card">
-          <span className={`text-[10px] font-bold uppercase tracking-widest ${netPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Net P&L</span>
+          <span className={`text-[10px] font-bold uppercase tracking-widest ${netPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Total P&L</span>
           <h3 className={`text-2xl font-extrabold mt-2 ${netPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             {netPnl >= 0 ? '+' : ''}
             {netPnl.toFixed(4)}
             <span className="text-xs font-medium ml-1">USDT</span>
           </h3>
-          <p className="text-[9px] text-zinc-500 mt-1">Realized value after fees</p>
+          <p className="text-[9px] text-zinc-500 mt-1">
+            {selectedStrategy !== activeStrategySetting 
+              ? `Balance: ${(100.0 + netPnl).toFixed(2)} USDT (Starts: 100)`
+              : 'Realized value after fees'}
+          </p>
         </div>
 
-        {/* Avg P&L per Trade */}
+        {/* Daily P&L */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden print-card">
-          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Avg Trade P&L</span>
-          <h3 className="text-2xl font-extrabold text-zinc-200 mt-2">
-            {totalTrades > 0 ? (netPnl / totalTrades).toFixed(4) : '0.0000'}
-            <span className="text-xs font-medium ml-1">USDT</span>
-          </h3>
-          <p className="text-[9px] text-zinc-500 mt-1">Mean return per operation</p>
+          {/* Calculate daily P&L */}
+          {(() => {
+            const startOfToday = new Date();
+            startOfToday.setUTCHours(0, 0, 0, 0);
+            const dailyPnl = trades
+              .filter((t) => t.closed_at && new Date(t.closed_at) >= startOfToday)
+              .reduce((sum, t) => sum + (t.pnl || 0), 0);
+            return (
+              <>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${dailyPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>Daily P&L</span>
+                <h3 className={`text-2xl font-extrabold mt-2 ${dailyPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {dailyPnl >= 0 ? '+' : ''}
+                  {dailyPnl.toFixed(4)}
+                  <span className="text-xs font-medium ml-1">USDT</span>
+                </h3>
+                <p className="text-[9px] text-zinc-500 mt-1">Closed trades closed today</p>
+              </>
+            );
+          })()}
         </div>
       </div>
 
