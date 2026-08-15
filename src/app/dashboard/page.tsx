@@ -114,6 +114,9 @@ export default function DashboardPage() {
         const allTrades: Trade[] = tradesData.trades || [];
         setActiveTrades(allTrades.filter((t) => t.status === 'OPEN'));
         setRecentTrades(allTrades.filter((t) => t.status === 'CLOSED').slice(0, 10)); // Fetch up to 10 for chart data
+        if (tradesData.livePrices) {
+          setLivePrices((prev) => ({ ...prev, ...tradesData.livePrices }));
+        }
       }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
