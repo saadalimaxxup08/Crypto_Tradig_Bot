@@ -525,6 +525,38 @@ export default function DashboardPage() {
               </button>
             </div>
 
+            {activeTrades.length > 0 && (
+              <div className="grid grid-cols-2 gap-4 mb-5 p-4 bg-zinc-950/20 border border-zinc-800/50 rounded-2xl">
+                <div>
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Deployed Margin</span>
+                  <div className="text-sm font-extrabold text-zinc-200 mt-1 font-mono">
+                    {activeTrades.reduce((sum, t) => sum + (t.margin || 10.0), 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Floating P&L</span>
+                  <div className={`text-sm font-extrabold mt-1 font-mono ${
+                    activeTrades.reduce((sum, t) => {
+                      const currentPrice = livePrices[t.pair] || t.entry_price;
+                      const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                      return sum + pnl;
+                    }, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  }`}>
+                    {activeTrades.reduce((sum, t) => {
+                      const currentPrice = livePrices[t.pair] || t.entry_price;
+                      const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                      return sum + pnl;
+                    }, 0) >= 0 ? '+' : ''}
+                    {activeTrades.reduce((sum, t) => {
+                      const currentPrice = livePrices[t.pair] || t.entry_price;
+                      const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                      return sum + pnl;
+                    }, 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTrades.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800/80 rounded-2xl">
                 <Layers className="w-8 h-8 text-zinc-600 mb-2" />
