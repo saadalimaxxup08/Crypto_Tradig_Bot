@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FileText, Calendar, Download, Send, Printer, ArrowUpRight, ArrowDownRight, Layers } from 'lucide-react';
+import { FileText, Calendar, Download, Send, ArrowUpRight, ArrowDownRight, Layers } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 
 interface Trade {
   id: string;
@@ -134,49 +135,186 @@ export default function SummaryPage() {
   const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
   const netPnl = trades.reduce((sum, t) => sum + (t.pnl || 0), 0);
 
-  // Send Report to Telegram API Call
-  const handleSendTelegram = async () => {
-    if (trades.length === 0) {
-      setStatusMsg({ type: 'error', text: 'No closed trades in selected range to send.' });
-      return;
+  // PDF Generator Engine (using jsPDF)
+  const generatePDF = (download: boolean = true) => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    // Header Title
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text("CryptoAI VIP Trader Terminal", 14, 20);
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Performance Summary Report & Active Ledger", 14, 25);
+    doc.text(`Period: ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`, 14, 30);
+    doc.line(14, 33, 196, 33);
+
+    // Summary Metrics Section
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text("SUMMARY PERFORMANCE METRICS", 14, 40);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Total Closed Trades: ${totalTrades}`, 14, 46);
+    doc.text(`Win Rate %: ${winRate.toFixed(1)}% (Wins: ${wins} / Losses: ${losses})`, 14, 51);
+    doc.text(`Net Cumulative P&L: ${netPnl.toFixed(4)} USDT`, 14, 56);
+    doc.text(`Avg Trade P&L: ${(totalTrades > 0 ? netPnl / totalTrades : 0).toFixed(4)} USDT`, 14, 61);
+
+    doc.line(14, 66, 196, 66);
+
+    let currentY = 73;
+
+    // Active positions table
+    if (activeTrades.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(`ACTIVE RUNNING POSITIONS (${activeTrades.length})`, 14, currentY);
+      currentY += 5;
+
+      doc.setFontSize(8);
+      doc.text("Open Time", 14, currentY);
+      doc.text("Pair", 52, currentY);
+      doc.text("Dir", 80, currentY);
+      doc.text("Entry Price", 93, currentY);
+      doc.text("Live Price", 120, currentY);
+      doc.text("Duration", 148, currentY);
+      doc.text("Margin", 170, currentY);
+      doc.text("Floating P&L", 188, currentY);
+      currentY += 3;
+      doc.line(14, currentY - 1, 196, currentY - 1);
+
+      doc.setFont('helvetica', 'normal');
+      activeTrades.forEach((t) => {
+        if (currentY > 275) {
+          doc.addPage();
+          currentY = 20;
+        }
+        const curPrice = livePrices[t.pair] || t.entry_price;
+        const pnl = (curPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+        const entryTime = new Date(t.timestamp).toLocaleDateString() + ' ' + new Date(t.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        
+        const timeInMarket = new Date(t.timestamp);
+        const durationMs = Date.now() - timeInMarket.getTime();
+        const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+        const durationMins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+        const durationStr = durationHours > 0 ? `${durationHours}h ${durationMins}m` : `${durationMins}m`;
+
+        doc.text(entryTime, 14, currentY);
+        doc.text(t.pair, 52, currentY);
+        doc.text(t.direction, 80, currentY);
+        doc.text(t.entry_price.toFixed(4), 93, currentY);
+        doc.text(curPrice.toFixed(4), 120, currentY);
+        doc.text(durationStr, 148, currentY);
+        doc.text(`${(t.margin || 1.0).toFixed(1)} USDT`, 170, currentY);
+        doc.text(`${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USDT`, 188, currentY);
+        currentY += 5.5;
+      });
+
+      currentY += 2;
+      doc.line(14, currentY - 1, 196, currentY - 1);
+      currentY += 4;
     }
 
+    // Closed Trades table
+    if (currentY > 250) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.text(`CLOSED TRADES LEDGER (${trades.length})`, 14, currentY);
+    currentY += 5;
+
+    doc.setFontSize(8);
+    doc.text("Close Time", 14, currentY);
+    doc.text("Pair", 52, currentY);
+    doc.text("Dir", 80, currentY);
+    doc.text("Entry Price", 93, currentY);
+    doc.text("Exit Price", 120, currentY);
+    doc.text("Margin", 148, currentY);
+    doc.text("Leverage", 170, currentY);
+    doc.text("Realized P&L", 188, currentY);
+    currentY += 3;
+    doc.line(14, currentY - 1, 196, currentY - 1);
+
+    doc.setFont('helvetica', 'normal');
+    trades.forEach((t) => {
+      if (currentY > 275) {
+        doc.addPage();
+        currentY = 20;
+      }
+      const closeTime = new Date(t.closed_at).toLocaleDateString() + ' ' + new Date(t.closed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const sign = (t.pnl || 0) >= 0 ? '+' : '';
+
+      doc.text(closeTime, 14, currentY);
+      doc.text(t.pair, 52, currentY);
+      doc.text(t.direction, 80, currentY);
+      doc.text(t.entry_price.toFixed(4), 93, currentY);
+      doc.text(t.exit_price ? t.exit_price.toFixed(4) : 'N/A', 120, currentY);
+      doc.text(`${(t.margin || 10.0).toFixed(1)} USDT`, 148, currentY);
+      doc.text(`${t.leverage || 20}x`, 170, currentY);
+      doc.text(`${sign}${(t.pnl || 0).toFixed(2)} USDT`, 188, currentY);
+      currentY += 5.5;
+    });
+
+    if (download) {
+      doc.save(`CryptoAI_Report_${startDate}_to_${endDate}.pdf`);
+      return null;
+    } else {
+      return doc.output('blob');
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    generatePDF(true);
+  };
+
+  // Compile and dispatch PDF to Telegram channel
+  const handleSendTelegram = async () => {
     setIsSending(true);
     setStatusMsg({ type: '', text: '' });
 
     try {
-      // Boundaries
-      const startBoundary = new Date(startDate);
-      startBoundary.setHours(0, 0, 0, 0);
+      const pdfBlob = generatePDF(false);
+      if (!pdfBlob) {
+        setStatusMsg({ type: 'error', text: 'Failed to compile report PDF.' });
+        setIsSending(false);
+        return;
+      }
 
-      const endBoundary = new Date(endDate);
-      endBoundary.setHours(23, 59, 59, 999);
+      const file = new File([pdfBlob], `CryptoAI_Report_${startDate}_to_${endDate}.pdf`, {
+        type: 'application/pdf',
+      });
 
-      const res = await fetch('/api/trades/report', {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('startDate', startDate);
+      formData.append('endDate', endDate);
+
+      const res = await fetch('/api/trades/report/send-file', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          startDate: startBoundary.toISOString(),
-          endDate: endBoundary.toISOString(),
-        }),
+        body: formData,
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setStatusMsg({ type: 'success', text: 'Summary report successfully sent to Telegram!' });
+        setStatusMsg({ type: 'success', text: 'PDF report successfully sent to Telegram!' });
       } else {
-        setStatusMsg({ type: 'error', text: data.error || 'Failed to send Telegram report.' });
+        setStatusMsg({ type: 'error', text: data.error || 'Failed to dispatch Telegram file.' });
       }
     } catch (e: any) {
+      console.error(e);
       setStatusMsg({ type: 'error', text: 'An unexpected error occurred.' });
     } finally {
       setIsSending(false);
     }
-  };
-
-  // Trigger Print View (Download to PDF using system print layout)
-  const handlePrint = () => {
-    window.print();
   };
 
   return (
@@ -243,28 +381,19 @@ export default function SummaryPage() {
         {/* Actions Row */}
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={handlePrint}
+            onClick={handleDownloadPDF}
             className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-200 cursor-pointer"
-            title="Download PDF or Print"
+            title="Compile & Download PDF Report"
           >
             <Download className="w-4 h-4 text-blue-400" />
             <span>Download PDF</span>
           </button>
 
           <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-200 cursor-pointer"
-            title="Open Print Dialog"
-          >
-            <Printer className="w-4 h-4 text-zinc-400" />
-            <span>Print View</span>
-          </button>
-
-          <button
             onClick={handleSendTelegram}
             disabled={isSending}
             className="flex items-center gap-2 px-4 py-2.5 bg-emerald-950/20 hover:bg-emerald-900/30 border border-emerald-900/50 rounded-xl text-xs font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all duration-200 cursor-pointer disabled:opacity-50"
-            title="Send report directly to Telegram channel"
+            title="Send PDF report directly to Telegram channel"
           >
             {isSending ? (
               <div className="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
