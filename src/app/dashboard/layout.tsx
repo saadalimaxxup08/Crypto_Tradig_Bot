@@ -12,6 +12,7 @@ import {
   User,
   Shield,
   Menu,
+  X,
 } from 'lucide-react';
 import React from 'react';
 
@@ -50,19 +51,29 @@ export default async function DashboardLayout({
       {/* Sidebar Navigation */}
       <aside className="fixed inset-y-0 left-0 w-64 border-r border-zinc-800/80 bg-[#0c0c0f]/95 backdrop-blur-xl flex flex-col justify-between z-30 shrink-0 -translate-x-full transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 peer-checked:translate-x-0">
         <div>
-          {/* Sidebar Header */}
-          <div className="p-6 border-b border-zinc-800/80 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg shadow-emerald-500/10">
-              <TrendingUp className="w-6 h-6 text-white" />
+          {/* Sidebar Header with Mobile Close Label */}
+          <div className="p-6 border-b border-zinc-800/80 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg shadow-emerald-500/10">
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-md font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent">
+                  CryptoAI Trader
+                </h1>
+                <span className="text-[10px] text-zinc-500 font-semibold tracking-wider uppercase">
+                  VIP System v1.0
+                </span>
+              </div>
             </div>
-            <div>
-              <h1 className="text-md font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent">
-                CryptoAI Trader
-              </h1>
-              <span className="text-[10px] text-zinc-500 font-semibold tracking-wider uppercase">
-                VIP System v1.0
-              </span>
-            </div>
+            
+            {/* Mobile close button (HtmlFor sidebar-toggle trigger) */}
+            <label
+              htmlFor="sidebar-toggle"
+              className="lg:hidden p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/50 border border-zinc-800/60 rounded-lg cursor-pointer transition-colors flex items-center justify-center"
+            >
+              <X className="w-4.5 h-4.5" />
+            </label>
           </div>
 
           {/* Navigation Links */}
