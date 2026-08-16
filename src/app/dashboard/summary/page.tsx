@@ -426,7 +426,14 @@ export default function SummaryPage() {
         pairStats[t.pair].pnl += (t.pnl || 0);
       });
 
-      const sortedPairs = Object.entries(pairStats).sort((a, b) => b[1].pnl - a[1].pnl);
+      const sortedPairs = Object.entries(pairStats).sort((a, b) => {
+        const wrA = a[1].total > 0 ? (a[1].wins / a[1].total) * 100 : 0;
+        const wrB = b[1].total > 0 ? (b[1].wins / b[1].total) * 100 : 0;
+        if (wrB !== wrA) {
+          return wrB - wrA;
+        }
+        return b[1].pnl - a[1].pnl;
+      });
 
       if (sortedPairs.length > 0) {
         if (currentY > 230) {
