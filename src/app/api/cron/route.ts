@@ -512,8 +512,11 @@ async function handleCron() {
       const now = new Date();
       const lastHourly = settings.last_hourly_report_at ? new Date(settings.last_hourly_report_at) : null;
       
-      // If never run or run more than 59 minutes ago
-      if (!lastHourly || (now.getTime() - lastHourly.getTime()) >= 59 * 60 * 1000) {
+      // If never run or if the current minute is >= 5 and we haven't sent a report in this current hour yet
+      const currentHourStr = now.toISOString().slice(0, 13); // e.g. "2026-08-16T10"
+      const lastHourlyHourStr = lastHourly ? lastHourly.toISOString().slice(0, 13) : '';
+      
+      if (!lastHourly || (now.getMinutes() >= 5 && currentHourStr !== lastHourlyHourStr)) {
         logs.push('Executing scheduled hourly report...');
         
         // Run diagnostics checks
