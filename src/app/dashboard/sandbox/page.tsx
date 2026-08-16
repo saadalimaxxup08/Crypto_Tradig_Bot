@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { FileText, Calendar, Download, Send, ArrowUpRight, ArrowDownRight, Layers, HelpCircle } from 'lucide-react';
+import { jsPDF } from 'jspdf';
 
 interface Trade {
   id: string;
@@ -27,6 +28,7 @@ export default function SandboxPage() {
   const [activeTrades, setActiveTrades] = useState<Trade[]>([]);
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
   const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA'>('BOLLINGER_RSI');
@@ -218,6 +220,319 @@ export default function SandboxPage() {
   const totalPnl = realizedNetPnl + totalFloatingPnl;
   const currentBalance = 100.0 + totalPnl;
 
+  // PDF Generator Engine (using jsPDF)
+  const generatePDF = (download: boolean = true) => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const finalStrategyName = selectedStrategy === 'BOLLINGER_RSI'
+      ? 'Bollinger Bands + RSI Reversion'
+      : selectedStrategy === 'DOUBLE_EMA'
+      ? 'Double EMA Crossover'
+      : 'RSI + MACD Momentum Crossover';
+
+    // 1. Header Dark Banner Branding
+    doc.setFillColor(15, 15, 20); // Dark carbon color
+    doc.rect(0, 0, 210, 32, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(`CryptoAI Sandbox: ${finalStrategyName}`, 14, 13);
+    
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(160, 160, 165);
+    doc.text("Simulated Strategy Backtest Report (Jeddah Time)", 14, 19);
+    
+    const dateRangeStr = `Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}`;
+    doc.text(dateRangeStr, 196, 19, { align: 'right' });
+
+    // 2. Metrics Bounding Box Cards Grid
+    const cardY = 40;
+    const cardH = 18;
+    
+    doc.setDrawColor(225, 225, 230);
+    doc.setFillColor(255, 255, 255);
+
+    // Card 1: Total Trades
+    doc.rect(14, cardY, 41, cardH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("TOTAL CLOSED TRADES", 17, cardY + 5);
+    doc.setFontSize(11);
+    doc.setTextColor(30, 30, 35);
+    doc.text(`${totalTrades}`, 17, cardY + 12);
+
+    // Card 2: Win Rate
+    doc.rect(59, cardY, 41, cardH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("WIN RATE SPEED", 62, cardY + 5);
+    doc.setFontSize(11);
+    doc.setTextColor(147, 51, 234);
+    doc.text(`${winRate.toFixed(1)}%`, 62, cardY + 12);
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text(`Wins: ${wins} / Losses: ${losses}`, 62, cardY + 16);
+
+    // Card 3: Total P&L / Sandbox Wallet Balance
+    doc.rect(104, cardY, 44, cardH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("TOTAL NET P&L", 107, cardY + 5);
+    doc.setFontSize(11);
+    if (totalPnl >= 0) {
+      doc.setTextColor(16, 185, 129);
+      doc.text(`+${totalPnl.toFixed(4)}`, 107, cardY + 12);
+    } else {
+      doc.setTextColor(239, 68, 68);
+      doc.text(`${totalPnl.toFixed(4)}`, 107, cardY + 12);
+    }
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text(`Wallet: ${currentBalance.toFixed(2)} USDT`, 107, cardY + 16);
+
+    // Card 4: Avg Return
+    doc.rect(152, cardY, 44, cardH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("AVERAGE RETURN", 155, cardY + 5);
+    doc.setFontSize(11);
+    const avgReturn = totalTrades > 0 ? totalPnl / totalTrades : 0;
+    if (avgReturn >= 0) {
+      doc.setTextColor(16, 185, 129);
+      doc.text(`+${avgReturn.toFixed(4)}`, 155, cardY + 12);
+    } else {
+      doc.setTextColor(239, 68, 68);
+      doc.text(`${avgReturn.toFixed(4)}`, 155, cardY + 12);
+    }
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("USDT per operation", 155, cardY + 16);
+
+    let currentY = 70;
+
+    // 3. Active Positions Table
+    if (activeTrades.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(30, 30, 35);
+      doc.text(`ACTIVE RUNNING POSITIONS (${activeTrades.length})`, 14, currentY);
+      currentY += 4;
+
+      doc.setFillColor(245, 245, 248);
+      doc.rect(14, currentY - 4, 182, 6, 'F');
+      
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(80, 80, 85);
+      doc.text("Open Time (Jeddah)", 17, currentY);
+      doc.text("Pair", 54, currentY);
+      doc.text("Direction", 80, currentY);
+      doc.text("Entry Price", 98, currentY);
+      doc.text("Live Price", 125, currentY);
+      doc.text("Duration", 152, currentY);
+      doc.text("Floating P&L", 175, currentY);
+      
+      currentY += 4;
+
+      doc.setFont('helvetica', 'normal');
+      activeTrades.forEach((t) => {
+        if (currentY > 275) {
+          doc.addPage();
+          currentY = 20;
+        }
+        const curPrice = livePrices[t.pair] || t.entry_price;
+        const pnl = (curPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+        const entryTime = new Date(t.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false });
+        
+        const timeInMarket = new Date(t.timestamp);
+        const durationMs = Date.now() - timeInMarket.getTime();
+        const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+        const durationMins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+        const durationStr = durationHours > 0 ? `${durationHours}h ${durationMins}m` : `${durationMins}m`;
+
+        doc.setTextColor(30, 30, 35);
+        doc.text(entryTime, 17, currentY);
+        doc.text(t.pair, 54, currentY);
+        
+        if (t.direction === 'LONG') {
+          doc.setTextColor(16, 185, 129);
+          doc.setFont('helvetica', 'bold');
+          doc.text("LONG", 80, currentY);
+        } else {
+          doc.setTextColor(239, 68, 68);
+          doc.setFont('helvetica', 'bold');
+          doc.text("SHORT", 80, currentY);
+        }
+        doc.setFont('helvetica', 'normal');
+        
+        doc.setTextColor(80, 80, 85);
+        doc.text(t.entry_price.toFixed(4), 98, currentY);
+        doc.text(curPrice.toFixed(4), 125, currentY);
+        doc.text(durationStr, 152, currentY);
+
+        if (pnl >= 0) {
+          doc.setTextColor(16, 185, 129);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`+${pnl.toFixed(2)} USDT`, 175, currentY);
+        } else {
+          doc.setTextColor(239, 68, 68);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`${pnl.toFixed(2)} USDT`, 175, currentY);
+        }
+        doc.setFont('helvetica', 'normal');
+
+        doc.setDrawColor(240, 240, 245);
+        doc.line(14, currentY + 1.5, 196, currentY + 1.5);
+        currentY += 5.5;
+      });
+
+      currentY += 5;
+    }
+
+    // 4. Closed Trades Ledger Table
+    if (currentY > 250) {
+      doc.addPage();
+      currentY = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 35);
+    doc.text(`CLOSED TRADES LEDGER (${trades.length})`, 14, currentY);
+    currentY += 4;
+
+    doc.setFillColor(245, 245, 248);
+    doc.rect(14, currentY - 4, 182, 6, 'F');
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(80, 80, 85);
+    doc.text("Close Time (Jeddah)", 17, currentY);
+    doc.text("Pair", 54, currentY);
+    doc.text("Direction", 80, currentY);
+    doc.text("Entry Price", 98, currentY);
+    doc.text("Exit Price", 125, currentY);
+    doc.text("Margin", 152, currentY);
+    doc.text("Leverage", 168, currentY);
+    doc.text("Realized P&L", 180, currentY);
+    
+    currentY += 4;
+
+    doc.setFont('helvetica', 'normal');
+    trades.forEach((t) => {
+      if (currentY > 275) {
+        doc.addPage();
+        currentY = 20;
+      }
+      const closeTime = new Date(t.closed_at).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false });
+      const pnlVal = t.pnl || 0;
+      const isWin = pnlVal >= 0;
+
+      doc.setTextColor(30, 30, 35);
+      doc.text(closeTime, 17, currentY);
+      doc.text(t.pair, 54, currentY);
+
+      if (t.direction === 'LONG') {
+        doc.setTextColor(16, 185, 129);
+        doc.setFont('helvetica', 'bold');
+        doc.text("LONG", 80, currentY);
+      } else {
+        doc.setTextColor(239, 68, 68);
+        doc.setFont('helvetica', 'bold');
+        doc.text("SHORT", 80, currentY);
+      }
+      doc.setFont('helvetica', 'normal');
+
+      doc.setTextColor(80, 80, 85);
+      doc.text(t.entry_price.toFixed(4), 98, currentY);
+      doc.text(t.exit_price ? t.exit_price.toFixed(4) : 'N/A', 125, currentY);
+      doc.text(`${(t.margin || 1.0).toFixed(1)} USDT`, 152, currentY);
+      doc.text(`${t.leverage || 20}x`, 168, currentY);
+
+      if (isWin) {
+        doc.setTextColor(16, 185, 129);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`+${pnlVal.toFixed(2)} USDT`, 180, currentY);
+      } else {
+        doc.setTextColor(239, 68, 68);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${pnlVal.toFixed(2)} USDT`, 180, currentY);
+      }
+      doc.setFont('helvetica', 'normal');
+
+      doc.setDrawColor(240, 240, 245);
+      doc.line(14, currentY + 1.5, 196, currentY + 1.5);
+      currentY += 5.5;
+    });
+
+    if (download) {
+      doc.save(`CryptoAI_Sandbox_${selectedStrategy}.pdf`);
+      return null;
+    } else {
+      return doc.output('blob');
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    generatePDF(true);
+  };
+
+  const handleSendTelegram = async () => {
+    setIsSending(true);
+    setStatusMsg({ type: '', text: '' });
+
+    try {
+      const pdfBlob = generatePDF(false);
+      if (!pdfBlob) {
+        setStatusMsg({ type: 'error', text: 'Failed to compile sandbox PDF.' });
+        setIsSending(false);
+        return;
+      }
+
+      const finalStrategyName = selectedStrategy === 'BOLLINGER_RSI'
+        ? 'Bollinger Bands + RSI Reversion'
+        : selectedStrategy === 'DOUBLE_EMA'
+        ? 'Double EMA Crossover'
+        : 'RSI + MACD Momentum Crossover';
+
+      const file = new File([pdfBlob], `CryptoAI_Sandbox_${selectedStrategy}.pdf`, {
+        type: 'application/pdf',
+      });
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('startDate', startDate);
+      formData.append('endDate', endDate);
+
+      const res = await fetch('/api/trades/report/send-file', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setStatusMsg({ type: 'success', text: `Sandbox PDF report for ${finalStrategyName} sent to Telegram!` });
+      } else {
+        setStatusMsg({ type: 'error', text: data.error || 'Failed to dispatch Telegram file.' });
+      }
+    } catch (e: any) {
+      console.error(e);
+      setStatusMsg({ type: 'error', text: 'An unexpected error occurred.' });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header bar */}
@@ -274,6 +589,54 @@ export default function SandboxPage() {
           </span>
         </button>
       </div>
+
+      {/* Summary Report Center Actions Header Card */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[#0c0c0f]/40 backdrop-blur-md border border-zinc-800/80 p-6 rounded-3xl">
+        <div>
+          <h2 className="text-xl font-bold tracking-tight">Summary Report Center</h2>
+          <p className="text-xs text-zinc-400 mt-1">
+            Analyze, print, download, or share trade statistics for the selected strategy.
+          </p>
+        </div>
+
+        {/* Actions Row */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-200 cursor-pointer"
+            title="Compile & Download PDF Report"
+          >
+            <Download className="w-4 h-4 text-blue-400" />
+            <span>Download PDF</span>
+          </button>
+
+          <button
+            onClick={handleSendTelegram}
+            disabled={isSending}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-950/20 hover:bg-emerald-900/30 border border-emerald-900/50 rounded-xl text-xs font-bold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all duration-200 cursor-pointer disabled:opacity-50"
+            title="Send PDF report directly to Telegram channel"
+          >
+            {isSending ? (
+              <div className="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            <span>Send Telegram</span>
+          </button>
+        </div>
+      </div>
+
+      {statusMsg.text && (
+        <div
+          className={`p-3.5 border rounded-2xl text-xs font-semibold ${
+            statusMsg.type === 'success'
+              ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+              : 'bg-red-950/20 border-red-900/50 text-red-400'
+          }`}
+        >
+          {statusMsg.text}
+        </div>
+      )}
 
       {/* Date Pickers & Quick Filters */}
       <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
