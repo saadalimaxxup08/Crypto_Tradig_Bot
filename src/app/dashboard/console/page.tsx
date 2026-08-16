@@ -19,6 +19,7 @@ export default function ConsolePage() {
   const [connections, setConnections] = useState({ db: true, telegram: true, binance: true });
 
   const terminalEndRef = useRef<HTMLDivElement | null>(null);
+  const lastScanLogsRef = useRef<string[]>([]);
 
   const getJeddahTimeStr = () => {
     return new Date().toLocaleTimeString('en-US', {
@@ -44,6 +45,11 @@ export default function ConsolePage() {
     setLogs(welcomeLines);
     fetchLiveLogs(true);
 
+    // Background logs polling every 8 seconds to auto-update terminal and anomalies without page refresh
+    const pollInterval = setInterval(() => {
+      fetchLiveLogs(true);
+    }, 8000);
+
     // Latency & Stats simulation intervals
     const statsInterval = setInterval(() => {
       setStats((prev) => ({
@@ -58,7 +64,10 @@ export default function ConsolePage() {
       }));
     }, 4000);
 
-    return () => clearInterval(statsInterval);
+    return () => {
+      clearInterval(statsInterval);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   // Scroll to bottom of terminal whenever logs update
@@ -75,20 +84,30 @@ export default function ConsolePage() {
         setSettings(data);
       }
       if (res.ok && data.last_scan_logs) {
-        const dbLogs: TerminalLine[] = data.last_scan_logs.map((log: string) => ({
-          text: log,
-          type: log.toLowerCase().includes('error') ? 'error' : log.toLowerCase().includes('success') ? 'success' : 'info',
-          time: getJeddahTimeStr(),
-        }));
+        const isNewLogs = JSON.stringify(data.last_scan_logs) !== JSON.stringify(lastScanLogsRef.current);
         
-        if (silent) {
-          setLogs((prev) => [...prev, ...dbLogs]);
-        } else {
-          setLogs((prev) => [
-            ...prev,
-            { text: `Fetched ${dbLogs.length} recent scanner records from Database settings row.`, type: 'system', time: getJeddahTimeStr() },
-            ...dbLogs,
-          ]);
+        if (isNewLogs) {
+          lastScanLogsRef.current = data.last_scan_logs;
+
+          const dbLogs: TerminalLine[] = data.last_scan_logs.map((log: string) => ({
+            text: log,
+            type: log.toLowerCase().includes('error') ? 'error' : log.toLowerCase().includes('success') ? 'success' : 'info',
+            time: getJeddahTimeStr(),
+          }));
+          
+          if (silent) {
+            setLogs((prev) => [
+              ...prev,
+              { text: '♻️ [BACKGROUND CRON] Syncing new market scan logs...', type: 'system', time: getJeddahTimeStr() },
+              ...dbLogs
+            ]);
+          } else {
+            setLogs((prev) => [
+              ...prev,
+              { text: `Fetched ${dbLogs.length} recent scanner records from Database settings row.`, type: 'system', time: getJeddahTimeStr() },
+              ...dbLogs,
+            ]);
+          }
         }
       }
     } catch (err: any) {
