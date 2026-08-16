@@ -88,10 +88,9 @@ export async function POST() {
     if (binanceApiKey && binanceSecretKey && binanceOk) {
       try {
         const exchange = getBinanceClient(binanceApiKey, binanceSecretKey, isDemo);
-        // Fetch 50 actual recent 1m candles for BTCUSDT to test data parser
-        const ohlcv = await exchange.fetchOHLCV('BTCUSDT', '1m', undefined, 50);
-        const prices = ohlcv.map((c: any) => c[4]); // Closing prices
-        const result = analyzeStrategy(prices);
+        // Fetch 250 actual recent 1m candles for BTCUSDT to test data parser
+        const ohlcv = await exchange.fetchOHLCV('BTCUSDT', '1m', undefined, 250);
+        const result = analyzeStrategy(ohlcv as any, settings.active_strategy || 'RSI_MACD');
         
         if (isNaN(result.rsi)) {
           throw new Error('RSI calculation returned NaN on live candles');
@@ -108,11 +107,9 @@ export async function POST() {
       }
     } else {
       try {
-        const mockPrices = [
-          10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,
-          9, 8, 7, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
-        ];
-        const result = analyzeStrategy(mockPrices);
+        const mockPrices = Array.from({ length: 250 }, (_, i) => 10 + Math.sin(i / 10) * 5);
+        const mockOhlcv = mockPrices.map(price => [0, price, price, price, price, 0]);
+        const result = analyzeStrategy(mockOhlcv, settings.active_strategy || 'RSI_MACD');
         if (isNaN(result.rsi)) {
           throw new Error('RSI calculation returned NaN');
         }

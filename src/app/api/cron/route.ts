@@ -45,9 +45,10 @@ async function handleCron() {
         risk_amount: 10.0,
         pairs: [
           'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
-          'DOGEUSDT', 'ADAUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT',
-          'AVAXUSDT', 'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT',
-          'ATOMUSDT', 'XLMUSDT', 'BCHUSDT', 'OPUSDT', 'ARBUSDT'
+          'DOGEUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT', 'AVAXUSDT',
+          'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT', 'XLMUSDT',
+          'BCHUSDT', 'OPUSDT', 'ARBUSDT', 'PEPEUSDT', 'SUIUSDT',
+          'NEARUSDT', 'APTUSDT'
         ],
         telegram_token: process.env.TELEGRAM_TOKEN || '',
         telegram_chat_id: process.env.TELEGRAM_CHAT_ID || '',
@@ -254,18 +255,21 @@ async function handleCron() {
     const scanResults = await Promise.all(
       pairs.map(async (pair: string) => {
         try {
-          // Fetch 1m candles (limit 100 is sufficient for RSI(14) and MACD(12,26,9))
-          const ohlcv = await exchange.fetchOHLCV(pair, '1m', undefined, 100);
-          if (!ohlcv || ohlcv.length < 35) {
-            return { pair, error: 'Insufficient candles data' };
+          // Fetch 250 candles to satisfy EMA 200 length requirements
+          const ohlcv = await exchange.fetchOHLCV(pair, '1m', undefined, 250);
+          if (!ohlcv || ohlcv.length < 205) {
+            return { pair, error: 'Insufficient candles data (requires at least 205 candles)' };
           }
 
-          const closePrices = ohlcv.map((candle: any) => candle[4]); // Index 4 is Close
+          const closePrices = ohlcv.map((candle: any) => candle[4]);
           const currentPrice = closePrices[closePrices.length - 1];
 
-          const rsiMacdAnalysis = analyzeStrategy(closePrices, 'RSI_MACD');
-          const bbRsiAnalysis = analyzeStrategy(closePrices, 'BOLLINGER_RSI');
-          const doubleEmaAnalysis = analyzeStrategy(closePrices, 'DOUBLE_EMA');
+          const rsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'RSI_MACD');
+          const bbRsiAnalysis = analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI');
+          const doubleEmaAnalysis = analyzeStrategy(ohlcv as any, 'DOUBLE_EMA');
+          const supertrendEmaAnalysis = analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA');
+          const stochRsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD');
+          const atrBreakoutAnalysis = analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT');
 
           return {
             pair,
@@ -274,6 +278,9 @@ async function handleCron() {
               RSI_MACD: rsiMacdAnalysis,
               BOLLINGER_RSI: bbRsiAnalysis,
               DOUBLE_EMA: doubleEmaAnalysis,
+              SUPERTREND_EMA: supertrendEmaAnalysis,
+              STOCH_RSI_MACD: stochRsiMacdAnalysis,
+              ATR_BREAKOUT: atrBreakoutAnalysis,
             }
           };
         } catch (error: any) {
@@ -352,7 +359,7 @@ async function handleCron() {
     }
 
     // 3c. Evaluate and place signals for all strategies
-    const strategiesList = ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA'];
+    const strategiesList = ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT'];
 
     for (const result of scanResults) {
       if (!result || 'error' in result) {

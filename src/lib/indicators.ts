@@ -325,10 +325,279 @@ export function analyzeDoubleEma(prices: number[]): {
 }
 
 /**
+ * Calculate Average True Range (ATR)
+ */
+export function calculateATR(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  period: number = 14
+): number[] {
+  const len = closes.length;
+  const tr: number[] = [highs[0] - lows[0]];
+
+  for (let i = 1; i < len; i++) {
+    tr.push(Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    ));
+  }
+
+  const atr: number[] = new Array(len).fill(NaN);
+  if (len < period) return atr;
+
+  let sum = 0;
+  for (let i = 0; i < period; i++) {
+    sum += tr[i];
+  }
+  atr[period - 1] = sum / period;
+
+  for (let i = period; i < len; i++) {
+    atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
+  }
+
+  return atr;
+}
+
+/**
+ * Calculate Stochastic RSI
+ */
+export function calculateStochRSI(
+  rsi: number[],
+  period: number = 14,
+  smoothK: number = 3,
+  smoothD: number = 3
+): { k: number[]; d: number[] } {
+  const len = rsi.length;
+  const stochRsi: number[] = new Array(len).fill(NaN);
+  
+  for (let i = period - 1; i < len; i++) {
+    const windowSlice = rsi.slice(i - period + 1, i + 1);
+    const validValues = windowSlice.filter(v => !isNaN(v));
+    if (validValues.length < period) continue;
+
+    const minRsi = Math.min(...validValues);
+    const maxRsi = Math.max(...validValues);
+    const diff = maxRsi - minRsi;
+    
+    if (diff === 0) {
+      stochRsi[i] = 100;
+    } else {
+      stochRsi[i] = ((rsi[i] - minRsi) / diff) * 100;
+    }
+  }
+
+  // Smooth to K line
+  const k: number[] = new Array(len).fill(NaN);
+  for (let i = smoothK - 1; i < len; i++) {
+    const slice = stochRsi.slice(i - smoothK + 1, i + 1);
+    const valid = slice.filter(v => !isNaN(v));
+    if (valid.length < smoothK) continue;
+    k[i] = valid.reduce((sum, v) => sum + v, 0) / smoothK;
+  }
+
+  // Smooth to D line
+  const d: number[] = new Array(len).fill(NaN);
+  for (let i = smoothD - 1; i < len; i++) {
+    const slice = k.slice(i - smoothD + 1, i + 1);
+    const valid = slice.filter(v => !isNaN(v));
+    if (valid.length < smoothD) continue;
+    d[i] = valid.reduce((sum, v) => sum + v, 0) / smoothD;
+  }
+
+  return { k, d };
+}
+
+/**
+ * SuperTrend + 200 EMA strategy
+ */
+export function analyzeSuperTrendEma(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 205) {
+    return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+
+  const ema200 = calculateEMA(closes, 200);
+  const atr = calculateATR(highs, lows, closes, 10);
+
+  const multiplier = 3;
+  const trends: (string | null)[] = new Array(len).fill(null);
+  const finalUpper: number[] = new Array(len).fill(NaN);
+  const finalLower: number[] = new Array(len).fill(NaN);
+
+  const startIdx = 10;
+  finalUpper[startIdx] = (highs[startIdx] + lows[startIdx]) / 2 + multiplier * atr[startIdx];
+  finalLower[startIdx] = (highs[startIdx] + lows[startIdx]) / 2 - multiplier * atr[startIdx];
+  trends[startIdx] = 'LONG';
+
+  for (let i = startIdx + 1; i < len; i++) {
+    const basicUpper = (highs[i] + lows[i]) / 2 + multiplier * atr[i];
+    const basicLower = (highs[i] + lows[i]) / 2 - multiplier * atr[i];
+
+    if (basicUpper < finalUpper[i - 1] || closes[i - 1] > finalUpper[i - 1]) {
+      finalUpper[i] = basicUpper;
+    } else {
+      finalUpper[i] = finalUpper[i - 1];
+    }
+
+    if (basicLower > finalLower[i - 1] || closes[i - 1] < finalLower[i - 1]) {
+      finalLower[i] = basicLower;
+    } else {
+      finalLower[i] = finalLower[i - 1];
+    }
+
+    if (closes[i] > finalUpper[i]) {
+      trends[i] = 'LONG';
+    } else if (closes[i] < finalLower[i]) {
+      trends[i] = 'SHORT';
+    } else {
+      trends[i] = trends[i - 1] || 'LONG';
+    }
+  }
+
+  const currentIdx = len - 1;
+  const prevIdx = len - 2;
+
+  const currentTrend = trends[currentIdx];
+  const prevTrend = trends[prevIdx];
+  const currentClose = closes[currentIdx];
+  const currentEma200 = ema200[currentIdx];
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (prevTrend === 'SHORT' && currentTrend === 'LONG' && currentClose > currentEma200) {
+    direction = 'LONG';
+  } else if (prevTrend === 'LONG' && currentTrend === 'SHORT' && currentClose < currentEma200) {
+    direction = 'SHORT';
+  }
+
+  return {
+    rsi: atr[currentIdx] || 0, // Store ATR value in rsi space for UI reference
+    macdLine: currentClose,
+    signalLine: currentEma200,
+    direction,
+  };
+}
+
+/**
+ * Stochastic RSI + MACD Momentum strategy
+ */
+export function analyzeStochRsiMacd(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 35) {
+    return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  const closes = ohlcv.map(c => c[4]);
+  const rsi = calculateRSI(closes, 14);
+  const { k, d } = calculateStochRSI(rsi, 14, 3, 3);
+  const { macdLine, signalLine, histogram } = calculateMACD(closes, 12, 26, 9);
+
+  const currentIdx = len - 1;
+  const prevIdx = len - 2;
+
+  const kCurr = k[currentIdx];
+  const dCurr = d[currentIdx];
+  const kPrev = k[prevIdx];
+  const dPrev = d[prevIdx];
+  const histCurr = histogram[currentIdx];
+
+  if (isNaN(kCurr) || isNaN(dCurr) || isNaN(kPrev) || isNaN(dPrev) || isNaN(histCurr)) {
+    return { rsi: rsi[currentIdx] || 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  // Long: StochRSI bullish crossover in oversold (<20) AND MACD histogram positive
+  if (kPrev <= dPrev && kCurr > dCurr && kCurr < 20 && histCurr > 0) {
+    direction = 'LONG';
+  }
+  // Short: StochRSI bearish crossover in overbought (>80) AND MACD histogram negative
+  else if (kPrev >= dPrev && kCurr < dCurr && kCurr > 80 && histCurr < 0) {
+    direction = 'SHORT';
+  }
+
+  return {
+    rsi: kCurr, // Return StochRSI %K as rsi parameter for UI representation
+    macdLine: macdLine[currentIdx],
+    signalLine: signalLine[currentIdx],
+    direction,
+  };
+}
+
+/**
+ * ATR Channel Breakout strategy
+ */
+export function analyzeAtrBreakout(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 30) {
+    return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+
+  const ema20 = calculateEMA(closes, 20);
+  const atr = calculateATR(highs, lows, closes, 14);
+
+  const currentIdx = len - 1;
+  const prevIdx = len - 2;
+
+  const currentClose = closes[currentIdx];
+  const prevClose = closes[prevIdx];
+  const currentEma20 = ema20[currentIdx];
+  const currentAtr = atr[currentIdx];
+  const prevEma20 = ema20[prevIdx];
+  const prevAtr = atr[prevIdx];
+
+  if (isNaN(currentEma20) || isNaN(currentAtr) || isNaN(prevEma20) || isNaN(prevAtr)) {
+    return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  const upperBandCurrent = currentEma20 + 2 * currentAtr;
+  const lowerBandCurrent = currentEma20 - 2 * currentAtr;
+  const upperBandPrev = prevEma20 + 2 * prevAtr;
+  const lowerBandPrev = prevEma20 - 2 * prevAtr;
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (prevClose <= upperBandPrev && currentClose > upperBandCurrent) {
+    direction = 'LONG';
+  } else if (prevClose >= lowerBandPrev && currentClose < lowerBandCurrent) {
+    direction = 'SHORT';
+  }
+
+  return {
+    rsi: currentAtr, // Store ATR value
+    macdLine: upperBandCurrent,
+    signalLine: lowerBandCurrent,
+    direction,
+  };
+}
+
+/**
  * Main Dispatcher Strategy analysis function.
  */
 export function analyzeStrategy(
-  prices: number[],
+  ohlcv: number[][],
   strategy: string = 'RSI_MACD'
 ): {
   rsi: number;
@@ -336,11 +605,19 @@ export function analyzeStrategy(
   signalLine: number;
   direction: 'LONG' | 'SHORT' | 'NEUTRAL';
 } {
+  const closePrices = ohlcv.map((candle: any) => candle[4]);
+
   if (strategy === 'BOLLINGER_RSI') {
-    return analyzeBollingerRsi(prices);
+    return analyzeBollingerRsi(closePrices);
   } else if (strategy === 'DOUBLE_EMA') {
-    return analyzeDoubleEma(prices);
+    return analyzeDoubleEma(closePrices);
+  } else if (strategy === 'SUPERTREND_EMA') {
+    return analyzeSuperTrendEma(ohlcv);
+  } else if (strategy === 'STOCH_RSI_MACD') {
+    return analyzeStochRsiMacd(ohlcv);
+  } else if (strategy === 'ATR_BREAKOUT') {
+    return analyzeAtrBreakout(ohlcv);
   } else {
-    return analyzeRsiMacd(prices);
+    return analyzeRsiMacd(closePrices);
   }
 }
