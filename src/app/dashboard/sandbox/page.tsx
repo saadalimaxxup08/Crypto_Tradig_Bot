@@ -1031,7 +1031,7 @@ export default function SandboxPage() {
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl pointer-events-none" />
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
               Simulated Balance
             </span>
             <span className="p-2 bg-blue-950/30 border border-blue-900/50 rounded-xl text-blue-400">
@@ -1039,11 +1039,11 @@ export default function SandboxPage() {
             </span>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-extrabold tracking-tight text-zinc-100">
+            <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-100">
               {currentBalance.toFixed(2)}
               <span className="text-sm font-medium text-zinc-500 ml-1.5">USDT</span>
             </h3>
-            <p className="text-[9px] text-zinc-500 mt-1.5 font-semibold">
+            <p className="text-xs text-zinc-450 mt-2 font-semibold">
               {selectedStrategy !== activeStrategySetting 
                 ? 'Sandbox Account (Starts: 100 USDT)'
                 : 'Live Account Baseline'}
@@ -1055,7 +1055,7 @@ export default function SandboxPage() {
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
           <div className="flex justify-between items-start">
-            <span className={`text-[10px] font-bold uppercase tracking-widest ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            <span className={`text-xs font-bold uppercase tracking-wider ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               Total Net P&L
             </span>
             <span className={`p-2 rounded-xl border ${totalPnl >= 0 ? 'bg-emerald-950/30 border-emerald-900/50 text-emerald-400' : 'bg-red-950/30 border-red-900/50 text-red-400'}`}>
@@ -1063,12 +1063,12 @@ export default function SandboxPage() {
             </span>
           </div>
           <div className="mt-4">
-            <h3 className={`text-3xl font-extrabold tracking-tight ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            <h3 className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
               {totalPnl >= 0 ? '+' : ''}
               {totalPnl.toFixed(4)}
               <span className="text-sm font-medium ml-1.5">USDT</span>
             </h3>
-            <p className="text-[9px] text-zinc-500 mt-1.5 font-semibold">
+            <p className="text-xs text-zinc-450 mt-2 font-semibold">
               Closed realized + Open floating
             </p>
           </div>
@@ -1078,7 +1078,7 @@ export default function SandboxPage() {
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest text-purple-400">
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider text-purple-400">
               Win Rate %
             </span>
             <span className="p-2 bg-purple-950/30 border border-purple-900/50 rounded-xl text-purple-400">
@@ -1086,10 +1086,10 @@ export default function SandboxPage() {
             </span>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-extrabold tracking-tight text-purple-400">
+            <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-purple-400">
               {winRate.toFixed(1)}%
             </h3>
-            <p className="text-[9px] text-zinc-500 mt-1.5 font-semibold">
+            <p className="text-xs text-zinc-450 mt-2 font-semibold">
               Wins: {wins} | Losses: {losses}
             </p>
           </div>
@@ -1099,7 +1099,7 @@ export default function SandboxPage() {
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-zinc-500/5 rounded-full blur-2xl pointer-events-none" />
           <div className="flex justify-between items-start">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
               Total Closed Trades
             </span>
             <span className="p-2 bg-zinc-950/30 border border-zinc-800 rounded-xl text-zinc-400">
@@ -1107,7 +1107,7 @@ export default function SandboxPage() {
             </span>
           </div>
           <div className="mt-4">
-            <h3 className="text-3xl font-extrabold tracking-tight text-zinc-200">
+            <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-zinc-200">
               {totalTrades}
               <span className="text-sm font-medium text-zinc-500 ml-1.5">trades</span>
             </h3>
@@ -1118,7 +1118,7 @@ export default function SandboxPage() {
                 .filter((t) => t.closed_at && new Date(t.closed_at) >= startOfToday)
                 .reduce((sum, t) => sum + (t.pnl || 0), 0);
               return (
-                <p className="text-[9px] text-zinc-500 mt-1.5 font-semibold flex items-center gap-1">
+                <p className="text-xs text-zinc-450 mt-2 font-semibold flex items-center gap-1">
                   <span>Today P&L:</span>
                   <span className={dailyPnl >= 0 ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
                     {dailyPnl >= 0 ? '+' : ''}{dailyPnl.toFixed(4)} USDT
