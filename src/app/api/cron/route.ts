@@ -47,7 +47,7 @@ async function handleCron() {
           'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
           'DOGEUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT', 'AVAXUSDT',
           'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT', 'XLMUSDT',
-          'BCHUSDT', 'OPUSDT', 'ARBUSDT', 'PEPEUSDT', 'SUIUSDT',
+          'BCHUSDT', 'OPUSDT', 'ARBUSDT', '1000PEPEUSDT', 'SUIUSDT',
           'NEARUSDT', 'APTUSDT'
         ],
         telegram_token: process.env.TELEGRAM_TOKEN || '',
