@@ -450,7 +450,19 @@ export default function SummaryPage() {
         return b[1].pnl - a[1].pnl;
       });
 
-      if (sortedPairs.length > 0) {
+      let allConfiguredPairs = Object.keys(livePrices);
+      if (allConfiguredPairs.length === 0) {
+        allConfiguredPairs = [
+          'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
+          'DOGEUSDT', 'ADAUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT',
+          'AVAXUSDT', 'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT',
+          'ATOMUSDT', 'XLMUSDT', 'BCHUSDT', 'OPUSDT', 'ARBUSDT'
+        ];
+      }
+
+      const nonTradedPairs = allConfiguredPairs.filter((p) => !pairStats[p]);
+
+      if (sortedPairs.length > 0 || nonTradedPairs.length > 0) {
         if (currentY > 230) {
           doc.addPage();
           currentY = 20;
@@ -479,6 +491,7 @@ export default function SummaryPage() {
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(7.5);
 
+        // 1. Render Traded Pairs
         sortedPairs.forEach(([pair, stats]) => {
           if (currentY > 275) {
             doc.addPage();
@@ -504,6 +517,25 @@ export default function SummaryPage() {
             doc.text(`${stats.pnl.toFixed(4)} USDT`, 175, currentY);
           }
           doc.setFont('helvetica', 'normal');
+
+          doc.setDrawColor(240, 240, 245);
+          doc.line(14, currentY + 1.5, 196, currentY + 1.5);
+          currentY += 5.5;
+        });
+
+        // 2. Render Non-Traded Pairs (Blank / Zero Stats in Muted Gray)
+        nonTradedPairs.forEach((pair) => {
+          if (currentY > 275) {
+            doc.addPage();
+            currentY = 20;
+          }
+
+          doc.setTextColor(140, 140, 145); // Muted gray
+          doc.text(pair, 17, currentY);
+          doc.text("0", 64, currentY);
+          doc.text("0W - 0L", 100, currentY);
+          doc.text("0.0%", 140, currentY);
+          doc.text("0.0000 USDT", 175, currentY);
 
           doc.setDrawColor(240, 240, 245);
           doc.line(14, currentY + 1.5, 196, currentY + 1.5);
