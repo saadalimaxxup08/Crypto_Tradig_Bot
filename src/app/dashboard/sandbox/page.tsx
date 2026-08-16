@@ -1210,47 +1210,55 @@ export default function SandboxPage() {
                   <th className="pb-3 text-right">Exit Price</th>
                   <th className="pb-3 text-right">Risk (USDT)</th>
                   <th className="pb-3 text-right">Net Return</th>
+                  <th className="pb-3 text-right">Simulated Balance</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-800/50 text-xs">
-                {trades.map((t) => {
-                  const isWin = (t.pnl || 0) > 0;
-                  const closeTime = new Date(t.closed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
-                  return (
-                    <tr key={t.id} className="hover:bg-zinc-900/10">
-                      <td className="py-3.5 font-mono text-zinc-400">{closeTime}</td>
-                      <td className="py-3.5 font-bold text-zinc-200">{t.pair}</td>
-                      <td className="py-3.5 text-center">
-                        <span
-                          className={`px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase ${
-                            t.direction === 'LONG'
-                              ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                              : 'bg-red-950/20 border-red-900/50 text-red-400'
+                {(() => {
+                  let runningBal = 100.0;
+                  return trades.map((t) => {
+                    const isWin = (t.pnl || 0) > 0;
+                    const closeTime = new Date(t.closed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
+                    runningBal += (t.pnl || 0);
+                    return (
+                      <tr key={t.id} className="hover:bg-zinc-900/10">
+                        <td className="py-3.5 font-mono text-zinc-400">{closeTime}</td>
+                        <td className="py-3.5 font-bold text-zinc-200">{t.pair}</td>
+                        <td className="py-3.5 text-center">
+                          <span
+                            className={`px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase ${
+                              t.direction === 'LONG'
+                                ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+                                : 'bg-red-950/20 border-red-900/50 text-red-400'
+                            }`}
+                          >
+                            {t.direction}
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-right font-mono text-zinc-300">{t.entry_price}</td>
+                        <td className="py-3.5 text-right font-mono text-zinc-300">{t.exit_price || 'N/A'}</td>
+                        <td className="py-3.5 text-right text-zinc-400 font-mono">
+                          <div className="font-bold text-zinc-300">{t.margin ? `${t.margin.toFixed(1)} USDT` : '1.0 USDT'}</div>
+                          <div className="text-[9px] text-zinc-500">{t.leverage || 20}x leverage</div>
+                        </td>
+                        <td
+                          className={`py-3.5 text-right font-mono font-bold flex items-center justify-end gap-1 ${
+                            isWin ? 'text-emerald-400' : 'text-red-400'
                           }`}
                         >
-                          {t.direction}
-                        </span>
-                      </td>
-                      <td className="py-3.5 text-right font-mono text-zinc-300">{t.entry_price}</td>
-                      <td className="py-3.5 text-right font-mono text-zinc-300">{t.exit_price || 'N/A'}</td>
-                      <td className="py-3.5 text-right text-zinc-400 font-mono">
-                        <div className="font-bold text-zinc-300">{t.margin ? `${t.margin.toFixed(1)} USDT` : '1.0 USDT'}</div>
-                        <div className="text-[9px] text-zinc-500">{t.leverage || 20}x leverage</div>
-                      </td>
-                      <td
-                        className={`py-3.5 text-right font-mono font-bold flex items-center justify-end gap-1 ${
-                          isWin ? 'text-emerald-400' : 'text-red-400'
-                        }`}
-                      >
-                        {isWin ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                        <span>
-                          {isWin ? '+' : ''}
-                          {(t.pnl || 0).toFixed(2)} USDT
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
+                          {isWin ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                          <span>
+                            {isWin ? '+' : ''}
+                            {(t.pnl || 0).toFixed(2)} USDT
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-right font-mono font-bold text-zinc-300">
+                          {runningBal.toFixed(2)} USDT
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </div>
