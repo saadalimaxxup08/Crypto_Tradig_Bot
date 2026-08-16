@@ -161,51 +161,117 @@ export default function SummaryPage() {
       format: 'a4'
     });
 
-    // Header Title
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text("CryptoAI VIP Trader Terminal", 14, 20);
+    // 1. Header Dark Banner Branding
+    doc.setFillColor(15, 15, 20); // Dark carbon color
+    doc.rect(0, 0, 210, 32, 'F');
     
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text("Performance Summary Report & Active Ledger", 14, 25);
-    doc.text(`Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}`, 14, 30);
-    doc.line(14, 33, 196, 33);
-
-    // Summary Metrics Section
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text("SUMMARY PERFORMANCE METRICS", 14, 40);
-
+    doc.setFontSize(16);
+    doc.text("CryptoAI VIP Trader Terminal", 14, 13);
+    
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(`Total Closed Trades: ${totalTrades}`, 14, 46);
-    doc.text(`Win Rate %: ${winRate.toFixed(1)}% (Wins: ${wins} / Losses: ${losses})`, 14, 51);
-    doc.text(`Net Cumulative P&L: ${netPnl.toFixed(4)} USDT`, 14, 56);
-    doc.text(`Avg Trade P&L: ${(totalTrades > 0 ? netPnl / totalTrades : 0).toFixed(4)} USDT`, 14, 61);
+    doc.setTextColor(160, 160, 165);
+    doc.text("Performance Summary Report & Verified Ledger (Jeddah Time)", 14, 19);
+    
+    const dateRangeStr = `Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}`;
+    doc.text(dateRangeStr, 196, 19, { align: 'right' });
 
-    doc.line(14, 66, 196, 66);
+    // 2. Metrics Bounding Box Cards Grid
+    const cardY = 40;
+    const cardH = 18;
+    
+    // Default border/fills styling for cards
+    doc.setDrawColor(225, 225, 230);
+    doc.setFillColor(255, 255, 255);
 
-    let currentY = 73;
+    // Card 1: Total Trades
+    doc.rect(14, cardY, 41, cardH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("TOTAL CLOSED TRADES", 17, cardY + 5);
+    doc.setFontSize(11);
+    doc.setTextColor(30, 30, 35);
+    doc.text(`${totalTrades}`, 17, cardY + 12);
 
-    // Active positions table
+    // Card 2: Win Rate
+    doc.rect(59, cardY, 41, cardH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("WIN RATE SPEED", 62, cardY + 5);
+    doc.setFontSize(11);
+    doc.setTextColor(147, 51, 234); // Purple win rate
+    doc.text(`${winRate.toFixed(1)}%`, 62, cardY + 12);
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text(`Wins: ${wins} / Losses: ${losses}`, 62, cardY + 16);
+
+    // Card 3: Total P&L
+    doc.rect(104, cardY, 44, cardH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("NET CUMULATIVE P&L", 107, cardY + 5);
+    doc.setFontSize(11);
+    if (netPnl >= 0) {
+      doc.setTextColor(16, 185, 129); // Green
+      doc.text(`+${netPnl.toFixed(4)}`, 107, cardY + 12);
+    } else {
+      doc.setTextColor(239, 68, 68); // Red
+      doc.text(`${netPnl.toFixed(4)}`, 107, cardY + 12);
+    }
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("USDT (net values)", 107, cardY + 16);
+
+    // Card 4: Avg Trade Return
+    doc.rect(152, cardY, 44, cardH);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("AVERAGE RETURN", 155, cardY + 5);
+    doc.setFontSize(11);
+    const avgReturn = totalTrades > 0 ? netPnl / totalTrades : 0;
+    if (avgReturn >= 0) {
+      doc.setTextColor(16, 185, 129); // Green
+      doc.text(`+${avgReturn.toFixed(4)}`, 155, cardY + 12);
+    } else {
+      doc.setTextColor(239, 68, 68); // Red
+      doc.text(`${avgReturn.toFixed(4)}`, 155, cardY + 12);
+    }
+    doc.setFontSize(6.5);
+    doc.setTextColor(120, 120, 125);
+    doc.text("USDT per operation", 155, cardY + 16);
+
+    let currentY = 70;
+
+    // 3. Active Positions Table
     if (activeTrades.length > 0) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
+      doc.setFontSize(10);
+      doc.setTextColor(30, 30, 35);
       doc.text(`ACTIVE RUNNING POSITIONS (${activeTrades.length})`, 14, currentY);
-      currentY += 5;
+      currentY += 4;
 
-      doc.setFontSize(8);
-      doc.text("Open Time", 14, currentY);
-      doc.text("Pair", 52, currentY);
-      doc.text("Dir", 80, currentY);
-      doc.text("Entry Price", 93, currentY);
-      doc.text("Live Price", 120, currentY);
-      doc.text("Duration", 148, currentY);
-      doc.text("Margin", 170, currentY);
-      doc.text("Floating P&L", 188, currentY);
-      currentY += 3;
-      doc.line(14, currentY - 1, 196, currentY - 1);
+      // Table Header Row background fill
+      doc.setFillColor(245, 245, 248);
+      doc.rect(14, currentY - 4, 182, 6, 'F');
+      
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(80, 80, 85);
+      doc.text("Open Time (Jeddah)", 17, currentY);
+      doc.text("Pair", 54, currentY);
+      doc.text("Direction", 80, currentY);
+      doc.text("Entry Price", 98, currentY);
+      doc.text("Live Price", 125, currentY);
+      doc.text("Duration", 152, currentY);
+      doc.text("Floating P&L", 175, currentY);
+      
+      currentY += 4;
 
       doc.setFont('helvetica', 'normal');
       activeTrades.forEach((t) => {
@@ -215,7 +281,7 @@ export default function SummaryPage() {
         }
         const curPrice = livePrices[t.pair] || t.entry_price;
         const pnl = (curPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-        const entryTime = new Date(t.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' });
+        const entryTime = new Date(t.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false });
         
         const timeInMarket = new Date(t.timestamp);
         const durationMs = Date.now() - timeInMarket.getTime();
@@ -223,44 +289,77 @@ export default function SummaryPage() {
         const durationMins = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
         const durationStr = durationHours > 0 ? `${durationHours}h ${durationMins}m` : `${durationMins}m`;
 
-        doc.text(entryTime, 14, currentY);
-        doc.text(t.pair, 52, currentY);
-        doc.text(t.direction, 80, currentY);
-        doc.text(t.entry_price.toFixed(4), 93, currentY);
-        doc.text(curPrice.toFixed(4), 120, currentY);
-        doc.text(durationStr, 148, currentY);
-        doc.text(`${(t.margin || 1.0).toFixed(1)} USDT`, 170, currentY);
-        doc.text(`${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USDT`, 188, currentY);
+        doc.setTextColor(30, 30, 35);
+        doc.text(entryTime, 17, currentY);
+        doc.text(t.pair, 54, currentY);
+        
+        // Direction highlight
+        if (t.direction === 'LONG') {
+          doc.setTextColor(16, 185, 129);
+          doc.setFont('helvetica', 'bold');
+          doc.text("LONG", 80, currentY);
+        } else {
+          doc.setTextColor(239, 68, 68);
+          doc.setFont('helvetica', 'bold');
+          doc.text("SHORT", 80, currentY);
+        }
+        doc.setFont('helvetica', 'normal');
+        
+        doc.setTextColor(80, 80, 85);
+        doc.text(t.entry_price.toFixed(4), 98, currentY);
+        doc.text(curPrice.toFixed(4), 125, currentY);
+        doc.text(durationStr, 152, currentY);
+
+        // Floating P&L highlight
+        if (pnl >= 0) {
+          doc.setTextColor(16, 185, 129);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`+${pnl.toFixed(2)} USDT`, 175, currentY);
+        } else {
+          doc.setTextColor(239, 68, 68);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`${pnl.toFixed(2)} USDT`, 175, currentY);
+        }
+        doc.setFont('helvetica', 'normal');
+
+        // Draw light divider line
+        doc.setDrawColor(240, 240, 245);
+        doc.line(14, currentY + 1.5, 196, currentY + 1.5);
         currentY += 5.5;
       });
 
-      currentY += 2;
-      doc.line(14, currentY - 1, 196, currentY - 1);
-      currentY += 4;
+      currentY += 5;
     }
 
-    // Closed Trades table
+    // 4. Closed Trades Ledger Table
     if (currentY > 250) {
       doc.addPage();
       currentY = 20;
     }
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10);
+    doc.setTextColor(30, 30, 35);
     doc.text(`CLOSED TRADES LEDGER (${trades.length})`, 14, currentY);
-    currentY += 5;
+    currentY += 4;
 
-    doc.setFontSize(8);
-    doc.text("Close Time", 14, currentY);
-    doc.text("Pair", 52, currentY);
-    doc.text("Dir", 80, currentY);
-    doc.text("Entry Price", 93, currentY);
-    doc.text("Exit Price", 120, currentY);
-    doc.text("Margin", 148, currentY);
-    doc.text("Leverage", 170, currentY);
-    doc.text("Realized P&L", 188, currentY);
-    currentY += 3;
-    doc.line(14, currentY - 1, 196, currentY - 1);
+    // Table Header Row background fill
+    doc.setFillColor(245, 245, 248);
+    doc.rect(14, currentY - 4, 182, 6, 'F');
+
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(80, 80, 85);
+    doc.text("Close Time (Jeddah)", 17, currentY);
+    doc.text("Pair", 54, currentY);
+    doc.text("Direction", 80, currentY);
+    doc.text("Entry Price", 98, currentY);
+    doc.text("Exit Price", 125, currentY);
+    doc.text("Margin", 152, currentY);
+    doc.text("Leverage", 168, currentY);
+    doc.text("Realized P&L", 180, currentY);
+    
+    currentY += 4;
 
     doc.setFont('helvetica', 'normal');
     trades.forEach((t) => {
@@ -268,17 +367,47 @@ export default function SummaryPage() {
         doc.addPage();
         currentY = 20;
       }
-      const closeTime = new Date(t.closed_at).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit' });
-      const sign = (t.pnl || 0) >= 0 ? '+' : '';
+      const closeTime = new Date(t.closed_at).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false });
+      const pnlVal = t.pnl || 0;
+      const isWin = pnlVal >= 0;
 
-      doc.text(closeTime, 14, currentY);
-      doc.text(t.pair, 52, currentY);
-      doc.text(t.direction, 80, currentY);
-      doc.text(t.entry_price.toFixed(4), 93, currentY);
-      doc.text(t.exit_price ? t.exit_price.toFixed(4) : 'N/A', 120, currentY);
-      doc.text(`${(t.margin || 10.0).toFixed(1)} USDT`, 148, currentY);
-      doc.text(`${t.leverage || 20}x`, 170, currentY);
-      doc.text(`${sign}${(t.pnl || 0).toFixed(2)} USDT`, 188, currentY);
+      doc.setTextColor(30, 30, 35);
+      doc.text(closeTime, 17, currentY);
+      doc.text(t.pair, 54, currentY);
+
+      // Direction highlight
+      if (t.direction === 'LONG') {
+        doc.setTextColor(16, 185, 129);
+        doc.setFont('helvetica', 'bold');
+        doc.text("LONG", 80, currentY);
+      } else {
+        doc.setTextColor(239, 68, 68);
+        doc.setFont('helvetica', 'bold');
+        doc.text("SHORT", 80, currentY);
+      }
+      doc.setFont('helvetica', 'normal');
+
+      doc.setTextColor(80, 80, 85);
+      doc.text(t.entry_price.toFixed(4), 98, currentY);
+      doc.text(t.exit_price ? t.exit_price.toFixed(4) : 'N/A', 125, currentY);
+      doc.text(`${(t.margin || 1.0).toFixed(1)} USDT`, 152, currentY);
+      doc.text(`${t.leverage || 20}x`, 168, currentY);
+
+      // Realized P&L highlight
+      if (isWin) {
+        doc.setTextColor(16, 185, 129);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`+${pnlVal.toFixed(2)} USDT`, 180, currentY);
+      } else {
+        doc.setTextColor(239, 68, 68);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${pnlVal.toFixed(2)} USDT`, 180, currentY);
+      }
+      doc.setFont('helvetica', 'normal');
+
+      // Row divider
+      doc.setDrawColor(240, 240, 245);
+      doc.line(14, currentY + 1.5, 196, currentY + 1.5);
       currentY += 5.5;
     });
 
