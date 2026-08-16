@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Terminal as TerminalIcon, Cpu, Layers, Wifi, Play, Trash2, HelpCircle, Activity } from 'lucide-react';
 
 interface TerminalLine {
@@ -12,6 +12,7 @@ interface TerminalLine {
 export default function ConsolePage() {
   const [logs, setLogs] = useState<TerminalLine[]>([]);
   const [inputValue, setInputValue] = useState('');
+  const [settings, setSettings] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [latency, setLatency] = useState({ binance: 42, supabase: 95, vercel: 12 });
   const [stats, setStats] = useState({ cpu: 12, ram: 45, apiWeight: 22 });
@@ -70,6 +71,9 @@ export default function ConsolePage() {
     try {
       const res = await fetch('/api/settings');
       const data = await res.json();
+      if (res.ok) {
+        setSettings(data);
+      }
       if (res.ok && data.last_scan_logs) {
         const dbLogs: TerminalLine[] = data.last_scan_logs.map((log: string) => ({
           text: log,
@@ -127,8 +131,9 @@ export default function ConsolePage() {
           { text: `Scan executed successfully in ${duration}s. 22 Pairs scanned. Database synced.`, type: 'success', time: getJeddahTimeStr() }
         ]);
         
-        // Refresh weights
+        // Refresh weights and settings state
         setStats((prev) => ({ ...prev, apiWeight: 22 }));
+        fetchLiveLogs(true);
       } else {
         setLogs((prev) => [
           ...prev,
@@ -223,6 +228,52 @@ export default function ConsolePage() {
     }
   };
 
+  const anomalies = useMemo(() => {
+    const list: { text: string; level: 'warning' | 'critical' }[] = [];
+    if (!settings) return list;
+
+    // 1. Bot status check
+    if (!settings.bot_enabled) {
+      list.push({ text: 'Bot status is set to PAUSED. Automated entry loops will skip signals.', level: 'warning' });
+    }
+
+    // 2. Key components verify
+    const isDemo = settings.binance_demo_api_key ? true : false;
+    if (isDemo && (!settings.binance_demo_api_key || !settings.binance_demo_secret_key)) {
+      list.push({ text: 'Credentials check failed: Binance DEMO API/Secret keys are missing or invalid.', level: 'critical' });
+    } else if (!isDemo && (!settings.binance_real_api_key || !settings.binance_real_secret_key)) {
+      list.push({ text: 'Credentials check failed: Binance LIVE API/Secret keys are missing or invalid.', level: 'critical' });
+    }
+
+    if (!settings.telegram_token || !settings.telegram_chat_id) {
+      list.push({ text: 'Telegram bot credentials missing. Real-time alert broadcasts are disabled.', level: 'warning' });
+    }
+
+    // 3. Last scanner execution lag check (Heartbeat delay)
+    if (settings.updated_at) {
+      const lastUpdate = new Date(settings.updated_at);
+      const diffMins = (Date.now() - lastUpdate.getTime()) / (1000 * 60);
+      if (diffMins > 5) {
+        list.push({ 
+          text: `Heartbeat delay: Bot scanner last updated the database ${Math.floor(diffMins)} minutes ago. Verify if the scheduler cron trigger is active.`, 
+          level: 'critical' 
+        });
+      }
+    }
+
+    // 4. Execution faults in logs
+    if (settings.last_scan_logs && settings.last_scan_logs.length > 0) {
+      settings.last_scan_logs.forEach((log: string) => {
+        const lowerLog = log.toLowerCase();
+        if (lowerLog.includes('error') || lowerLog.includes('failed') || lowerLog.includes('timeout') || lowerLog.includes('insufficient')) {
+          list.push({ text: `Execution Anomaly: "${log}"`, level: 'warning' });
+        }
+      });
+    }
+
+    return list;
+  }, [settings]);
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Page Header */}
@@ -247,6 +298,31 @@ export default function ConsolePage() {
           <span>{isScanning ? 'Scanning...' : 'Trigger Manual Scan'}</span>
         </button>
       </div>
+
+      {/* System Diagnostics & Anomalies Audit Panel */}
+      {anomalies.length === 0 ? (
+        <div className="bg-emerald-950/10 border border-emerald-900/40 p-4.5 rounded-3xl flex items-center gap-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50 animate-pulse shrink-0" />
+          <div className="flex flex-wrap items-baseline gap-2">
+            <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">SYSTEM STATUS NOMINAL</span>
+            <span className="text-xs text-zinc-400">No execution delays, credential failures, or coin scanner anomalies detected in database audits.</span>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-amber-950/15 border border-amber-800/40 p-5 rounded-3xl space-y-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-md shadow-amber-500/50 animate-pulse shrink-0" />
+            <span className="text-xs font-black text-amber-400 uppercase tracking-wider">SYSTEM DIAGNOSTICS & AUDIT WARNINGS ({anomalies.length})</span>
+          </div>
+          <ul className="space-y-1.5 text-xs text-zinc-455 pl-4 list-disc">
+            {anomalies.map((anom: { text: string; level: 'warning' | 'critical' }, i: number) => (
+              <li key={i} className={anom.level === 'critical' ? 'text-red-400/90 font-semibold' : 'text-amber-400/95'}>
+                {anom.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Side-by-Side Console & Diagnostics Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
