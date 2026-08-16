@@ -29,6 +29,7 @@ export default function SummaryPage() {
   const [livePrices, setLivePrices] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [includePairwise, setIncludePairwise] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
   const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA'>('RSI_MACD');
@@ -411,6 +412,107 @@ export default function SummaryPage() {
       currentY += 5.5;
     });
 
+    // 5. Dynamic Pair-wise Performance Summary
+    if (includePairwise) {
+      const pairStats: Record<string, { total: number; wins: number; pnl: number }> = {};
+      trades.forEach((t) => {
+        if (!pairStats[t.pair]) {
+          pairStats[t.pair] = { total: 0, wins: 0, pnl: 0 };
+        }
+        pairStats[t.pair].total += 1;
+        if ((t.pnl || 0) > 0) {
+          pairStats[t.pair].wins += 1;
+        }
+        pairStats[t.pair].pnl += (t.pnl || 0);
+      });
+
+      const sortedPairs = Object.entries(pairStats).sort((a, b) => b[1].pnl - a[1].pnl);
+
+      if (sortedPairs.length > 0) {
+        if (currentY > 230) {
+          doc.addPage();
+          currentY = 20;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(30, 30, 35);
+        doc.text("PAIR-WISE PERFORMANCE SUMMARY", 14, currentY);
+        currentY += 4;
+
+        // Table Header fill
+        doc.setFillColor(245, 245, 248);
+        doc.rect(14, currentY - 4, 182, 6, 'F');
+
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(80, 80, 85);
+        doc.text("Asset Pair", 17, currentY);
+        doc.text("Total Trades", 64, currentY);
+        doc.text("Wins / Losses", 100, currentY);
+        doc.text("Win Rate %", 140, currentY);
+        doc.text("Net Realized P&L", 175, currentY);
+        currentY += 4;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+
+        sortedPairs.forEach(([pair, stats]) => {
+          if (currentY > 275) {
+            doc.addPage();
+            currentY = 20;
+          }
+
+          const wr = stats.total > 0 ? (stats.wins / stats.total) * 100 : 0;
+          const ls = stats.total - stats.wins;
+
+          doc.setTextColor(30, 30, 35);
+          doc.text(pair, 17, currentY);
+          doc.text(stats.total.toString(), 64, currentY);
+          doc.text(`${stats.wins}W - ${ls}L`, 100, currentY);
+          doc.text(`${wr.toFixed(1)}%`, 140, currentY);
+
+          if (stats.pnl >= 0) {
+            doc.setTextColor(16, 185, 129);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`+${stats.pnl.toFixed(4)} USDT`, 175, currentY);
+          } else {
+            doc.setTextColor(239, 68, 68);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${stats.pnl.toFixed(4)} USDT`, 175, currentY);
+          }
+          doc.setFont('helvetica', 'normal');
+
+          doc.setDrawColor(240, 240, 245);
+          doc.line(14, currentY + 1.5, 196, currentY + 1.5);
+          currentY += 5.5;
+        });
+
+        // Total Row at the bottom of pairwise table
+        if (currentY > 275) {
+          doc.addPage();
+          currentY = 20;
+        }
+        doc.setFillColor(250, 250, 252);
+        doc.rect(14, currentY - 4, 182, 6, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(30, 30, 35);
+        doc.text("TOTAL CUMULATIVE P&L", 17, currentY);
+        
+        if (netPnl >= 0) {
+          doc.setTextColor(16, 185, 129);
+          doc.text(`+${netPnl.toFixed(4)} USDT`, 175, currentY);
+        } else {
+          doc.setTextColor(239, 68, 68);
+          doc.text(`${netPnl.toFixed(4)} USDT`, 175, currentY);
+        }
+        doc.setFont('helvetica', 'normal');
+        doc.setDrawColor(200, 200, 205);
+        doc.line(14, currentY + 2, 196, currentY + 2);
+        currentY += 8;
+      }
+    }
+
     if (download) {
       doc.save(`CryptoAI_Report_${startDate}_to_${endDate}.pdf`);
       return null;
@@ -527,6 +629,16 @@ export default function SummaryPage() {
 
         {/* Actions Row */}
         <div className="flex flex-wrap items-center gap-3">
+          <label className="flex items-center gap-2.5 text-xs font-bold text-zinc-400 hover:text-zinc-200 cursor-pointer select-none border border-zinc-800 bg-zinc-950/30 px-3.5 py-2.5 rounded-xl transition-all">
+            <input
+              type="checkbox"
+              checked={includePairwise}
+              onChange={(e) => setIncludePairwise(e.target.checked)}
+              className="w-3.5 h-3.5 accent-emerald-500 rounded border-zinc-750 bg-zinc-900 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+            />
+            <span>Include Pair-wise Summary</span>
+          </label>
+
           <button
             onClick={handleDownloadPDF}
             className="flex items-center gap-2 px-4 py-2.5 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-200 cursor-pointer"
