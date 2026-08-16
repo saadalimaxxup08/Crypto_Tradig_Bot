@@ -169,7 +169,7 @@ export default function SandboxPage() {
   }, [activeTrades.map(t => t.pair).sort().join(',')]);
 
   // Set quick ranges
-  const setRangeQuick = (rangeType: 'today' | 'yesterday' | 'week' | 'month') => {
+  const setRangeQuick = (rangeType: 'today' | 'yesterday' | '2days' | '3days' | '5days' | 'week' | 'month') => {
     setHourlyFilter('none');
     const today = new Date();
     const formatDateStr = (d: Date) => d.toISOString().split('T')[0];
@@ -182,6 +182,21 @@ export default function SandboxPage() {
       yesterday.setDate(today.getDate() - 1);
       setStartDate(formatDateStr(yesterday));
       setEndDate(formatDateStr(yesterday));
+    } else if (rangeType === '2days') {
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(today.getDate() - 2);
+      setStartDate(formatDateStr(twoDaysAgo));
+      setEndDate(formatDateStr(today));
+    } else if (rangeType === '3days') {
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(today.getDate() - 3);
+      setStartDate(formatDateStr(threeDaysAgo));
+      setEndDate(formatDateStr(today));
+    } else if (rangeType === '5days') {
+      const fiveDaysAgo = new Date();
+      fiveDaysAgo.setDate(today.getDate() - 5);
+      setStartDate(formatDateStr(fiveDaysAgo));
+      setEndDate(formatDateStr(today));
     } else if (rangeType === 'week') {
       const weekAgo = new Date();
       weekAgo.setDate(today.getDate() - 7);
@@ -816,6 +831,39 @@ export default function SandboxPage() {
                 }`}
               >
                 Yesterday
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeQuick('2days')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === 'none' && startDate === new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0] && endDate === new Date().toISOString().split('T')[0]
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Last 2 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeQuick('3days')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === 'none' && startDate === new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0] && endDate === new Date().toISOString().split('T')[0]
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Last 3 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeQuick('5days')}
+                className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  hourlyFilter === 'none' && startDate === new Date(Date.now() - 5 * 86400000).toISOString().split('T')[0] && endDate === new Date().toISOString().split('T')[0]
+                    ? 'bg-emerald-500 border-emerald-600 text-zinc-950 shadow-md shadow-emerald-500/10'
+                    : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                Last 5 Days
               </button>
               <button
                 type="button"
