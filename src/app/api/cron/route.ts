@@ -289,6 +289,9 @@ async function handleCron() {
       })
     );
 
+    const fetchDuration = Date.now() - startTime;
+    logs.push(`Binance fetch & Technical Analysis complete in ${fetchDuration}ms.`);
+
     // Build prices map for paper trade matching
     const pricesMap: Record<string, number> = {};
     for (const result of scanResults) {
@@ -357,6 +360,9 @@ async function handleCron() {
     } catch (paperErr: any) {
       logs.push(`Error managing paper trades: ${paperErr.message}`);
     }
+
+    const paperDuration = Date.now() - startTime - fetchDuration;
+    logs.push(`Paper trades audit complete in ${paperDuration}ms.`);
 
     // 3c. Evaluate and place signals for all strategies
     const strategiesList = ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT'];
@@ -506,6 +512,9 @@ async function handleCron() {
         }
       }
     }
+
+    const signalsDuration = Date.now() - startTime - fetchDuration - paperDuration;
+    logs.push(`Active strategies signal execution complete in ${signalsDuration}ms.`);
 
     // 4. Hourly System Check & Trades Report
     try {

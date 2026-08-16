@@ -293,6 +293,39 @@ export default function ConsolePage() {
     return list;
   }, [settings]);
 
+  const profileStats = useMemo(() => {
+    let fetchTime = '0ms';
+    let paperTime = '0ms';
+    let signalsTime = '0ms';
+    let totalTime = '0ms';
+    let scanTimestamp = '';
+
+    for (let i = logs.length - 1; i >= 0; i--) {
+      const text = logs[i].text;
+      if (text.includes('Binance fetch & Technical Analysis complete in')) {
+        const match = text.match(/complete in (\d+)ms/);
+        if (match) fetchTime = `${match[1]}ms`;
+      }
+      if (text.includes('Paper trades audit complete in')) {
+        const match = text.match(/complete in (\d+)ms/);
+        if (match) paperTime = `${match[1]}ms`;
+      }
+      if (text.includes('Active strategies signal execution complete in')) {
+        const match = text.match(/complete in (\d+)ms/);
+        if (match) signalsTime = `${match[1]}ms`;
+      }
+      if (text.includes('Cron complete. Duration:')) {
+        const match = text.match(/Duration: (\d+)ms/);
+        if (match) {
+          totalTime = `${match[1]}ms`;
+          scanTimestamp = logs[i].time;
+        }
+      }
+    }
+
+    return { fetchTime, paperTime, signalsTime, totalTime, scanTimestamp };
+  }, [logs]);
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Page Header */}
@@ -483,7 +516,39 @@ export default function ConsolePage() {
             </div>
           </div>
 
-          {/* Section 3: Clean helper notes */}
+          {/* Section 3: Execution Timeline Profiler */}
+          <div className="space-y-4">
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 border-b border-zinc-850 pb-2">
+              <Activity className="w-4 h-4 text-emerald-400" />
+              <span>Execution Timeline Profiler</span>
+            </span>
+
+            <div className="space-y-3 font-mono text-[10px]">
+              <div className="flex items-center justify-between p-2.5 bg-zinc-950/20 border border-zinc-900/60 rounded-xl">
+                <span className="text-zinc-500">1. Data Fetch & TA</span>
+                <span className="text-zinc-300 font-extrabold">{profileStats.fetchTime}</span>
+              </div>
+              <div className="flex items-center justify-between p-2.5 bg-zinc-950/20 border border-zinc-900/60 rounded-xl">
+                <span className="text-zinc-500">2. Paper Trades Audit</span>
+                <span className="text-zinc-300 font-extrabold">{profileStats.paperTime}</span>
+              </div>
+              <div className="flex items-center justify-between p-2.5 bg-zinc-950/20 border border-zinc-900/60 rounded-xl">
+                <span className="text-zinc-500">3. Signals Placement</span>
+                <span className="text-zinc-300 font-extrabold">{profileStats.signalsTime}</span>
+              </div>
+              <div className="flex items-center justify-between p-2.5 bg-emerald-950/10 border border-emerald-900/40 rounded-xl text-emerald-400 animate-pulse">
+                <span className="font-bold">Total Cron Duration</span>
+                <span className="font-extrabold">{profileStats.totalTime}</span>
+              </div>
+              {profileStats.scanTimestamp && (
+                <div className="text-right text-[8.5px] text-zinc-500 italic">
+                  Profiled: {profileStats.scanTimestamp} Jeddah Time
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 4: Clean helper notes */}
           <div className="bg-[#050507] border border-zinc-850 p-4 rounded-2xl flex items-start gap-2.5">
             <HelpCircle className="w-5 h-5 text-zinc-500 shrink-0 mt-0.5" />
             <p className="text-[10px] text-zinc-450 leading-relaxed font-medium">
