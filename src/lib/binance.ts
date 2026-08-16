@@ -12,6 +12,7 @@ export function getBinanceClient(apiKey: string, secretKey: string, isDemo: bool
     apiKey: apiKey,
     secret: secretKey,
     enableRateLimit: true,
+    timeout: 5000, // Abort requests taking longer than 5 seconds to prevent thread stalling
   });
 
   // Enable/Disable Binance Demo Trading dynamically
