@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { FileText, Calendar, Download, Send, ArrowUpRight, ArrowDownRight, Layers, HelpCircle, DollarSign, TrendingUp, Percent } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { FileText, Calendar, Download, Send, ArrowUpRight, ArrowDownRight, Layers, HelpCircle, DollarSign, TrendingUp, Percent, Trophy } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 
 interface Trade {
@@ -216,6 +216,56 @@ export default function SandboxPage() {
     setStartDate(today);
     setEndDate(today);
   };
+
+  const leaderboard = useMemo(() => {
+    return ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT'].map(strat => {
+      const isPaper = strat !== activeStrategySetting;
+      const stratTrades = allRawTrades.filter(t => 
+        (t.strategy || 'RSI_MACD') === strat && 
+        (isPaper ? t.is_paper : !t.is_paper)
+      );
+      
+      const closed = stratTrades.filter((t) => {
+        if (t.status !== 'CLOSED' || !t.closed_at) return false;
+        const closedTime = new Date(t.closed_at);
+        if (hourlyFilter !== 'none') {
+          const hours = hourlyFilter === '1h' ? 1 : hourlyFilter === '3h' ? 3 : hourlyFilter === '6h' ? 6 : 12;
+          const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
+          return closedTime >= cutoff;
+        } else {
+          const startBoundary = new Date(startDate);
+          startBoundary.setHours(0, 0, 0, 0);
+          const endBoundary = new Date(endDate);
+          endBoundary.setHours(23, 59, 59, 999);
+          return closedTime >= startBoundary && closedTime <= endBoundary;
+        }
+      });
+
+      const active = stratTrades.filter(t => t.status === 'OPEN');
+      const realizedPnl = closed.reduce((sum, t) => sum + (t.pnl || 0), 0);
+      const floatingPnl = active.reduce((sum, t) => {
+        const curPrice = livePrices[t.pair] || t.entry_price;
+        return sum + ((curPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1));
+      }, 0);
+
+      const netPnl = realizedPnl + floatingPnl;
+      const total = closed.length;
+      const wins = closed.filter(t => (t.pnl || 0) > 0).length;
+      const losses = total - wins;
+      const winRate = total > 0 ? (wins / total) * 100 : 0;
+      const balance = 100.0 + netPnl;
+
+      return {
+        strategy: strat,
+        balance,
+        netPnl,
+        winRate,
+        totalTrades: total,
+        wins,
+        losses
+      };
+    }).sort((a, b) => b.balance - a.balance);
+  }, [allRawTrades, livePrices, startDate, endDate, hourlyFilter, activeStrategySetting]);
 
   // Compile calculations
   const totalTrades = trades.length;
@@ -703,101 +753,171 @@ export default function SandboxPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[#0c0c0f]/40 backdrop-blur-md border border-zinc-800/80 p-6 rounded-3xl">
-        <div>
-          <h2 className="text-2xl font-extrabold tracking-tight">Strategy Testing Sandbox</h2>
-          <p className="text-sm text-zinc-400 mt-1">
-            Compare win-rates and simulated balances across independent trading strategies.
-          </p>
+      {/* Top Section Grid: Header/Tabs and Leaderboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        {/* Left Side: Header & Strategy Tabs (2/3 width) */}
+        <div className="lg:col-span-2 flex flex-col justify-between bg-[#0c0c0f]/40 backdrop-blur-md border border-zinc-800/80 p-6 rounded-3xl space-y-6">
+          <div>
+            <h2 className="text-2xl font-extrabold tracking-tight">Strategy Testing Sandbox</h2>
+            <p className="text-sm text-zinc-400 mt-1">
+              Compare win-rates and simulated balances across independent trading strategies.
+            </p>
+          </div>
+          
+          <div className="space-y-3">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Select Strategy View</span>
+            <div className="flex flex-wrap items-center gap-3 border-b border-zinc-850 pb-3">
+              <button
+                onClick={() => setSelectedStrategy('RSI_MACD')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'RSI_MACD'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>📊 RSI + MACD</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'RSI_MACD' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'RSI_MACD' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('BOLLINGER_RSI')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'BOLLINGER_RSI'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>↕️ Bollinger + RSI</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'BOLLINGER_RSI' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'BOLLINGER_RSI' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('DOUBLE_EMA')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'DOUBLE_EMA'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>🎢 Double EMA</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'DOUBLE_EMA' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'DOUBLE_EMA' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('SUPERTREND_EMA')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'SUPERTREND_EMA'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>⚡ SuperTrend + EMA</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'SUPERTREND_EMA' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'SUPERTREND_EMA' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('STOCH_RSI_MACD')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'STOCH_RSI_MACD'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>🚀 StochRSI + MACD</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'STOCH_RSI_MACD' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'STOCH_RSI_MACD' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('ATR_BREAKOUT')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'ATR_BREAKOUT'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>🎢 ATR Breakout</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'ATR_BREAKOUT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'ATR_BREAKOUT' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Strategy Selection Tabs */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-zinc-850 pb-3">
-        <button
-          onClick={() => setSelectedStrategy('RSI_MACD')}
-          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
-            selectedStrategy === 'RSI_MACD'
-              ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
-              : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
-          }`}
-        >
-          <span>📊 RSI + MACD</span>
-          <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'RSI_MACD' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
-            {activeStrategySetting === 'RSI_MACD' ? 'LIVE' : 'SANDBOX'}
-          </span>
-        </button>
+        {/* Right Side: Leaderboard Panel (1/3 width) */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-3xl flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-zinc-800/50">
+            <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Trophy className="w-4 h-4 text-amber-500" />
+              <span>Strategy Leaderboard</span>
+            </span>
+            <span className="text-[9px] font-extrabold text-zinc-500 uppercase">by Balance</span>
+          </div>
 
-        <button
-          onClick={() => setSelectedStrategy('BOLLINGER_RSI')}
-          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
-            selectedStrategy === 'BOLLINGER_RSI'
-              ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
-              : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
-          }`}
-        >
-          <span>↕️ Bollinger + RSI</span>
-          <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'BOLLINGER_RSI' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
-            {activeStrategySetting === 'BOLLINGER_RSI' ? 'LIVE' : 'SANDBOX'}
-          </span>
-        </button>
+          <div className="space-y-2 flex-grow overflow-y-auto max-h-[145px] pr-1">
+            {leaderboard.map((item, idx) => {
+              const displayName = item.strategy === 'RSI_MACD'
+                ? 'RSI + MACD'
+                : item.strategy === 'BOLLINGER_RSI'
+                ? 'Bollinger + RSI'
+                : item.strategy === 'DOUBLE_EMA'
+                ? 'Double EMA'
+                : item.strategy === 'SUPERTREND_EMA'
+                ? 'SuperTrend + EMA'
+                : item.strategy === 'STOCH_RSI_MACD'
+                ? 'StochRSI + MACD'
+                : 'ATR Breakout';
 
-        <button
-          onClick={() => setSelectedStrategy('DOUBLE_EMA')}
-          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
-            selectedStrategy === 'DOUBLE_EMA'
-              ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
-              : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
-          }`}
-        >
-          <span>🎢 Double EMA</span>
-          <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'DOUBLE_EMA' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
-            {activeStrategySetting === 'DOUBLE_EMA' ? 'LIVE' : 'SANDBOX'}
-          </span>
-        </button>
+              const isLive = item.strategy === activeStrategySetting;
+              const isSelected = item.strategy === selectedStrategy;
+              
+              let badgeColor = "text-zinc-400 bg-zinc-900 border-zinc-800";
+              if (idx === 0) badgeColor = "text-amber-400 bg-amber-950/20 border-amber-800/50";
+              else if (idx === 1) badgeColor = "text-zinc-300 bg-zinc-800/40 border-zinc-700/50";
+              else if (idx === 2) badgeColor = "text-amber-600 bg-amber-900/10 border-amber-800/20";
 
-        <button
-          onClick={() => setSelectedStrategy('SUPERTREND_EMA')}
-          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
-            selectedStrategy === 'SUPERTREND_EMA'
-              ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
-              : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
-          }`}
-        >
-          <span>⚡ SuperTrend + EMA</span>
-          <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'SUPERTREND_EMA' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
-            {activeStrategySetting === 'SUPERTREND_EMA' ? 'LIVE' : 'SANDBOX'}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setSelectedStrategy('STOCH_RSI_MACD')}
-          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
-            selectedStrategy === 'STOCH_RSI_MACD'
-              ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
-              : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
-          }`}
-        >
-          <span>🚀 StochRSI + MACD</span>
-          <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'STOCH_RSI_MACD' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
-            {activeStrategySetting === 'STOCH_RSI_MACD' ? 'LIVE' : 'SANDBOX'}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setSelectedStrategy('ATR_BREAKOUT')}
-          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
-            selectedStrategy === 'ATR_BREAKOUT'
-              ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
-              : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
-          }`}
-        >
-          <span>🎢 ATR Breakout</span>
-          <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'ATR_BREAKOUT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
-            {activeStrategySetting === 'ATR_BREAKOUT' ? 'LIVE' : 'SANDBOX'}
-          </span>
-        </button>
+              return (
+                <div 
+                  key={item.strategy}
+                  onClick={() => setSelectedStrategy(item.strategy as any)}
+                  className={`flex items-center justify-between p-2 rounded-xl border text-[11px] cursor-pointer transition-all duration-200 ${
+                    isSelected 
+                      ? 'bg-emerald-950/20 border-emerald-900/60 text-emerald-300' 
+                      : 'bg-zinc-950/20 border-zinc-900/40 hover:bg-zinc-900/10 hover:border-zinc-800 text-zinc-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-5 h-5 flex items-center justify-center text-[9px] font-extrabold border rounded-lg ${badgeColor}`}>
+                      #{idx + 1}
+                    </span>
+                    <span className="font-bold flex items-center gap-1">
+                      {displayName}
+                      {isLive && <span className="text-[7px] px-1 bg-emerald-950 border border-emerald-900/40 text-emerald-400 rounded">LIVE</span>}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <div className={`font-mono font-extrabold ${item.netPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {item.balance.toFixed(2)} USDT
+                    </div>
+                    <div className="text-[9px] text-zinc-500 font-medium">
+                      WR: {item.winRate.toFixed(0)}% ({item.wins}W-{item.losses}L)
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Summary Report Center Actions Header Card */}
