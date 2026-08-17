@@ -32,7 +32,7 @@ export default function SandboxPage() {
   const [includePairwise, setIncludePairwise] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
-  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT'>('BOLLINGER_RSI');
+  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE'>('BOLLINGER_RSI');
   const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
   const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
@@ -218,7 +218,7 @@ export default function SandboxPage() {
   };
 
   const leaderboard = useMemo(() => {
-    return ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT'].map(strat => {
+    return ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE'].map(strat => {
       const isPaper = strat !== activeStrategySetting;
       const stratTrades = allRawTrades.filter(t => 
         (t.strategy || 'RSI_MACD') === strat && 
@@ -304,6 +304,8 @@ export default function SandboxPage() {
       ? 'Stochastic RSI + MACD Crossover'
       : selectedStrategy === 'ATR_BREAKOUT'
       ? 'ATR Channel Breakout'
+      : selectedStrategy === 'SWING_STRUCTURE'
+      ? 'Swing S&R Structure'
       : 'RSI + MACD Momentum Crossover';
 
     // 1. Header Dark Banner Branding
@@ -721,6 +723,8 @@ export default function SandboxPage() {
         ? 'Stochastic RSI + MACD Crossover'
         : selectedStrategy === 'ATR_BREAKOUT'
         ? 'ATR Channel Breakout'
+        : selectedStrategy === 'SWING_STRUCTURE'
+        ? 'Swing S&R Structure'
         : 'RSI + MACD Momentum Crossover';
 
       const file = new File([pdfBlob], `CryptoAI_Sandbox_${selectedStrategy}.pdf`, {
@@ -848,6 +852,20 @@ export default function SandboxPage() {
                 <span>🎢 ATR Breakout</span>
                 <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'ATR_BREAKOUT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
                   {activeStrategySetting === 'ATR_BREAKOUT' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('SWING_STRUCTURE')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'SWING_STRUCTURE'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>🛡️ Swing S&R Structure</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'SWING_STRUCTURE' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'SWING_STRUCTURE' ? 'LIVE' : 'SANDBOX'}
                 </span>
               </button>
             </div>

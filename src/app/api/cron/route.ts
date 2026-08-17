@@ -296,6 +296,7 @@ async function handleCron() {
           const supertrendEmaAnalysis = analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA');
           const stochRsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD');
           const atrBreakoutAnalysis = analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT');
+          const swingStructureAnalysis = analyzeStrategy(ohlcv as any, 'SWING_STRUCTURE');
 
           return {
             pair,
@@ -308,6 +309,7 @@ async function handleCron() {
               SUPERTREND_EMA: supertrendEmaAnalysis,
               STOCH_RSI_MACD: stochRsiMacdAnalysis,
               ATR_BREAKOUT: atrBreakoutAnalysis,
+              SWING_STRUCTURE: swingStructureAnalysis,
             }
           };
         } catch (error: any) {
@@ -391,8 +393,8 @@ async function handleCron() {
     const paperDuration = Date.now() - startTime - fetchDuration;
     logs.push(`Paper trades audit complete in ${paperDuration}ms.`);
 
-    // 3c. Evaluate and place signals for all strategies
-    const strategiesList = ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT'];
+     // 3c. Evaluate and place signals for all strategies
+     const strategiesList = ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE'];
 
     for (const result of scanResults) {
       if (!result || 'error' in result) {
@@ -440,8 +442,16 @@ async function handleCron() {
 
         // Volatility-based target calculation (ATR): TP is 2.0x ATR (positive ratio), SL is 1.5x ATR (breathing room)
         const pctAtr = atrPercent || 1.0;
-        const dynamicTp = Math.max(1.5, parseFloat((2.0 * pctAtr).toFixed(2))); // Min 1.5% TP
-        const dynamicSl = Math.max(1.0, parseFloat((1.5 * pctAtr).toFixed(2))); // Min 1.0% SL
+        let dynamicTp = Math.max(1.5, parseFloat((2.0 * pctAtr).toFixed(2))); // Min 1.5% TP
+        let dynamicSl = Math.max(1.0, parseFloat((1.5 * pctAtr).toFixed(2))); // Min 1.0% SL
+
+        // Override default ATR targets with strategy-specific targets (such as SWING_STRUCTURE's S&R swing levels)
+        if (analysis.tpPercent !== undefined) {
+          dynamicTp = analysis.tpPercent;
+        }
+        if (analysis.slPercent !== undefined) {
+          dynamicSl = analysis.slPercent;
+        }
 
         const activeTpPercent = pairOverride.tp_percent !== undefined 
           ? parseFloat(pairOverride.tp_percent) 

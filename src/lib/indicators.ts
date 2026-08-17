@@ -603,6 +603,114 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
 }
 
 /**
+ * Swing Support & Resistance Structure-Based Strategy
+ * Uses EMA 9 & 21 crossover as trigger, but sets SL below swing support / above swing resistance.
+ */
+export function analyzeSwingStructure(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+  tpPercent?: number;
+  slPercent?: number;
+} {
+  const len = ohlcv.length;
+  if (len < 205) {
+    return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  const closes = ohlcv.map((candle: any) => candle[4]);
+  const highs = ohlcv.map((candle: any) => candle[2]);
+  const lows = ohlcv.map((candle: any) => candle[3]);
+
+  const ema9 = calculateEMA(closes, 9);
+  const ema21 = calculateEMA(closes, 21);
+  const ema200 = calculateEMA(closes, 200);
+
+  const currentIdx = len - 1;
+  const prevIdx = len - 2;
+
+  const cEma9 = ema9[currentIdx];
+  const cEma21 = ema21[currentIdx];
+  const pEma9 = ema9[prevIdx];
+  const pEma21 = ema21[prevIdx];
+  const currentEma200 = ema200[currentIdx];
+
+  if (isNaN(cEma9) || isNaN(cEma21) || isNaN(pEma9) || isNaN(pEma21) || isNaN(currentEma200)) {
+    return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (pEma9 <= pEma21 && cEma9 > cEma21 && closes[currentIdx] > currentEma200) {
+    direction = 'LONG';
+  } else if (pEma9 >= pEma21 && cEma9 < cEma21 && closes[currentIdx] < currentEma200) {
+    direction = 'SHORT';
+  }
+
+  if (direction === 'NEUTRAL') {
+    return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  const currentPrice = closes[currentIdx];
+  let slPercent = 1.0;
+  let tpPercent = 1.5;
+
+  if (direction === 'LONG') {
+    // Local swing low of last 20 candles
+    const recentLows = lows.slice(-20);
+    const supportPrice = Math.min(...recentLows);
+    let slPrice = supportPrice * 0.999; // 0.1% buffer below support
+
+    if (slPrice >= currentPrice) {
+      slPrice = currentPrice * 0.99; // 1% fallback SL
+    }
+
+    slPercent = parseFloat((((currentPrice - slPrice) / currentPrice) * 100).toFixed(2));
+    slPercent = Math.max(1.0, slPercent); // Min floor 1.0% SL
+    
+    // Recalculate SL Price based on floor
+    slPrice = currentPrice * (1 - slPercent / 100);
+    const risk = currentPrice - slPrice;
+    
+    // 1.5x Risk-to-Reward ratio
+    const tpPrice = currentPrice + 1.5 * risk;
+    tpPercent = parseFloat((((tpPrice - currentPrice) / currentPrice) * 100).toFixed(2));
+    tpPercent = Math.max(1.5, tpPercent); // Min floor 1.5% TP
+
+  } else if (direction === 'SHORT') {
+    // Local swing high of last 20 candles
+    const recentHighs = highs.slice(-20);
+    const resistancePrice = Math.max(...recentHighs);
+    let slPrice = resistancePrice * 1.001; // 0.1% buffer above resistance
+
+    if (slPrice <= currentPrice) {
+      slPrice = currentPrice * 1.01; // 1% fallback SL
+    }
+
+    slPercent = parseFloat((((slPrice - currentPrice) / currentPrice) * 100).toFixed(2));
+    slPercent = Math.max(1.0, slPercent); // Min floor 1.0% SL
+
+    // Recalculate SL Price based on floor
+    slPrice = currentPrice * (1 + slPercent / 100);
+    const risk = slPrice - currentPrice;
+
+    // 1.5x Risk-to-Reward ratio
+    const tpPrice = currentPrice - 1.5 * risk;
+    tpPercent = parseFloat((((currentPrice - tpPrice) / currentPrice) * 100).toFixed(2));
+    tpPercent = Math.max(1.5, tpPercent); // Min floor 1.5% TP
+  }
+
+  return {
+    rsi: 50,
+    macdLine: cEma9,
+    signalLine: cEma21,
+    direction,
+    tpPercent,
+    slPercent,
+  };
+}
+
+/**
  * Main Dispatcher Strategy analysis function.
  */
 export function analyzeStrategy(
@@ -613,6 +721,8 @@ export function analyzeStrategy(
   macdLine: number;
   signalLine: number;
   direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+  tpPercent?: number;
+  slPercent?: number;
 } {
   const closePrices = ohlcv.map((candle: any) => candle[4]);
 
@@ -626,6 +736,8 @@ export function analyzeStrategy(
     return analyzeStochRsiMacd(ohlcv);
   } else if (strategy === 'ATR_BREAKOUT') {
     return analyzeAtrBreakout(ohlcv);
+  } else if (strategy === 'SWING_STRUCTURE') {
+    return analyzeSwingStructure(ohlcv);
   } else {
     return analyzeRsiMacd(closePrices);
   }
