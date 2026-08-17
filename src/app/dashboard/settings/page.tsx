@@ -118,6 +118,39 @@ export default function SettingsPage() {
     }
   };
 
+  // WhatsApp Pairing states
+  const [linkMethod, setLinkMethod] = useState<'qr' | 'phone'>('qr');
+  const [pairPhone, setPairPhone] = useState('');
+  const [pairCode, setPairCode] = useState<string | null>(null);
+  const [isGeneratingPairCode, setIsGeneratingPairCode] = useState(false);
+
+  const handleGetPairingCode = async () => {
+    if (!pairPhone) {
+      alert('Please enter a phone number first.');
+      return;
+    }
+    setIsGeneratingPairCode(true);
+    setPairCode(null);
+    try {
+      const res = await fetch('/api/whatsapp/pair', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: pairPhone }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPairCode(data.code);
+        setWhatsappStatus('connecting'); // Trigger background status polling loop!
+      } else {
+        alert(`Failed to get pairing code: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Error requesting pairing code: ${err.message}`);
+    } finally {
+      setIsGeneratingPairCode(false);
+    }
+  };
+
   // Pair Specific Overrides States
   const [pairOverrides, setPairOverrides] = useState<Record<string, any>>({});
   const [overridePair, setOverridePair] = useState('');
@@ -692,30 +725,100 @@ export default function SettingsPage() {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center w-full py-4 space-y-4 text-center">
-                  {whatsappQr ? (
-                    <div className="bg-white p-3 rounded-2xl shadow-lg">
-                      <img src={whatsappQr} alt="WhatsApp Link QR" className="w-48 h-48" />
-                    </div>
-                  ) : (
-                    <div className="w-48 h-48 border border-dashed border-zinc-800 rounded-2xl flex items-center justify-center text-zinc-650 text-xs text-center px-4">
-                      {isCheckingWhatsapp ? 'Loading QR Code...' : 'Click button below to generate linking QR code.'}
-                    </div>
-                  )}
-
-                  <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
-                    Open WhatsApp on your phone &gt; Settings &gt; Linked Devices &gt; Scan QR code.
-                  </p>
-
-                  <div className="flex gap-2">
+                <div className="flex flex-col items-center justify-center w-full py-2 text-center">
+                  {/* Segmented Switcher */}
+                  <div className="flex bg-[#0f0f13] p-1 border border-zinc-850 rounded-xl mb-6 w-full max-w-[260px]">
                     <button
                       type="button"
-                      onClick={checkWhatsAppStatus}
-                      className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:text-zinc-200 hover:bg-zinc-850 text-zinc-400 text-xs font-bold rounded-xl cursor-pointer transition-all"
+                      onClick={() => setLinkMethod('qr')}
+                      className={`flex-1 text-center py-1.5 text-[11px] font-bold rounded-lg cursor-pointer transition-all ${
+                        linkMethod === 'qr' ? 'bg-zinc-800 text-zinc-100 shadow' : 'text-zinc-550 hover:text-zinc-350'
+                      }`}
                     >
-                      {isCheckingWhatsapp ? 'Generating...' : whatsappQr ? 'Refresh QR' : 'Link Device'}
+                      Scan QR Barcode
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLinkMethod('phone')}
+                      className={`flex-1 text-center py-1.5 text-[11px] font-bold rounded-lg cursor-pointer transition-all ${
+                        linkMethod === 'phone' ? 'bg-zinc-800 text-zinc-100 shadow' : 'text-zinc-550 hover:text-zinc-350'
+                      }`}
+                    >
+                      Phone Pairing Code
                     </button>
                   </div>
+
+                  {linkMethod === 'qr' ? (
+                    <div className="flex flex-col items-center justify-center w-full space-y-4">
+                      {whatsappQr ? (
+                        <div className="bg-white p-3 rounded-2xl shadow-lg animate-fade-in">
+                          <img src={whatsappQr} alt="WhatsApp Link QR" className="w-48 h-48" />
+                        </div>
+                      ) : (
+                        <div className="w-48 h-48 border border-dashed border-zinc-800 rounded-2xl flex items-center justify-center text-zinc-650 text-xs text-center px-4">
+                          {isCheckingWhatsapp ? 'Loading QR Code...' : 'Click button below to generate linking QR code.'}
+                        </div>
+                      )}
+
+                      <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+                        Open WhatsApp on your phone &gt; Settings &gt; Linked Devices &gt; Scan QR code.
+                      </p>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={checkWhatsAppStatus}
+                          className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:text-zinc-200 hover:bg-zinc-850 text-zinc-400 text-xs font-bold rounded-xl cursor-pointer transition-all"
+                        >
+                          {isCheckingWhatsapp ? 'Generating...' : whatsappQr ? 'Refresh QR' : 'Link Device'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center w-full space-y-4">
+                      {pairCode ? (
+                        <div className="bg-[#0f0f13] border border-zinc-800 px-6 py-4 rounded-2xl animate-fade-in shadow-inner">
+                          <span className="text-2xl font-mono font-bold tracking-widest text-emerald-400">
+                            {pairCode.slice(0, 4)} - {pairCode.slice(4)}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="w-full max-w-[240px] px-3 py-4 border border-zinc-850 rounded-2xl flex flex-col items-center justify-center space-y-2 bg-[#09090b]/20">
+                          <input
+                            type="text"
+                            placeholder="e.g. +923111594226"
+                            value={pairPhone}
+                            onChange={(e) => setPairPhone(e.target.value)}
+                            className="w-full text-center text-xs font-bold bg-[#09090b]/80 border border-zinc-800 px-3 py-2 rounded-xl text-zinc-200 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 font-mono"
+                          />
+                          <p className="text-[10px] text-zinc-550">Include country code (e.g. 92...)</p>
+                        </div>
+                      )}
+
+                      <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+                        {pairCode ? (
+                          <>
+                            Open WhatsApp on your phone &gt; Settings &gt; Linked Devices &gt; Link with phone number instead &gt; Enter code above.
+                          </>
+                        ) : (
+                          <>
+                            Enter your phone number (with country code) to generate a WhatsApp Web pairing code.
+                          </>
+                        )}
+                      </p>
+
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={isGeneratingPairCode}
+                          onClick={handleGetPairingCode}
+                          className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:text-zinc-200 hover:bg-zinc-850 text-zinc-400 text-xs font-bold rounded-xl cursor-pointer transition-all disabled:opacity-50"
+                        >
+                          {isGeneratingPairCode ? 'Generating...' : pairCode ? 'Get New Code' : 'Get Pairing Code'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

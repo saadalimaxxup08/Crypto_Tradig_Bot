@@ -223,6 +223,37 @@ app.post('/unlink', async (req, res) => {
   }
 });
 
+app.post('/pair', async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) {
+    return res.status(400).json({ error: 'Phone number is required.' });
+  }
+
+  if (connectionState === 'connected') {
+    return res.status(400).json({ error: 'WhatsApp is already connected. Please unlink first.' });
+  }
+
+  try {
+    const sanitized = phone.replace(/[^0-9]/g, '');
+    if (sanitized.length < 10) {
+      return res.status(400).json({ error: 'Invalid phone number format. Must include country code.' });
+    }
+
+    console.log(`Requesting WhatsApp pairing code for phone number: ${sanitized}`);
+    
+    if (!sock) {
+      return res.status(500).json({ error: 'WhatsApp connection socket is initializing. Please try again in 5 seconds.' });
+    }
+
+    const code = await sock.requestPairingCode(sanitized);
+    console.log(`Pairing code generated: ${code}`);
+    res.json({ success: true, code });
+  } catch (err) {
+    console.error('Error generating pairing code:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Standalone WhatsApp Bridge Microservice is listening on port ${PORT}`);
   
