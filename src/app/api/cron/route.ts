@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { analyzeStrategy, calculateATR } from '@/lib/indicators';
+import fs from 'fs';
+import path from 'path';
 import {
   getBinanceClient,
   placeFuturesOrder,
@@ -562,6 +564,7 @@ async function handleCron() {
               `💰 <b>Expected Net Profit (on TP):</b> <code>+${expectedNetProfit.toFixed(4)} USDT</code> (Fees: -${(entryFeeVal + exitFeeTp).toFixed(4)} USDT)`;
 
             await sendTelegramMessage(telegram_token, telegram_chat_id, telegramMessage);
+            await sendWhatsAppAlert(telegramMessage, logs);
             logs.push(`Successfully opened live trade for ${pair}.`);
 
           } catch (err: any) {
@@ -571,6 +574,7 @@ async function handleCron() {
               `Error: <code>${err.message}</code>\n` +
               `Please check your Binance wallet balance, margin settings, or API key permissions.`;
             await sendTelegramMessage(telegram_token, telegram_chat_id, failMsg);
+            await sendWhatsAppAlert(failMsg, logs);
           }
         } else {
           // --- PAPER TRADING (Virtual Sandbox simulation only) ---
@@ -767,3 +771,49 @@ async function saveCronHeartbeat(logs: string[]) {
     console.error('Failed to log cron heartbeat to Supabase:', err);
   }
 }
+
+async function sendWhatsAppAlert(message: string, logs: string[]) {
+  try {
+    const configPath = path.join(process.cwd(), 'whatsapp_config.json');
+    if (!fs.existsSync(configPath)) return;
+    
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    if (!config.whatsapp_enabled || !config.whatsapp_recipients || config.whatsapp_recipients.length === 0) {
+      return;
+    }
+
+    logs.push(`WhatsApp notifications enabled. Forwarding alert to ${config.whatsapp_recipients.length} recipients...`);
+    
+    // Convert HTML tags to WhatsApp Markdown
+    const waMessage = message
+      .replace(/<b>/g, '*').replace(/<\/b>/g, '*')
+      .replace(/<code>/g, '`').replace(/<\/code>/g, '`')
+      .replace(/<pre>/g, '```').replace(/<\/pre>/g, '```')
+      .replace(/<br\s*\/?>/g, '\n')
+      .replace(/<[^>]*>/g, ''); // strip remaining tags
+
+    // Post message to all recipients concurrently
+    await Promise.all(
+      config.whatsapp_recipients.map(async (recipient: string) => {
+        try {
+          const res = await fetch('http://localhost:3001/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: recipient, message: waMessage }),
+          });
+          if (!res.ok) {
+            const errData = await res.json();
+            logs.push(`Failed to send WhatsApp alert to ${recipient}: ${errData.error || res.statusText}`);
+          } else {
+            logs.push(`WhatsApp alert successfully sent to ${recipient}.`);
+          }
+        } catch (err: any) {
+          logs.push(`Failed to contact WhatsApp Bridge on port 3001 for ${recipient}: ${err.message}`);
+        }
+      })
+    );
+  } catch (err: any) {
+    logs.push(`Error executing WhatsApp alert forwarder: ${err.message}`);
+  }
+}
+

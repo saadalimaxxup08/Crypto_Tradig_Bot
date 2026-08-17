@@ -20,6 +20,77 @@ export default function SettingsPage() {
   const [binanceRealApiKey, setBinanceRealApiKey] = useState('');
   const [binanceRealSecretKey, setBinanceRealSecretKey] = useState('');
 
+  // WhatsApp Bridge states
+  const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+  const [whatsappRecipients, setWhatsappRecipients] = useState<string[]>([]);
+  const [whatsappStatus, setWhatsappStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [whatsappUser, setWhatsappUser] = useState<string | null>(null);
+  const [whatsappQr, setWhatsappQr] = useState<string | null>(null);
+  const [newRecipient, setNewRecipient] = useState('');
+  const [isCheckingWhatsapp, setIsCheckingWhatsapp] = useState(false);
+
+  const fetchWhatsAppConfig = async () => {
+    try {
+      const res = await fetch('/api/whatsapp/config');
+      if (res.ok) {
+        const data = await res.json();
+        setWhatsappEnabled(data.whatsapp_enabled);
+        setWhatsappRecipients(data.whatsapp_recipients || []);
+      }
+    } catch (err) {
+      console.error('Failed to load WhatsApp config:', err);
+    }
+  };
+
+  const checkWhatsAppStatus = async () => {
+    setIsCheckingWhatsapp(true);
+    try {
+      const res = await fetch('/api/whatsapp/status');
+      if (res.ok) {
+        const data = await res.json();
+        setWhatsappStatus(data.status);
+        setWhatsappUser(data.user);
+        setWhatsappQr(data.qr);
+      }
+    } catch (err) {
+      console.error('Failed to load WhatsApp status:', err);
+    } finally {
+      setIsCheckingWhatsapp(false);
+    }
+  };
+
+  const handleSaveWhatsAppConfig = async (enabled: boolean, recipients: string[]) => {
+    try {
+      const res = await fetch('/api/whatsapp/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          whatsapp_enabled: enabled,
+          whatsapp_recipients: recipients,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setWhatsappEnabled(data.config.whatsapp_enabled);
+        setWhatsappRecipients(data.config.whatsapp_recipients || []);
+      }
+    } catch (err) {
+      console.error('Failed to save WhatsApp config:', err);
+    }
+  };
+
+  const handleUnlinkWhatsApp = async () => {
+    if (!confirm('Are you sure you want to unlink WhatsApp?')) return;
+    try {
+      const res = await fetch('/api/whatsapp/status', { method: 'POST' });
+      if (res.ok) {
+        checkWhatsAppStatus();
+      }
+    } catch (err) {
+      console.error('Failed to unlink WhatsApp:', err);
+    }
+  };
+
   // Pair Specific Overrides States
   const [pairOverrides, setPairOverrides] = useState<Record<string, any>>({});
   const [overridePair, setOverridePair] = useState('');
@@ -111,7 +182,21 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchSettings();
+    fetchWhatsAppConfig();
+    checkWhatsAppStatus();
   }, []);
+
+  useEffect(() => {
+    let interval: any;
+    if (whatsappStatus === 'disconnected' && whatsappQr) {
+      interval = setInterval(() => {
+        checkWhatsAppStatus();
+      }, 5000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [whatsappStatus, whatsappQr]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -516,6 +601,150 @@ export default function SettingsPage() {
                 onChange={(e) => setTelegramChatId(e.target.value)}
                 className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* WhatsApp Notification Bridge */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
+          <div className="border-b border-zinc-800/50 pb-3 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-zinc-200">WhatsApp Notification Bridge</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">Forward real-time signal notifications to WhatsApp contacts or groups for FREE</p>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded border ${
+                whatsappStatus === 'connected'
+                  ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+                  : whatsappStatus === 'connecting'
+                  ? 'bg-amber-950/20 border-amber-900/50 text-amber-400'
+                  : 'bg-zinc-900 border-zinc-800 text-zinc-500'
+              }`}>
+                {whatsappStatus === 'connected' ? `Connected: +${whatsappUser}` : whatsappStatus === 'connecting' ? 'Connecting...' : 'Disconnected'}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const newEnabled = !whatsappEnabled;
+                  setWhatsappEnabled(newEnabled);
+                  handleSaveWhatsAppConfig(newEnabled, whatsappRecipients);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  whatsappEnabled
+                    ? 'bg-emerald-500 text-zinc-950 shadow-md animate-pulse'
+                    : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850'
+                }`}
+              >
+                {whatsappEnabled ? 'ENABLED' : 'DISABLED'}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left side: QR code scanner link */}
+            <div className="bg-[#09090b]/40 border border-zinc-850 p-6 rounded-2xl flex flex-col items-center justify-center space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 self-start">Link Mobile Device</h4>
+              
+              {whatsappStatus === 'connected' ? (
+                <div className="flex flex-col items-center justify-center py-6 space-y-4 text-center">
+                  <div className="p-4 bg-emerald-950/20 border border-emerald-900/50 rounded-full text-emerald-400 animate-pulse">
+                    <TrendingUp className="w-10 h-10" />
+                  </div>
+                  <div>
+                    <h5 className="text-sm font-bold text-zinc-200">Device Successfully Linked!</h5>
+                    <p className="text-xs text-zinc-400 mt-1">Ready to forward trading signals as WhatsApp messages.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUnlinkWhatsApp}
+                    className="px-4 py-2 border border-red-900/50 bg-red-950/20 hover:bg-red-950/40 text-red-400 text-xs font-bold rounded-xl cursor-pointer transition-all"
+                  >
+                    Unlink Device
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center w-full py-4 space-y-4 text-center">
+                  {whatsappQr ? (
+                    <div className="bg-white p-3 rounded-2xl shadow-lg">
+                      <img src={whatsappQr} alt="WhatsApp Link QR" className="w-48 h-48" />
+                    </div>
+                  ) : (
+                    <div className="w-48 h-48 border border-dashed border-zinc-800 rounded-2xl flex items-center justify-center text-zinc-650 text-xs text-center px-4">
+                      {isCheckingWhatsapp ? 'Loading QR Code...' : 'Click button below to generate linking QR code.'}
+                    </div>
+                  )}
+
+                  <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+                    Open WhatsApp on your phone &gt; Settings &gt; Linked Devices &gt; Scan QR code.
+                  </p>
+
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={checkWhatsAppStatus}
+                      className="px-4 py-2 bg-zinc-900 border border-zinc-800 hover:text-zinc-200 hover:bg-zinc-850 text-zinc-400 text-xs font-bold rounded-xl cursor-pointer transition-all"
+                    >
+                      {isCheckingWhatsapp ? 'Generating...' : whatsappQr ? 'Refresh QR' : 'Link Device'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Right side: Recipients Manager */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Manage Recipients / Groups</h4>
+              
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="e.g. +923001234567 or group-id"
+                  value={newRecipient}
+                  onChange={(e) => setNewRecipient(e.target.value)}
+                  className="flex-1 bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-2.5 px-4 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const formatted = newRecipient.trim();
+                    if (!formatted) return;
+                    // Prevent duplicates
+                    if (whatsappRecipients.includes(formatted)) return;
+                    const updated = [...whatsappRecipients, formatted];
+                    setWhatsappRecipients(updated);
+                    handleSaveWhatsAppConfig(whatsappEnabled, updated);
+                    setNewRecipient('');
+                  }}
+                  className="px-4 bg-emerald-500 text-zinc-950 hover:bg-emerald-400 text-xs font-bold rounded-xl cursor-pointer transition-all flex items-center justify-center font-bold"
+                >
+                  Add
+                </button>
+              </div>
+
+              <div className="bg-[#09090b]/40 border border-zinc-850 rounded-2xl p-4 max-h-[180px] overflow-y-auto space-y-2">
+                {whatsappRecipients.length === 0 ? (
+                  <p className="text-xs text-zinc-550 text-center py-6 font-medium">No recipients added yet. Add a phone number or group ID above.</p>
+                ) : (
+                  whatsappRecipients.map((rec) => (
+                    <div key={rec} className="flex justify-between items-center bg-[#09090b]/80 border border-zinc-800/60 px-3 py-2 rounded-xl">
+                      <span className="text-xs font-mono text-zinc-350">{rec}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = whatsappRecipients.filter((r) => r !== rec);
+                          setWhatsappRecipients(updated);
+                          handleSaveWhatsAppConfig(whatsappEnabled, updated);
+                        }}
+                        className="text-red-400 hover:text-red-300 font-bold px-2 py-1 rounded hover:bg-red-950/25 transition-all cursor-pointer text-xs"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>

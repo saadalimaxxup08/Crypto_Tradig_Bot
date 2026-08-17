@@ -10,14 +10,17 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
+    "@whiskeysockets/baileys": "^7.0.0-rc14",
     "canvas-confetti": "^1.9.4",
     "ccxt": "^4.5.73",
+    "express": "^5.2.1",
     "framer-motion": "^13.1.0",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.31.0",
     "next": "14.2.35",
     "protobufjs": "^7.6.5",
+    "qrcode": "^1.5.4",
     "react": "^18",
     "react-dom": "^18"
   },
