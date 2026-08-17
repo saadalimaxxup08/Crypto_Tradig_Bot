@@ -111,16 +111,33 @@ async function handleCron() {
         } else if (openTrades && openTrades.length > 0) {
           logs.push(`Found ${openTrades.length} open trades in database. Checking statuses...`);
           
+          // Bulk fetch all open positions from Binance to optimize latency and eliminate sequential HTTP requests
+          let allPositions: any[] = [];
+          try {
+            allPositions = await exchange.fetchPositions();
+          } catch (posErr: any) {
+            logs.push(`⚠️ Bulk positions fetch failed: ${posErr.message}. Falling back to individual requests.`);
+          }
+
           // Check position statuses on Binance
           for (const trade of openTrades) {
             try {
-              // ccxt fetchPositions returns all active positions
-              const positions = await exchange.fetchPositions([trade.pair as string]);
-              const position = positions.find((p: any) => {
-                const ccxtSym = p.symbol.replace(/[^A-Z0-9]/gi, '').toUpperCase();
-                const dbSym = (trade.pair as string).replace(/[^A-Z0-9]/gi, '').toUpperCase();
-                return ccxtSym.startsWith(dbSym) || ccxtSym === dbSym;
-              });
+              let position = null;
+              if (allPositions.length > 0) {
+                position = allPositions.find((p: any) => {
+                  const ccxtSym = p.symbol.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                  const dbSym = (trade.pair as string).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                  return ccxtSym.startsWith(dbSym) || ccxtSym === dbSym;
+                });
+              } else {
+                // Fallback to sequential query if bulk failed
+                const positions = await exchange.fetchPositions([trade.pair as string]);
+                position = positions.find((p: any) => {
+                  const ccxtSym = p.symbol.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                  const dbSym = (trade.pair as string).replace(/[^A-Z0-9]/gi, '').toUpperCase();
+                  return ccxtSym.startsWith(dbSym) || ccxtSym === dbSym;
+                });
+              }
 
               // If position size is 0 or undefined, it has been closed by TP/SL
               const currentSize = position ? parseFloat((position as any).contracts || (position as any).positionAmt || 0) : 0;
@@ -251,6 +268,7 @@ async function handleCron() {
     const exchange = getBinanceClient(binance_api_key, binance_secret_key, isDemo);
 
     // 3. Scan all pairs in parallel
+    const scanStartTime = Date.now();
     logs.push(`Scanning ${pairs.length} pairs concurrently...`);
     
     const scanResults = await Promise.all(
@@ -298,7 +316,7 @@ async function handleCron() {
       })
     );
 
-    const fetchDuration = Date.now() - startTime;
+    const fetchDuration = Date.now() - scanStartTime;
     logs.push(`Binance fetch & Technical Analysis complete in ${fetchDuration}ms.`);
 
     // Build prices map for paper trade matching
