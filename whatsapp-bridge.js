@@ -111,13 +111,42 @@ async function connectToWhatsApp() {
 
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 403;
+        const shouldReconnect = !isLoggedOut;
         console.log(`WhatsApp connection closed (Status Code: ${statusCode}). Reconnecting: ${shouldReconnect}`);
         
         connectionState = 'disconnected';
         linkedUser = null;
+        latestQr = null;
         
-        if (shouldReconnect) {
+        if (isLoggedOut) {
+          console.log('Session credentials expired, invalid or logged out. Clearing authentication states...');
+          // 1. Clear database session key in Supabase
+          try {
+            await supabase
+              .from('settings')
+              .update({ whatsapp_session: null })
+              .eq('id', 1);
+            console.log('Cleared expired WhatsApp session inside Supabase database.');
+          } catch (dbClearErr) {
+            console.error('Failed to clear expired credentials in Supabase:', dbClearErr.message);
+          }
+
+          // 2. Clean local auth folder
+          try {
+            const authFolder = path.join(__dirname, 'auth_info_baileys');
+            if (fs.existsSync(authFolder)) {
+              fs.rmSync(authFolder, { recursive: true, force: true });
+              console.log('Wiped local session credentials folder.');
+            }
+          } catch (fsErr) {
+            console.error('Failed to clear auth folder on disk:', fsErr.message);
+          }
+
+          // Restart fresh immediately to generate new QR/Pairing code
+          setTimeout(connectToWhatsApp, 1000);
+        } else {
+          // Reconnect with exponential backup
           setTimeout(connectToWhatsApp, 5000);
         }
       }
