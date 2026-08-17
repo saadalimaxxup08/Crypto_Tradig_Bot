@@ -188,10 +188,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     let interval: any;
-    if (whatsappStatus === 'disconnected' && whatsappQr) {
+    if (whatsappStatus === 'connecting' || (whatsappStatus === 'disconnected' && whatsappQr)) {
       interval = setInterval(() => {
         checkWhatsAppStatus();
-      }, 5000);
+      }, 3000);
     }
     return () => {
       if (interval) clearInterval(interval);
