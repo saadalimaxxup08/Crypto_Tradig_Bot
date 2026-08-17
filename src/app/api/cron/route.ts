@@ -243,6 +243,7 @@ async function handleCron() {
                     `Real Balance: <b>${realBalanceText}</b>`;
 
                   await sendTelegramMessage(telegram_token, telegram_chat_id, msg);
+                  await sendWhatsAppAlert(msg, logs, 'trades');
                 }
               }
             } catch (err: any) {
@@ -564,7 +565,7 @@ async function handleCron() {
               `💰 <b>Expected Net Profit (on TP):</b> <code>+${expectedNetProfit.toFixed(4)} USDT</code> (Fees: -${(entryFeeVal + exitFeeTp).toFixed(4)} USDT)`;
 
             await sendTelegramMessage(telegram_token, telegram_chat_id, telegramMessage);
-            await sendWhatsAppAlert(telegramMessage, logs);
+            await sendWhatsAppAlert(telegramMessage, logs, 'signals');
             logs.push(`Successfully opened live trade for ${pair}.`);
 
           } catch (err: any) {
@@ -574,7 +575,7 @@ async function handleCron() {
               `Error: <code>${err.message}</code>\n` +
               `Please check your Binance wallet balance, margin settings, or API key permissions.`;
             await sendTelegramMessage(telegram_token, telegram_chat_id, failMsg);
-            await sendWhatsAppAlert(failMsg, logs);
+            await sendWhatsAppAlert(failMsg, logs, 'trades');
           }
         } else {
           // --- PAPER TRADING (Virtual Sandbox simulation only) ---
@@ -666,6 +667,7 @@ async function handleCron() {
           `<b>Trades Closed Last 1h:</b>\n${tradesSummary}`;
 
         await sendTelegramMessage(telegram_token, telegram_chat_id, hourlyMsg);
+        await sendWhatsAppAlert(hourlyMsg, logs, 'hourly');
         
         // Update database timestamp
         await supabase
@@ -728,6 +730,7 @@ async function handleCron() {
           `<b>Completed Trades Today:</b>\n${tradesList}`;
 
         await sendTelegramMessage(telegram_token, telegram_chat_id, dailyMsg);
+        await sendWhatsAppAlert(dailyMsg, logs, 'daily');
 
         // Update database timestamp
         await supabase
@@ -772,13 +775,29 @@ async function saveCronHeartbeat(logs: string[]) {
   }
 }
 
-async function sendWhatsAppAlert(message: string, logs: string[]) {
+async function sendWhatsAppAlert(message: string, logs: string[], category: 'signals' | 'trades' | 'hourly' | 'daily') {
   try {
-    const configPath = path.join(process.cwd(), 'whatsapp_config.json');
-    if (!fs.existsSync(configPath)) return;
-    
-    const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    // Query settings configuration dynamically from Supabase
+    const { data: settings, error: dbErr } = await supabase
+      .from('settings')
+      .select('whatsapp_config')
+      .eq('id', 1)
+      .single();
+
+    if (dbErr || !settings || !settings.whatsapp_config) {
+      logs.push(`WhatsApp config fetch failed: ${dbErr?.message || 'Empty settings configuration'}`);
+      return;
+    }
+
+    const config = settings.whatsapp_config;
     if (!config.whatsapp_enabled || !config.whatsapp_recipients || config.whatsapp_recipients.length === 0) {
+      return;
+    }
+
+    // Verify checklist filters configuration
+    const filters = config.whatsapp_filters || { signals: true, trades: true, hourly: false, daily: false };
+    if (!filters[category]) {
+      logs.push(`WhatsApp notifications: skipped forwarding message because filter for '${category}' is disabled.`);
       return;
     }
 

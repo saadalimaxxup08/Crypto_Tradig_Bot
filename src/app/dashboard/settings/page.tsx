@@ -28,6 +28,12 @@ export default function SettingsPage() {
   const [whatsappQr, setWhatsappQr] = useState<string | null>(null);
   const [newRecipient, setNewRecipient] = useState('');
   const [isCheckingWhatsapp, setIsCheckingWhatsapp] = useState(false);
+  const [whatsappFilters, setWhatsappFilters] = useState({
+    signals: true,
+    trades: true,
+    hourly: false,
+    daily: false
+  });
 
   const fetchWhatsAppConfig = async () => {
     try {
@@ -36,6 +42,9 @@ export default function SettingsPage() {
         const data = await res.json();
         setWhatsappEnabled(data.whatsapp_enabled);
         setWhatsappRecipients(data.whatsapp_recipients || []);
+        if (data.whatsapp_filters) {
+          setWhatsappFilters(data.whatsapp_filters);
+        }
       }
     } catch (err) {
       console.error('Failed to load WhatsApp config:', err);
@@ -59,7 +68,7 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveWhatsAppConfig = async (enabled: boolean, recipients: string[]) => {
+  const handleSaveWhatsAppConfig = async (enabled: boolean, recipients: string[], filters = whatsappFilters) => {
     try {
       const res = await fetch('/api/whatsapp/config', {
         method: 'POST',
@@ -67,12 +76,16 @@ export default function SettingsPage() {
         body: JSON.stringify({
           whatsapp_enabled: enabled,
           whatsapp_recipients: recipients,
+          whatsapp_filters: filters
         }),
       });
       if (res.ok) {
         const data = await res.json();
         setWhatsappEnabled(data.config.whatsapp_enabled);
         setWhatsappRecipients(data.config.whatsapp_recipients || []);
+        if (data.config.whatsapp_filters) {
+          setWhatsappFilters(data.config.whatsapp_filters);
+        }
       }
     } catch (err) {
       console.error('Failed to save WhatsApp config:', err);
@@ -884,6 +897,43 @@ export default function SettingsPage() {
                     </div>
                   ))
                 )}
+              </div>
+
+              {/* Message Filters Checklist */}
+              <div className="pt-4 border-t border-zinc-850/80 space-y-3">
+                <div className="flex flex-col">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">WhatsApp Notification Filters</h4>
+                  <p className="text-[10px] text-zinc-550 mt-0.5">Select which categories of alerts are forwarded to WhatsApp</p>
+                </div>
+                
+                <div className="bg-[#09090b]/40 border border-zinc-850 rounded-2xl p-4 space-y-3">
+                  {[
+                    { id: 'signals', label: 'New Trading Signals', desc: 'Forward new EMA crossover, ATR breakout, and structure entry alerts.' },
+                    { id: 'trades', label: 'Trade Executions', desc: 'Forward order triggers, execution events, and position close reports.' },
+                    { id: 'hourly', label: 'Hourly Performance Reports', desc: 'Forward hourly account balance checks.' },
+                    { id: 'daily', label: 'Daily Summaries', desc: 'Forward daily performance and backtest leaderboard audits.' }
+                  ].map((filter) => (
+                    <label key={filter.id} className="flex items-start gap-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={(whatsappFilters as any)[filter.id]}
+                        onChange={(e) => {
+                          const updatedFilters = {
+                            ...whatsappFilters,
+                            [filter.id]: e.target.checked
+                          };
+                          setWhatsappFilters(updatedFilters);
+                          handleSaveWhatsAppConfig(whatsappEnabled, whatsappRecipients, updatedFilters);
+                        }}
+                        className="mt-1 rounded border-zinc-800 bg-[#09090b] text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer accent-emerald-500 w-3.5 h-3.5"
+                      />
+                      <div>
+                        <span className="text-xs font-bold text-zinc-350 group-hover:text-zinc-200 transition-all">{filter.label}</span>
+                        <p className="text-[10px] text-zinc-500 mt-0.5 leading-relaxed">{filter.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
