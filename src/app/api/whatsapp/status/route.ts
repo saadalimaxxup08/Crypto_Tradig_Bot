@@ -31,7 +31,8 @@ function autoSpawnBridge() {
     const child = spawn('node', [bridgePath], {
       detached: true,
       stdio: ['ignore', out, out],
-      cwd: process.cwd()
+      cwd: process.cwd(),
+      shell: true
     });
     child.unref();
   } catch (spawnErr) {
