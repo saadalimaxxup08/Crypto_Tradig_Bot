@@ -40,8 +40,8 @@ async function handleCron() {
       const defaultSettings = {
         id: 1,
         bot_enabled: false,
-        tp_percent: 2.0,
-        sl_percent: 1.0,
+        tp_percent: 1.2,
+        sl_percent: 1.5,
         risk_amount: 10.0,
         pairs: [
           'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',

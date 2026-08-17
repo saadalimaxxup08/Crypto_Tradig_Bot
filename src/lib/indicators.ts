@@ -288,12 +288,13 @@ export function analyzeDoubleEma(prices: number[]): {
   direction: 'LONG' | 'SHORT' | 'NEUTRAL';
 } {
   const len = prices.length;
-  if (len < 30) {
+  if (len < 205) {
     return { rsi: NaN, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
   const ema9 = calculateEMA(prices, 9);
   const ema21 = calculateEMA(prices, 21);
+  const ema200 = calculateEMA(prices, 200);
   const rsi = calculateRSI(prices, 14);
 
   const currentIdx = len - 1;
@@ -304,15 +305,16 @@ export function analyzeDoubleEma(prices: number[]): {
   const pEma9 = ema9[prevIdx];
   const pEma21 = ema21[prevIdx];
   const currentRsi = rsi[currentIdx] || 50;
+  const currentEma200 = ema200[currentIdx];
 
-  if (isNaN(cEma9) || isNaN(cEma21) || isNaN(pEma9) || isNaN(pEma21)) {
+  if (isNaN(cEma9) || isNaN(cEma21) || isNaN(pEma9) || isNaN(pEma21) || isNaN(currentEma200)) {
     return { rsi: currentRsi, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (pEma9 <= pEma21 && cEma9 > cEma21) {
+  if (pEma9 <= pEma21 && cEma9 > cEma21 && prices[currentIdx] > currentEma200) {
     direction = 'LONG';
-  } else if (pEma9 >= pEma21 && cEma9 < cEma21) {
+  } else if (pEma9 >= pEma21 && cEma9 < cEma21 && prices[currentIdx] < currentEma200) {
     direction = 'SHORT';
   }
 
@@ -548,7 +550,7 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
   direction: 'LONG' | 'SHORT' | 'NEUTRAL';
 } {
   const len = ohlcv.length;
-  if (len < 30) {
+  if (len < 205) {
     return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
@@ -557,6 +559,7 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
   const closes = ohlcv.map(c => c[4]);
 
   const ema20 = calculateEMA(closes, 20);
+  const ema200 = calculateEMA(closes, 200);
   const atr = calculateATR(highs, lows, closes, 14);
 
   const currentIdx = len - 1;
@@ -568,8 +571,9 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
   const currentAtr = atr[currentIdx];
   const prevEma20 = ema20[prevIdx];
   const prevAtr = atr[prevIdx];
+  const currentEma200 = ema200[currentIdx];
 
-  if (isNaN(currentEma20) || isNaN(currentAtr) || isNaN(prevEma20) || isNaN(prevAtr)) {
+  if (isNaN(currentEma20) || isNaN(currentAtr) || isNaN(prevEma20) || isNaN(prevAtr) || isNaN(currentEma200)) {
     return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
@@ -579,9 +583,9 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
   const lowerBandPrev = prevEma20 - 2 * prevAtr;
 
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (prevClose <= upperBandPrev && currentClose > upperBandCurrent) {
+  if (prevClose <= upperBandPrev && currentClose > upperBandCurrent && currentClose > currentEma200) {
     direction = 'LONG';
-  } else if (prevClose >= lowerBandPrev && currentClose < lowerBandCurrent) {
+  } else if (prevClose >= lowerBandPrev && currentClose < lowerBandCurrent && currentClose < currentEma200) {
     direction = 'SHORT';
   }
 
