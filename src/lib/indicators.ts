@@ -147,13 +147,14 @@ export function analyzeRsiMacd(prices: number[]): {
   signalLine: number;
   direction: 'LONG' | 'SHORT' | 'NEUTRAL';
 } {
-  const rsi = calculateRSI(prices, 14);
-  const { macdLine, signalLine } = calculateMACD(prices, 12, 26, 9);
-
   const len = prices.length;
-  if (len < 30) {
+  if (len < 205) {
     return { rsi: NaN, macdLine: NaN, signalLine: NaN, direction: 'NEUTRAL' };
   }
+
+  const rsi = calculateRSI(prices, 14);
+  const { macdLine, signalLine } = calculateMACD(prices, 12, 26, 9);
+  const ema200 = calculateEMA(prices, 200);
 
   const currentIdx = len - 1;
   const prevIdx = len - 2;
@@ -161,6 +162,7 @@ export function analyzeRsiMacd(prices: number[]): {
   const currentRsi = rsi[currentIdx];
   const currentMacd = macdLine[currentIdx];
   const currentSignal = signalLine[currentIdx];
+  const currentEma200 = ema200[currentIdx];
 
   const prevMacd = macdLine[prevIdx];
   const prevSignal = signalLine[prevIdx];
@@ -170,7 +172,8 @@ export function analyzeRsiMacd(prices: number[]): {
     isNaN(currentMacd) ||
     isNaN(currentSignal) ||
     isNaN(prevMacd) ||
-    isNaN(prevSignal)
+    isNaN(prevSignal) ||
+    isNaN(currentEma200)
   ) {
     return { rsi: currentRsi, macdLine: currentMacd, signalLine: currentSignal, direction: 'NEUTRAL' };
   }
@@ -183,9 +186,9 @@ export function analyzeRsiMacd(prices: number[]): {
 
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
 
-  if (currentRsi < 30 && isBullishCross) {
+  if (currentRsi < 30 && isBullishCross && prices[currentIdx] > currentEma200) {
     direction = 'LONG';
-  } else if (currentRsi > 70 && isBearishCross) {
+  } else if (currentRsi > 70 && isBearishCross && prices[currentIdx] < currentEma200) {
     direction = 'SHORT';
   }
 
@@ -500,7 +503,7 @@ export function analyzeStochRsiMacd(ohlcv: number[][]): {
   direction: 'LONG' | 'SHORT' | 'NEUTRAL';
 } {
   const len = ohlcv.length;
-  if (len < 35) {
+  if (len < 205) {
     return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
@@ -508,6 +511,7 @@ export function analyzeStochRsiMacd(ohlcv: number[][]): {
   const rsi = calculateRSI(closes, 14);
   const { k, d } = calculateStochRSI(rsi, 14, 3, 3);
   const { macdLine, signalLine, histogram } = calculateMACD(closes, 12, 26, 9);
+  const ema200 = calculateEMA(closes, 200);
 
   const currentIdx = len - 1;
   const prevIdx = len - 2;
@@ -517,18 +521,19 @@ export function analyzeStochRsiMacd(ohlcv: number[][]): {
   const kPrev = k[prevIdx];
   const dPrev = d[prevIdx];
   const histCurr = histogram[currentIdx];
+  const currentEma200 = ema200[currentIdx];
 
-  if (isNaN(kCurr) || isNaN(dCurr) || isNaN(kPrev) || isNaN(dPrev) || isNaN(histCurr)) {
+  if (isNaN(kCurr) || isNaN(dCurr) || isNaN(kPrev) || isNaN(dPrev) || isNaN(histCurr) || isNaN(currentEma200)) {
     return { rsi: rsi[currentIdx] || 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  // Long: StochRSI bullish crossover in oversold (<20) AND MACD histogram positive
-  if (kPrev <= dPrev && kCurr > dCurr && kCurr < 20 && histCurr > 0) {
+  // Long: StochRSI bullish crossover in oversold (<20) AND MACD histogram positive AND above EMA 200
+  if (kPrev <= dPrev && kCurr > dCurr && kCurr < 20 && histCurr > 0 && closes[currentIdx] > currentEma200) {
     direction = 'LONG';
   }
-  // Short: StochRSI bearish crossover in overbought (>80) AND MACD histogram negative
-  else if (kPrev >= dPrev && kCurr < dCurr && kCurr > 80 && histCurr < 0) {
+  // Short: StochRSI bearish crossover in overbought (>80) AND MACD histogram negative AND below EMA 200
+  else if (kPrev >= dPrev && kCurr < dCurr && kCurr > 80 && histCurr < 0 && closes[currentIdx] < currentEma200) {
     direction = 'SHORT';
   }
 
