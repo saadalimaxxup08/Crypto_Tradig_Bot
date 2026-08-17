@@ -93,7 +93,13 @@ export async function GET() {
     );
     let balance = 100.0 + netHistoricalPnl;
     if (balanceFetched) {
-      balance = realBalance;
+      if (isDemo) {
+        // Demo account has 5000 USDT starting base. Bot is allocated 100 USDT.
+        // We reflect the profit/loss of the bot allocation relative to the 5000 USDT base.
+        balance = 100.0 + (realBalance - 5000.0);
+      } else {
+        balance = realBalance;
+      }
     } else {
       balance = isDemo ? (5000.0 + netHistoricalPnl) : (100.0 + netHistoricalPnl);
     }
