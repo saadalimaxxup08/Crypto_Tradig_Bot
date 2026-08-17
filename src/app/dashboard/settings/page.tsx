@@ -62,6 +62,14 @@ export default function SettingsPage() {
     setPairOverrides(newOverrides);
   };
 
+  const editOverride = (pair: string, o: any) => {
+    setOverridePair(pair);
+    setOverrideMargin(o.risk_amount !== undefined ? o.risk_amount.toString() : '');
+    setOverrideLeverage(o.leverage !== undefined ? o.leverage.toString() : '');
+    setOverrideTp(o.tp_percent !== undefined ? o.tp_percent.toString() : '');
+    setOverrideSl(o.sl_percent !== undefined ? o.sl_percent.toString() : '');
+  };
+
   const [showTelegram, setShowTelegram] = useState(false);
   const [showBinanceDemoKey, setShowBinanceDemoKey] = useState(false);
   const [showBinanceDemoSecret, setShowBinanceDemoSecret] = useState(false);
@@ -443,7 +451,14 @@ export default function SettingsPage() {
                         <td className="p-3 text-right font-mono text-zinc-300">
                           {o.sl_percent !== undefined ? `${o.sl_percent.toFixed(1)}%` : <span className="text-zinc-600 italic">Global fallback</span>}
                         </td>
-                        <td className="p-3 text-center">
+                        <td className="p-3 text-center space-x-2">
+                          <button
+                            type="button"
+                            onClick={() => editOverride(pair, o)}
+                            className="text-emerald-400 hover:text-emerald-350 font-bold px-2 py-1 rounded hover:bg-emerald-950/25 transition-all cursor-pointer text-xs"
+                          >
+                            Edit
+                          </button>
                           <button
                             type="button"
                             onClick={() => deleteOverride(pair)}

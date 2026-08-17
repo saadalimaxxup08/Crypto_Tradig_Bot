@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { analyzeStrategy } from '@/lib/indicators';
+import { analyzeStrategy, calculateATR } from '@/lib/indicators';
 import {
   getBinanceClient,
   placeFuturesOrder,
@@ -261,8 +261,15 @@ async function handleCron() {
             return { pair, error: 'Insufficient candles data (requires at least 205 candles)' };
           }
 
+          const highs = ohlcv.map((candle: any) => candle[2]);
+          const lows = ohlcv.map((candle: any) => candle[3]);
           const closePrices = ohlcv.map((candle: any) => candle[4]);
           const currentPrice = closePrices[closePrices.length - 1];
+
+          // Calculate current Average True Range percentage to drive dynamic TP/SL targets based on market volatility
+          const atrList = calculateATR(highs, lows, closePrices, 14);
+          const currentAtr = atrList[atrList.length - 1] || 0;
+          const atrPercent = currentPrice > 0 ? (currentAtr / currentPrice) * 100 : 0;
 
           const rsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'RSI_MACD');
           const bbRsiAnalysis = analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI');
@@ -274,6 +281,7 @@ async function handleCron() {
           return {
             pair,
             currentPrice,
+            atrPercent,
             analyses: {
               RSI_MACD: rsiMacdAnalysis,
               BOLLINGER_RSI: bbRsiAnalysis,
@@ -373,7 +381,7 @@ async function handleCron() {
         continue;
       }
 
-      const { pair, currentPrice, analyses } = result;
+      const { pair, currentPrice, analyses, atrPercent } = result;
 
       for (const strategyName of strategiesList) {
         const analysis = analyses[strategyName as keyof typeof analyses];
@@ -411,8 +419,17 @@ async function handleCron() {
           activeRiskAmount = 5.0; // Higher default margin for BTC/ETH
         }
 
-        const activeTpPercent = pairOverride.tp_percent !== undefined ? parseFloat(pairOverride.tp_percent) : (tp_percent || 2.0);
-        const activeSlPercent = pairOverride.sl_percent !== undefined ? parseFloat(pairOverride.sl_percent) : (sl_percent || 1.0);
+        // Volatility-based target calculation (ATR): TP is 2.0x ATR (positive ratio), SL is 1.5x ATR (breathing room)
+        const pctAtr = atrPercent || 1.0;
+        const dynamicTp = Math.max(0.4, parseFloat((2.0 * pctAtr).toFixed(2))); // Min 0.4%
+        const dynamicSl = Math.max(0.4, parseFloat((1.5 * pctAtr).toFixed(2))); // Min 0.4%
+
+        const activeTpPercent = pairOverride.tp_percent !== undefined 
+          ? parseFloat(pairOverride.tp_percent) 
+          : dynamicTp;
+        const activeSlPercent = pairOverride.sl_percent !== undefined 
+          ? parseFloat(pairOverride.sl_percent) 
+          : dynamicSl;
 
         const tpPrice = direction === 'LONG' ? currentPrice * (1 + activeTpPercent / 100) : currentPrice * (1 - activeTpPercent / 100);
         const slPrice = direction === 'LONG' ? currentPrice * (1 - activeSlPercent / 100) : currentPrice * (1 + activeSlPercent / 100);
