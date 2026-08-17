@@ -49,7 +49,7 @@ async function handleCron() {
           'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT', 'XLMUSDT',
           'BCHUSDT', 'OPUSDT', 'ARBUSDT', '1000PEPEUSDT', 'SUIUSDT',
           'NEARUSDT', 'APTUSDT', 'SEIUSDT', 'TIAUSDT', 'INJUSDT',
-          'RNDRUSDT', 'FTMUSDT', 'AAVEUSDT'
+          'RENDERUSDT', 'FTMUSDT', 'AAVEUSDT'
         ],
         telegram_token: process.env.TELEGRAM_TOKEN || '',
         telegram_chat_id: process.env.TELEGRAM_CHAT_ID || '',
