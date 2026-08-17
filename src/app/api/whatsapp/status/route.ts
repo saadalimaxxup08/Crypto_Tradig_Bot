@@ -3,7 +3,7 @@ import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
-const BRIDGE_URL = 'http://localhost:3001';
+const BRIDGE_URL = process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL || 'http://localhost:3001';
 
 function autoSpawnBridge() {
   try {

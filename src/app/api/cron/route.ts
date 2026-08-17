@@ -782,40 +782,47 @@ async function sendWhatsAppAlert(message: string, logs: string[]) {
       return;
     }
 
-    // Dynamic offline checker & auto-spawner for reliability
-    try {
-      await fetch('http://localhost:3001/status', { method: 'GET' });
-    } catch (pingErr) {
-      try {
-        const lockPath = path.join(process.cwd(), 'whatsapp_spawn.lock');
-        if (fs.existsSync(lockPath)) {
-          const stat = fs.statSync(lockPath);
-          const ageMs = Date.now() - stat.mtimeMs;
-          if (ageMs < 15000) {
-            logs.push('WhatsApp Bridge was spawned recently. Skipping duplicate spawn.');
-            return;
-          }
-        }
-        fs.writeFileSync(lockPath, String(Date.now()), 'utf-8');
+    const bridgeUrl = process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL || 'http://localhost:3001';
+    const isLocalBridge = bridgeUrl.includes('localhost') || bridgeUrl.includes('127.0.0.1');
 
-        logs.push('WhatsApp Bridge is offline. Spawning background instance with logging...');
-        const { spawn } = require('child_process');
-        const bridgePath = path.join(process.cwd(), 'whatsapp-bridge.js');
-        const logFile = path.join(process.cwd(), 'whatsapp-bridge.log');
-        const out = fs.openSync(logFile, 'a');
-        
-        const child = spawn('node', [bridgePath], {
-          detached: true,
-          stdio: ['ignore', out, out],
-          cwd: process.cwd(),
-          shell: true
-        });
-        child.unref();
-        
-        // Give the socket connection 1.5 seconds to initialize express server
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      } catch (spawnErr: any) {
-        logs.push(`Failed to auto-spawn WhatsApp Bridge: ${spawnErr.message}`);
+    // Dynamic offline checker & auto-spawner (only run auto-spawner if target bridge is local)
+    try {
+      await fetch(`${bridgeUrl}/status`, { method: 'GET' });
+    } catch (pingErr) {
+      if (isLocalBridge) {
+        try {
+          const lockPath = path.join(process.cwd(), 'whatsapp_spawn.lock');
+          if (fs.existsSync(lockPath)) {
+            const stat = fs.statSync(lockPath);
+            const ageMs = Date.now() - stat.mtimeMs;
+            if (ageMs < 15000) {
+              logs.push('WhatsApp Bridge was spawned recently. Skipping duplicate spawn.');
+              return;
+            }
+          }
+          fs.writeFileSync(lockPath, String(Date.now()), 'utf-8');
+
+          logs.push('WhatsApp Bridge is offline. Spawning background instance with logging...');
+          const { spawn } = require('child_process');
+          const bridgePath = path.join(process.cwd(), 'whatsapp-bridge.js');
+          const logFile = path.join(process.cwd(), 'whatsapp-bridge.log');
+          const out = fs.openSync(logFile, 'a');
+          
+          const child = spawn('node', [bridgePath], {
+            detached: true,
+            stdio: ['ignore', out, out],
+            cwd: process.cwd(),
+            shell: true
+          });
+          child.unref();
+          
+          // Give the socket connection 1.5 seconds to initialize express server
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (spawnErr: any) {
+          logs.push(`Failed to auto-spawn WhatsApp Bridge: ${spawnErr.message}`);
+        }
+      } else {
+        logs.push(`WhatsApp Bridge is offline at remote URL: ${bridgeUrl}. Cannot auto-spawn remote processes.`);
       }
     }
 
@@ -833,7 +840,7 @@ async function sendWhatsAppAlert(message: string, logs: string[]) {
     await Promise.all(
       config.whatsapp_recipients.map(async (recipient: string) => {
         try {
-          const res = await fetch('http://localhost:3001/send', {
+          const res = await fetch(`${bridgeUrl}/send`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ to: recipient, message: waMessage }),
@@ -845,7 +852,7 @@ async function sendWhatsAppAlert(message: string, logs: string[]) {
             logs.push(`WhatsApp alert successfully sent to ${recipient}.`);
           }
         } catch (err: any) {
-          logs.push(`Failed to contact WhatsApp Bridge on port 3001 for ${recipient}: ${err.message}`);
+          logs.push(`Failed to contact WhatsApp Bridge at ${bridgeUrl} for ${recipient}: ${err.message}`);
         }
       })
     );

@@ -1,0 +1,25 @@
+Sending message to 923111594226@s.whatsapp.net...
+Closing session: SessionEntry {
+  _chains: {
+    'BTPOWrgYHa9nECTm5sY1EG7oZlQw/zt3rtzKOawjO4AI': { chainKey: [Object], chainType: 2, messageKeys: {} },
+    'BTRRCkiJC/eePpROmZBO7X7869RRMxGzwywup6q71oc4': { chainKey: [Object], chainType: 1, messageKeys: {} }
+  },
+  registrationId: 1133251654,
+  currentRatchet: {
+    ephemeralKeyPair: {
+      pubKey: <Buffer 05 34 51 0a 48 89 0b f7 9e 3e 94 4e 99 90 4e ed 7e fc eb d4 51 33 11 b3 c3 2c 2e a7 aa bb d6 87 38>,
+      privKey: <Buffer 50 5c 0b 98 6e f9 57 51 24 9b eb 15 6c 32 ed 52 71 96 f9 3f 0d 9a 10 8c 4e 0b 5a 21 54 18 3c 60>
+    },
+    lastRemoteEphemeralKey: <Buffer 05 33 ce 5a b8 18 1d af 67 10 24 e6 e6 c6 35 10 6e e8 66 54 30 ff 3b 77 ae dc ca 39 ac 23 3b 80 08>,
+    previousCounter: 0,
+    rootKey: <Buffer 0b 86 e4 7c 61 1d b8 22 47 9f b3 80 6b 2b 1e b2 8d 3b 2e 6b 20 05 bd 8e 6e 41 8a af 24 92 51 cb>
+  },
+  indexInfo: {
+    baseKey: <Buffer 05 15 50 6d 76 d1 a7 e9 0f 81 08 3e be 96 48 d3 1c 32 ad ac 99 60 ec c9 22 48 a1 93 09 c2 f0 64 7d>,
+    baseKeyType: 2,
+    closed: -1,
+    used: 1786987446936,
+    created: 1786987446936,
+    remoteIdentityKey: <Buffer 05 3f db 3f b9 8b dd 02 dd 0b cc aa 9c ce d2 56 f9 22 ba 6d a7 d9 2f 07 be 8c c9 46 44 9b 02 c7 0b>
+  }
+}
