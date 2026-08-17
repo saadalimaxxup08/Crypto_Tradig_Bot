@@ -1,6 +1,28 @@
 import { NextResponse } from 'next/server';
+import { spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs';
 
 const BRIDGE_URL = 'http://localhost:3001';
+
+function autoSpawnBridge() {
+  try {
+    const bridgePath = path.join(process.cwd(), 'whatsapp-bridge.js');
+    if (!fs.existsSync(bridgePath)) {
+      console.error('WhatsApp bridge script not found at:', bridgePath);
+      return;
+    }
+    console.log('Spawning WhatsApp Bridge microservice in background...');
+    const child = spawn('node', [bridgePath], {
+      detached: true,
+      stdio: 'ignore',
+      cwd: process.cwd()
+    });
+    child.unref();
+  } catch (spawnErr) {
+    console.error('Failed to spawn WhatsApp Bridge process:', spawnErr);
+  }
+}
 
 export async function GET() {
   try {
@@ -18,11 +40,14 @@ export async function GET() {
     const data = await res.json();
     return NextResponse.json(data);
   } catch (err: any) {
+    console.log('WhatsApp Bridge port 3001 is offline. Auto-spawning bridge process...');
+    autoSpawnBridge();
+    
     return NextResponse.json({
-      status: 'disconnected',
+      status: 'connecting',
       user: null,
       qr: null,
-      error: `Could not connect to WhatsApp Bridge: ${err.message}`,
+      error: `WhatsApp Bridge is booting up in the background. Please wait...`,
     });
   }
 }

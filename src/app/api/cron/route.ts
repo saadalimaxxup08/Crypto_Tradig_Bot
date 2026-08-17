@@ -782,6 +782,28 @@ async function sendWhatsAppAlert(message: string, logs: string[]) {
       return;
     }
 
+    // Dynamic offline checker & auto-spawner for reliability
+    try {
+      await fetch('http://localhost:3001/status', { method: 'GET' });
+    } catch (pingErr) {
+      try {
+        logs.push('WhatsApp Bridge is offline. Spawning background instance dynamically...');
+        const { spawn } = require('child_process');
+        const bridgePath = path.join(process.cwd(), 'whatsapp-bridge.js');
+        const child = spawn('node', [bridgePath], {
+          detached: true,
+          stdio: 'ignore',
+          cwd: process.cwd()
+        });
+        child.unref();
+        
+        // Give the socket connection 1.5 seconds to initialize express server
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      } catch (spawnErr: any) {
+        logs.push(`Failed to auto-spawn WhatsApp Bridge: ${spawnErr.message}`);
+      }
+    }
+
     logs.push(`WhatsApp notifications enabled. Forwarding alert to ${config.whatsapp_recipients.length} recipients...`);
     
     // Convert HTML tags to WhatsApp Markdown
