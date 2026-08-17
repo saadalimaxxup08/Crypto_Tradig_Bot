@@ -5,6 +5,26 @@ const path = require('path');
 const fs = require('fs');
 const express = require('express');
 const pino = require('pino');
+const { createClient } = require('@supabase/supabase-js');
+
+// Parse environment variables
+let supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+let supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl && fs.existsSync(path.join(__dirname, '.env.local'))) {
+  const envContent = fs.readFileSync(path.join(__dirname, '.env.local'), 'utf-8');
+  envContent.split('\n').forEach(line => {
+    const parts = line.split('=');
+    if (parts.length >= 2) {
+      const key = parts[0].trim();
+      const value = parts.slice(1).join('=').trim().replace(/^["']|["']$/g, '');
+      if (key === 'NEXT_PUBLIC_SUPABASE_URL') supabaseUrl = value;
+      if (key === 'SUPABASE_SERVICE_ROLE_KEY') supabaseKey = value;
+    }
+  });
+}
+
+const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 
 const app = express();
 app.use(express.json());
@@ -20,6 +40,30 @@ async function connectToWhatsApp() {
   console.log('Initializing WhatsApp connection via Baileys...');
   try {
     const authFolder = path.join(__dirname, 'auth_info_baileys');
+    const credsPath = path.join(authFolder, 'creds.json');
+
+    // 1. Sync credentials from Supabase to local filesystem on startup
+    if (!fs.existsSync(credsPath)) {
+      console.log('No local credentials file found. Checking Supabase for active WhatsApp session...');
+      try {
+        const { data, error } = await supabase
+          .from('settings')
+          .select('whatsapp_session')
+          .eq('id', 1)
+          .single();
+        
+        if (!error && data && data.whatsapp_session) {
+          if (!fs.existsSync(authFolder)) {
+            fs.mkdirSync(authFolder, { recursive: true });
+          }
+          fs.writeFileSync(credsPath, data.whatsapp_session, 'utf-8');
+          console.log('WhatsApp credentials successfully restored from Supabase.');
+        }
+      } catch (dbErr) {
+        console.error('Failed to restore credentials from Supabase:', dbErr.message);
+      }
+    }
+
     const { state, saveCreds } = await useMultiFileAuthState(authFolder);
     
     sock = makeWASocket({
@@ -29,7 +73,23 @@ async function connectToWhatsApp() {
       defaultQueryTimeoutMs: undefined,
     });
 
-    sock.ev.on('creds.update', saveCreds);
+    sock.ev.on('creds.update', async () => {
+      // Save locally
+      saveCreds();
+      // Sync to Supabase in real-time
+      try {
+        if (fs.existsSync(credsPath)) {
+          const credsStr = fs.readFileSync(credsPath, 'utf-8');
+          await supabase
+            .from('settings')
+            .update({ whatsapp_session: credsStr })
+            .eq('id', 1);
+          console.log('WhatsApp session state synced to Supabase database.');
+        }
+      } catch (syncErr) {
+        console.error('Failed to sync credentials to Supabase:', syncErr.message);
+      }
+    });
 
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
@@ -142,6 +202,17 @@ app.post('/unlink', async (req, res) => {
     connectionState = 'disconnected';
     linkedUser = null;
     latestQr = null;
+
+    // Clear session credentials inside Supabase settings table
+    try {
+      await supabase
+        .from('settings')
+        .update({ whatsapp_session: null })
+        .eq('id', 1);
+      console.log('Cleared WhatsApp session inside Supabase database.');
+    } catch (dbClearErr) {
+      console.error('Failed to clear credentials in Supabase settings:', dbClearErr.message);
+    }
 
     // Restart connection setup to get a new QR code
     setTimeout(connectToWhatsApp, 1000);
