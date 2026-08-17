@@ -91,6 +91,33 @@ export default function SettingsPage() {
     }
   };
 
+  const [testingRecipients, setTestingRecipients] = useState<Record<string, boolean>>({});
+  const [sentRecipients, setSentRecipients] = useState<Record<string, boolean>>({});
+
+  const handleTestRecipient = async (recipient: string) => {
+    setTestingRecipients((prev) => ({ ...prev, [recipient]: true }));
+    try {
+      const res = await fetch('/api/whatsapp/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSentRecipients((prev) => ({ ...prev, [recipient]: true }));
+        setTimeout(() => {
+          setSentRecipients((prev) => ({ ...prev, [recipient]: false }));
+        }, 3000);
+      } else {
+        alert(`Failed to send test message: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Error sending test: ${err.message}`);
+    } finally {
+      setTestingRecipients((prev) => ({ ...prev, [recipient]: false }));
+    }
+  };
+
   // Pair Specific Overrides States
   const [pairOverrides, setPairOverrides] = useState<Record<string, any>>({});
   const [overridePair, setOverridePair] = useState('');
@@ -730,17 +757,27 @@ export default function SettingsPage() {
                   whatsappRecipients.map((rec) => (
                     <div key={rec} className="flex justify-between items-center bg-[#09090b]/80 border border-zinc-800/60 px-3 py-2 rounded-xl">
                       <span className="text-xs font-mono text-zinc-350">{rec}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const updated = whatsappRecipients.filter((r) => r !== rec);
-                          setWhatsappRecipients(updated);
-                          handleSaveWhatsAppConfig(whatsappEnabled, updated);
-                        }}
-                        className="text-red-400 hover:text-red-300 font-bold px-2 py-1 rounded hover:bg-red-950/25 transition-all cursor-pointer text-xs"
-                      >
-                        Remove
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={testingRecipients[rec]}
+                          onClick={() => handleTestRecipient(rec)}
+                          className="text-emerald-400 hover:text-emerald-350 font-bold px-2 py-1 rounded hover:bg-emerald-950/25 transition-all cursor-pointer text-xs disabled:opacity-50"
+                        >
+                          {testingRecipients[rec] ? 'Sending...' : sentRecipients[rec] ? 'Sent! ✅' : 'Test'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = whatsappRecipients.filter((r) => r !== rec);
+                            setWhatsappRecipients(updated);
+                            handleSaveWhatsAppConfig(whatsappEnabled, updated);
+                          }}
+                          className="text-red-400 hover:text-red-300 font-bold px-2 py-1 rounded hover:bg-red-950/25 transition-all cursor-pointer text-xs"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
