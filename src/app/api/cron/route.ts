@@ -539,10 +539,16 @@ async function handleCron() {
 
             const totalVal = activeRiskAmount * activeLeverage;
             const entryFeeVal = totalVal * 0.0005;
-            const exitFeeVal = totalVal * (1 + activeTpPercent / 100) * 0.0005;
-            const totalFeesVal = entryFeeVal + exitFeeVal;
-            const expectedGrossPnl = totalVal * (activeTpPercent / 100);
-            const expectedNetPnl = expectedGrossPnl - totalFeesVal;
+            
+            // Expected Net Profit calculation (at TP)
+            const exitFeeTp = totalVal * (1 + activeTpPercent / 100) * 0.0005;
+            const expectedGrossProfit = totalVal * (activeTpPercent / 100);
+            const expectedNetProfit = expectedGrossProfit - (entryFeeVal + exitFeeTp);
+
+            // Expected Net Loss calculation (at SL)
+            const exitFeeSl = totalVal * (1 - activeSlPercent / 100) * 0.0005;
+            const expectedGrossLoss = totalVal * (activeSlPercent / 100);
+            const expectedNetLoss = expectedGrossLoss + (entryFeeVal + exitFeeSl);
 
             const telegramMessage = `🟢 <b>NEW SIGNAL: ${pair} ${direction}</b>\n` +
               `Reason: <b>${finalStrategyName}</b>\n` +
@@ -550,10 +556,10 @@ async function handleCron() {
               `Leverage: <b>${activeLeverage}x</b>\n` +
               `Total Size: <b>${totalVal.toFixed(2)} USDT</b>\n` +
               `Entry Price: <b>${order.entryPrice}</b>\n` +
-              `SL: <b>${slPrice.toFixed(4)}</b> (Target: -${activeSlPercent.toFixed(2)}%)\n` +
-              `TP: <b>${tpPrice.toFixed(4)}</b> (Target: +${activeTpPercent.toFixed(2)}%)\n\n` +
-              `📊 <b>Strategy Win-Rate:</b> <code>${expectedWinRateStr}</code>\n` +
-              `💰 <b>Expected Net Profit:</b> <code>+${expectedNetPnl.toFixed(4)} USDT</code> (Fees: -${totalFeesVal.toFixed(4)} USDT)`;
+              `SL: <b>${slPrice.toFixed(4)}</b> (Target: -${activeSlPercent.toFixed(2)}% / -${expectedNetLoss.toFixed(2)} USDT)\n` +
+              `TP: <b>${tpPrice.toFixed(4)}</b> (Target: +${activeTpPercent.toFixed(2)}% / +${expectedNetProfit.toFixed(2)} USDT)\n\n` +
+              `🎯 <b>Expected Win Chance:</b> <code>${expectedWinRateStr}</code>\n` +
+              `💰 <b>Expected Net Profit (on TP):</b> <code>+${expectedNetProfit.toFixed(4)} USDT</code> (Fees: -${(entryFeeVal + exitFeeTp).toFixed(4)} USDT)`;
 
             await sendTelegramMessage(telegram_token, telegram_chat_id, telegramMessage);
             logs.push(`Successfully opened live trade for ${pair}.`);
