@@ -170,6 +170,16 @@ async function connectToWhatsApp() {
 // Start WhatsApp Bridge
 connectToWhatsApp();
 
+app.get('/', (req, res) => {
+  res.json({
+    service: 'WhatsApp Bridge Microservice',
+    status: connectionState,
+    connected_user: linkedUser,
+    uptime: `${Math.floor(process.uptime())}s`,
+    version: '1.1.0'
+  });
+});
+
 // HTTP Endpoints for Next.js interface
 app.get('/status', (req, res) => {
   res.json({
