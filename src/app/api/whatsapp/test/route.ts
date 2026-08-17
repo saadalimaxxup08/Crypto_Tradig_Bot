@@ -16,6 +16,14 @@ export async function POST(req: Request) {
       body: JSON.stringify({ to: recipient, message: testMessage }),
     });
 
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return NextResponse.json({
+        success: false,
+        error: `WhatsApp service is deploying or offline on Render (HTTP ${res.status}). Please wait a minute and try again!`
+      }, { status: 502 });
+    }
+
     if (!res.ok) {
       const data = await res.json();
       return NextResponse.json({ success: false, error: data.error || 'Failed to send test message via bridge' }, { status: res.status });

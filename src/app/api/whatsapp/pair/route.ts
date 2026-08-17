@@ -14,6 +14,14 @@ export async function POST(req: Request) {
       body: JSON.stringify({ phone }),
     });
 
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      return NextResponse.json({
+        success: false,
+        error: `WhatsApp service is still building or deploying on Render (HTTP ${res.status}). Please wait 1-2 minutes and try again!`
+      }, { status: 502 });
+    }
+
     const data = await res.json();
     if (!res.ok) {
       return NextResponse.json({ success: false, error: data.error || 'Failed to request pairing code' }, { status: res.status });
