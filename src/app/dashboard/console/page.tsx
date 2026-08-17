@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Terminal as TerminalIcon, Cpu, Layers, Wifi, Play, Trash2, HelpCircle, Activity } from 'lucide-react';
+import { Terminal as TerminalIcon, Cpu, Layers, Wifi, Play, Trash2, HelpCircle, Activity, Sliders, CheckSquare, Square, Save } from 'lucide-react';
+import confetti from 'canvas-confetti';
 
 interface TerminalLine {
   text: string;
@@ -18,14 +19,95 @@ export default function ConsolePage() {
   const [stats, setStats] = useState({ cpu: 12, ram: 45, apiWeight: 22 });
   const [connections, setConnections] = useState({ db: true, telegram: true, binance: true });
 
+  // Pairs checklist state & available assets config
+  const ALL_AVAILABLE_PAIRS = useMemo(() => [
+    'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
+    'DOGEUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT', 'AVAXUSDT',
+    'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT', 'XLMUSDT',
+    'BCHUSDT', 'OPUSDT', 'ARBUSDT', '1000PEPEUSDT', 'SUIUSDT',
+    'NEARUSDT', 'APTUSDT', 'SEIUSDT', 'TIAUSDT', 'INJUSDT',
+    'RENDERUSDT', 'FTMUSDT', 'AAVEUSDT'
+  ], []);
+
+  const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
+  const [isSavingPairs, setIsSavingPairs] = useState(false);
+  const [saveStatus, setSaveStatus] = useState({ type: '', text: '' });
+
   const terminalEndRef = useRef<HTMLDivElement | null>(null);
   const lastScanLogsRef = useRef<string[]>([]);
+  const hasSyncedPairs = useRef(false);
+
+  // Sync selected pairs once when settings data resolves from API
+  useEffect(() => {
+    if (settings && settings.pairs && !hasSyncedPairs.current) {
+      setSelectedPairs(settings.pairs);
+      hasSyncedPairs.current = true;
+    }
+  }, [settings]);
 
   const getJeddahTimeStr = () => {
     return new Date().toLocaleTimeString('en-US', {
       hour12: false,
       timeZone: 'Asia/Riyadh',
     });
+  };
+
+  const handleTogglePair = (pair: string) => {
+    setSelectedPairs((prev) =>
+      prev.includes(pair) ? prev.filter((p) => p !== pair) : [...prev, pair]
+    );
+  };
+
+  const handleSavePairs = async () => {
+    if (!settings) return;
+    setIsSavingPairs(true);
+    setSaveStatus({ type: '', text: '' });
+
+    const payload = {
+      ...settings,
+      pairs: selectedPairs,
+    };
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSaveStatus({ type: 'success', text: 'Asset pairs configuration saved successfully!' });
+        
+        // Mark synced as false temporarily to force refresh from loaded set if needed,
+        // but here we merge locally so we just update settings ref
+        setSettings(payload);
+
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.8 },
+          colors: ['#10b981', '#3b82f6'],
+        });
+
+        setLogs((prev) => [
+          ...prev,
+          { text: `♻️ Saved scanner configuration: active pairs updated to [${selectedPairs.join(', ')}].`, type: 'success', time: getJeddahTimeStr() }
+        ]);
+
+        // Hide success message after 4s
+        setTimeout(() => {
+          setSaveStatus((prev) => prev.type === 'success' ? { type: '', text: '' } : prev);
+        }, 4000);
+      } else {
+        setSaveStatus({ type: 'error', text: data.error || 'Failed to update scanner pairs.' });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setSaveStatus({ type: 'error', text: 'An unexpected network error occurred.' });
+    } finally {
+      setIsSavingPairs(false);
+    }
   };
 
   // 1. Initial greeting
@@ -555,6 +637,79 @@ export default function ConsolePage() {
               Use this terminal to force trigger the cron route check or verify system latency. Type <code className="text-zinc-200 bg-zinc-900 px-1 py-0.5 rounded font-mono">help</code> in the shell prompt to view all controls.
             </p>
           </div>
+        </div>
+      </div>
+
+      {/* Dynamic Pairs Selection Configuration Panel */}
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/60 pb-4 gap-4">
+          <div className="flex items-center gap-2.5">
+            <Sliders className="w-5 h-5 text-emerald-400" />
+            <div>
+              <h3 className="text-lg font-bold text-zinc-200">Active Asset Pairs Scanner Manager</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Enable or disable specific pairs to adjust trading focus and optimize latency performance (ms).
+              </p>
+            </div>
+          </div>
+
+          {/* Select All Checkbox Trigger */}
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-widest cursor-pointer select-none hover:text-zinc-200 transition-colors">
+              <input
+                type="checkbox"
+                checked={selectedPairs.length === ALL_AVAILABLE_PAIRS.length}
+                onChange={() => {
+                  if (selectedPairs.length === ALL_AVAILABLE_PAIRS.length) {
+                    setSelectedPairs([]);
+                  } else {
+                    setSelectedPairs(ALL_AVAILABLE_PAIRS);
+                  }
+                }}
+                className="w-4 h-4 rounded text-emerald-500 bg-[#060608] border-zinc-850 focus:ring-emerald-500/20 focus:ring-offset-[#060608] cursor-pointer"
+              />
+              <span>Select All ({selectedPairs.length} / {ALL_AVAILABLE_PAIRS.length})</span>
+            </label>
+
+            <button
+              onClick={handleSavePairs}
+              disabled={isSavingPairs}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all cursor-pointer duration-200"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSavingPairs ? 'Saving...' : 'Save Configuration'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Save Status Alerts */}
+        {saveStatus.text && (
+          <div className={`p-4.5 rounded-2xl text-xs font-medium transition-all duration-300 ${saveStatus.type === 'success' ? 'bg-emerald-950/15 border border-emerald-900/30 text-emerald-400' : 'bg-red-950/15 border border-red-900/30 text-red-400'}`}>
+            {saveStatus.text}
+          </div>
+        )}
+
+        {/* Pairs Checklist Multi-Column Responsive Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3">
+          {ALL_AVAILABLE_PAIRS.map((pair) => {
+            const isChecked = selectedPairs.includes(pair);
+            return (
+              <label
+                key={pair}
+                className={`flex items-center gap-2.5 p-3 rounded-2xl border cursor-pointer select-none transition-all duration-250 ${isChecked ? 'bg-emerald-950/10 border-emerald-500/35 hover:border-emerald-500/50 shadow-sm shadow-emerald-500/5' : 'bg-[#09090c]/80 border-zinc-850 hover:border-zinc-800/80'}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => handleTogglePair(pair)}
+                  className="w-4 h-4 rounded text-emerald-500 bg-[#060608] border-zinc-850 focus:ring-emerald-500/20 focus:ring-offset-[#060608] cursor-pointer"
+                />
+                <span className={`text-xs font-mono font-bold transition-colors duration-200 ${isChecked ? 'text-emerald-400' : 'text-zinc-450 hover:text-zinc-300'}`}>
+                  {pair}
+                </span>
+              </label>
+            );
+          })}
         </div>
       </div>
     </div>
