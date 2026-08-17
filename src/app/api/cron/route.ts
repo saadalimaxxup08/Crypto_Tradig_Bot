@@ -787,12 +787,26 @@ async function sendWhatsAppAlert(message: string, logs: string[]) {
       await fetch('http://localhost:3001/status', { method: 'GET' });
     } catch (pingErr) {
       try {
-        logs.push('WhatsApp Bridge is offline. Spawning background instance dynamically...');
+        const lockPath = path.join(process.cwd(), 'whatsapp_spawn.lock');
+        if (fs.existsSync(lockPath)) {
+          const stat = fs.statSync(lockPath);
+          const ageMs = Date.now() - stat.mtimeMs;
+          if (ageMs < 15000) {
+            logs.push('WhatsApp Bridge was spawned recently. Skipping duplicate spawn.');
+            return;
+          }
+        }
+        fs.writeFileSync(lockPath, String(Date.now()), 'utf-8');
+
+        logs.push('WhatsApp Bridge is offline. Spawning background instance with logging...');
         const { spawn } = require('child_process');
         const bridgePath = path.join(process.cwd(), 'whatsapp-bridge.js');
+        const logFile = path.join(process.cwd(), 'whatsapp-bridge.log');
+        const out = fs.openSync(logFile, 'a');
+        
         const child = spawn('node', [bridgePath], {
           detached: true,
-          stdio: 'ignore',
+          stdio: ['ignore', out, out],
           cwd: process.cwd()
         });
         child.unref();

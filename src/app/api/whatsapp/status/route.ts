@@ -12,10 +12,25 @@ function autoSpawnBridge() {
       console.error('WhatsApp bridge script not found at:', bridgePath);
       return;
     }
-    console.log('Spawning WhatsApp Bridge microservice in background...');
+
+    const lockPath = path.join(process.cwd(), 'whatsapp_spawn.lock');
+    if (fs.existsSync(lockPath)) {
+      const stat = fs.statSync(lockPath);
+      const ageMs = Date.now() - stat.mtimeMs;
+      if (ageMs < 15000) {
+        console.log('WhatsApp Bridge was spawned recently (lock active). Skipping duplicate spawn.');
+        return;
+      }
+    }
+    fs.writeFileSync(lockPath, String(Date.now()), 'utf-8');
+
+    console.log('Spawning WhatsApp Bridge microservice in background with logging...');
+    const logFile = path.join(process.cwd(), 'whatsapp-bridge.log');
+    const out = fs.openSync(logFile, 'a');
+    
     const child = spawn('node', [bridgePath], {
       detached: true,
-      stdio: 'ignore',
+      stdio: ['ignore', out, out],
       cwd: process.cwd()
     });
     child.unref();

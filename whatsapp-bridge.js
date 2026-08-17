@@ -154,4 +154,15 @@ app.post('/unlink', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Standalone WhatsApp Bridge Microservice is listening on port ${PORT}`);
+  
+  // Clear the spawn lock file on successful startup
+  try {
+    const lockPath = path.join(__dirname, 'whatsapp_spawn.lock');
+    if (fs.existsSync(lockPath)) {
+      fs.unlinkSync(lockPath);
+      console.log('Removed WhatsApp Bridge startup lock file.');
+    }
+  } catch (err) {
+    console.error('Failed to remove lock file:', err.message);
+  }
 });
