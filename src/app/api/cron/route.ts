@@ -440,8 +440,8 @@ async function handleCron() {
 
         // Volatility-based target calculation (ATR): TP is 2.0x ATR (positive ratio), SL is 1.5x ATR (breathing room)
         const pctAtr = atrPercent || 1.0;
-        const dynamicTp = Math.max(0.4, parseFloat((2.0 * pctAtr).toFixed(2))); // Min 0.4%
-        const dynamicSl = Math.max(0.4, parseFloat((1.5 * pctAtr).toFixed(2))); // Min 0.4%
+        const dynamicTp = Math.max(1.5, parseFloat((2.0 * pctAtr).toFixed(2))); // Min 1.5% TP
+        const dynamicSl = Math.max(1.0, parseFloat((1.5 * pctAtr).toFixed(2))); // Min 1.0% SL
 
         const activeTpPercent = pairOverride.tp_percent !== undefined 
           ? parseFloat(pairOverride.tp_percent) 
