@@ -508,17 +508,52 @@ async function handleCron() {
               ? 'Bollinger Bands + RSI Reversion'
               : strategyName === 'DOUBLE_EMA'
               ? 'Double EMA Crossover'
+              : strategyName === 'SUPERTREND_EMA'
+              ? 'SuperTrend + 200 EMA'
+              : strategyName === 'STOCH_RSI_MACD'
+              ? 'Stochastic RSI + MACD Crossover'
+              : strategyName === 'ATR_BREAKOUT'
+              ? 'ATR Channel Breakout'
+              : strategyName === 'SWING_STRUCTURE'
+              ? 'Swing S&R Structure'
               : 'RSI + MACD Momentum Crossover';
 
+            // Query live strategy win rate from database
+            let expectedWinRateStr = 'N/A (New Strategy)';
+            try {
+              const { data: stratTrades } = await supabase
+                .from('trades')
+                .select('pnl')
+                .eq('strategy', strategyName)
+                .eq('status', 'CLOSED');
+
+              const totalStratTrades = stratTrades?.length || 0;
+              if (totalStratTrades > 0) {
+                const winStratTrades = stratTrades?.filter((t: any) => parseFloat(t.pnl || 0) > 0).length || 0;
+                const winRatePct = (winStratTrades / totalStratTrades) * 100;
+                expectedWinRateStr = `${winRatePct.toFixed(1)}% (${winStratTrades}/${totalStratTrades} wins)`;
+              }
+            } catch (err) {
+              console.error('Error fetching strategy win rate for telegram:', err);
+            }
+
             const totalVal = activeRiskAmount * activeLeverage;
+            const entryFeeVal = totalVal * 0.0005;
+            const exitFeeVal = totalVal * (1 + activeTpPercent / 100) * 0.0005;
+            const totalFeesVal = entryFeeVal + exitFeeVal;
+            const expectedGrossPnl = totalVal * (activeTpPercent / 100);
+            const expectedNetPnl = expectedGrossPnl - totalFeesVal;
+
             const telegramMessage = `🟢 <b>NEW SIGNAL: ${pair} ${direction}</b>\n` +
               `Reason: <b>${finalStrategyName}</b>\n` +
               `Margin: <b>${activeRiskAmount.toFixed(2)} USDT</b>\n` +
               `Leverage: <b>${activeLeverage}x</b>\n` +
               `Total Size: <b>${totalVal.toFixed(2)} USDT</b>\n` +
               `Entry Price: <b>${order.entryPrice}</b>\n` +
-              `SL: <b>${slPrice.toFixed(4)}</b>\n` +
-              `TP: <b>${tpPrice.toFixed(4)}</b>`;
+              `SL: <b>${slPrice.toFixed(4)}</b> (Target: -${activeSlPercent.toFixed(2)}%)\n` +
+              `TP: <b>${tpPrice.toFixed(4)}</b> (Target: +${activeTpPercent.toFixed(2)}%)\n\n` +
+              `📊 <b>Strategy Win-Rate:</b> <code>${expectedWinRateStr}</code>\n` +
+              `💰 <b>Expected Net Profit:</b> <code>+${expectedNetPnl.toFixed(4)} USDT</code> (Fees: -${totalFeesVal.toFixed(4)} USDT)`;
 
             await sendTelegramMessage(telegram_token, telegram_chat_id, telegramMessage);
             logs.push(`Successfully opened live trade for ${pair}.`);
