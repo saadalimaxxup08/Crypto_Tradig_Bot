@@ -86,20 +86,13 @@ export async function GET() {
       .eq('status', 'OPEN')
       .eq('is_paper', false);
 
-    // 6. Calculate Account Balance (Reflecting actual Binance wallet with simulated fallback)
     const netHistoricalPnl = (allClosedTrades || []).reduce(
       (sum, t) => sum + parseFloat(t.pnl || 0),
       0
     );
-    let balance = 100.0 + netHistoricalPnl;
+    let balance = 0;
     if (balanceFetched) {
-      if (isDemo) {
-        // Demo account has 5000 USDT starting base. Bot is allocated 100 USDT.
-        // We reflect the profit/loss of the bot allocation relative to the 5000 USDT base.
-        balance = 100.0 + (realBalance - 5000.0);
-      } else {
-        balance = realBalance;
-      }
+      balance = realBalance;
     } else {
       balance = isDemo ? (5000.0 + netHistoricalPnl) : (100.0 + netHistoricalPnl);
     }
