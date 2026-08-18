@@ -284,7 +284,7 @@ export function analyzeBollingerRsi(prices: number[]): {
 /**
  * Double EMA Crossover Trend Following Strategy (EMA 9 & 21)
  */
-export function analyzeDoubleEma(ohlcv: number[][]): {
+export function analyzeDoubleEma(ohlcv: number[][], ohlcv1h?: number[][]): {
   rsi: number;
   macdLine: number;
   signalLine: number;
@@ -327,12 +327,35 @@ export function analyzeDoubleEma(ohlcv: number[][]): {
     return { rsi: currentRsi, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
+  // 1. Calculate 1-Hour Trend Alignment
+  let trend1h: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (ohlcv1h && ohlcv1h.length >= 200) {
+    const closes1h = ohlcv1h.map(c => c[4]);
+    const ema50_1h = calculateEMA(closes1h, 50);
+    const ema200_1h = calculateEMA(closes1h, 200);
+    const currentEma50_1h = ema50_1h[ema50_1h.length - 1];
+    const currentEma200_1h = ema200_1h[ema200_1h.length - 1];
+    if (!isNaN(currentEma50_1h) && !isNaN(currentEma200_1h)) {
+      trend1h = currentEma50_1h > currentEma200_1h ? 'LONG' : 'SHORT';
+    }
+  }
+
+  // 2. Calculate Volume Confirmation
+  const volSma = calculateVolumeSMA(ohlcv, 20);
+  const currentVolume = ohlcv[currentIdx][5];
+  const currentVolSma = volSma[currentIdx];
+  const isVolumeConfirmed = isNaN(currentVolSma) || (currentVolume >= 1.5 * currentVolSma);
+
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (currentAdx > 22) {
+  if (currentAdx > 22 && isVolumeConfirmed) {
     if (pEma9 <= pEma21 && cEma9 > cEma21 && closes[currentIdx] > currentEma200) {
-      direction = 'LONG';
+      if (trend1h === 'NEUTRAL' || trend1h === 'LONG') {
+        direction = 'LONG';
+      }
     } else if (pEma9 >= pEma21 && cEma9 < cEma21 && closes[currentIdx] < currentEma200) {
-      direction = 'SHORT';
+      if (trend1h === 'NEUTRAL' || trend1h === 'SHORT') {
+        direction = 'SHORT';
+      }
     }
   }
 
@@ -473,6 +496,24 @@ export function calculateADX(
   return adx;
 }
 
+/**
+ * Calculate SMA of the volume column
+ */
+export function calculateVolumeSMA(ohlcv: number[][], period: number = 20): number[] {
+  const len = ohlcv.length;
+  const sma: number[] = new Array(len).fill(NaN);
+  if (len < period) return sma;
+
+  const volumes = ohlcv.map(c => c[5]);
+  for (let i = period - 1; i < len; i++) {
+    const slice = volumes.slice(i - period + 1, i + 1);
+    const sum = slice.reduce((acc, v) => acc + v, 0);
+    sma[i] = sum / period;
+  }
+
+  return sma;
+}
+
 
 /**
  * Calculate Stochastic RSI
@@ -526,7 +567,7 @@ export function calculateStochRSI(
 /**
  * SuperTrend + 200 EMA strategy
  */
-export function analyzeSuperTrendEma(ohlcv: number[][]): {
+export function analyzeSuperTrendEma(ohlcv: number[][], ohlcv1h?: number[][]): {
   rsi: number;
   macdLine: number;
   signalLine: number;
@@ -589,12 +630,35 @@ export function analyzeSuperTrendEma(ohlcv: number[][]): {
   const currentEma200 = ema200[currentIdx];
   const currentAdx = adx[currentIdx];
 
+  // 1. Calculate 1-Hour Trend Alignment
+  let trend1h: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (ohlcv1h && ohlcv1h.length >= 200) {
+    const closes1h = ohlcv1h.map(c => c[4]);
+    const ema50_1h = calculateEMA(closes1h, 50);
+    const ema200_1h = calculateEMA(closes1h, 200);
+    const currentEma50_1h = ema50_1h[ema50_1h.length - 1];
+    const currentEma200_1h = ema200_1h[ema200_1h.length - 1];
+    if (!isNaN(currentEma50_1h) && !isNaN(currentEma200_1h)) {
+      trend1h = currentEma50_1h > currentEma200_1h ? 'LONG' : 'SHORT';
+    }
+  }
+
+  // 2. Calculate Volume Confirmation
+  const volSma = calculateVolumeSMA(ohlcv, 20);
+  const currentVolume = ohlcv[currentIdx][5];
+  const currentVolSma = volSma[currentIdx];
+  const isVolumeConfirmed = isNaN(currentVolSma) || (currentVolume >= 1.5 * currentVolSma);
+
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (currentAdx > 22) {
+  if (currentAdx > 22 && isVolumeConfirmed) {
     if (prevTrend === 'SHORT' && currentTrend === 'LONG' && currentClose > currentEma200) {
-      direction = 'LONG';
+      if (trend1h === 'NEUTRAL' || trend1h === 'LONG') {
+        direction = 'LONG';
+      }
     } else if (prevTrend === 'LONG' && currentTrend === 'SHORT' && currentClose < currentEma200) {
-      direction = 'SHORT';
+      if (trend1h === 'NEUTRAL' || trend1h === 'SHORT') {
+        direction = 'SHORT';
+      }
     }
   }
 
@@ -661,7 +725,7 @@ export function analyzeStochRsiMacd(ohlcv: number[][]): {
 /**
  * ATR Channel Breakout strategy
  */
-export function analyzeAtrBreakout(ohlcv: number[][]): {
+export function analyzeAtrBreakout(ohlcv: number[][], ohlcv1h?: number[][]): {
   rsi: number;
   macdLine: number;
   signalLine: number;
@@ -704,17 +768,40 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
     return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
+  // 1. Calculate 1-Hour Trend Alignment
+  let trend1h: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (ohlcv1h && ohlcv1h.length >= 200) {
+    const closes1h = ohlcv1h.map(c => c[4]);
+    const ema50_1h = calculateEMA(closes1h, 50);
+    const ema200_1h = calculateEMA(closes1h, 200);
+    const currentEma50_1h = ema50_1h[ema50_1h.length - 1];
+    const currentEma200_1h = ema200_1h[ema200_1h.length - 1];
+    if (!isNaN(currentEma50_1h) && !isNaN(currentEma200_1h)) {
+      trend1h = currentEma50_1h > currentEma200_1h ? 'LONG' : 'SHORT';
+    }
+  }
+
+  // 2. Calculate Volume Confirmation
+  const volSma = calculateVolumeSMA(ohlcv, 20);
+  const currentVolume = ohlcv[currentIdx][5];
+  const currentVolSma = volSma[currentIdx];
+  const isVolumeConfirmed = isNaN(currentVolSma) || (currentVolume >= 1.5 * currentVolSma);
+
   const upperBandCurrent = currentEma20 + 2 * currentAtr;
   const lowerBandCurrent = currentEma20 - 2 * currentAtr;
   const upperBandPrev = prevEma20 + 2 * prevAtr;
   const lowerBandPrev = prevEma20 - 2 * prevAtr;
 
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (currentAdx > 22) {
+  if (currentAdx > 22 && isVolumeConfirmed) {
     if (prevClose <= upperBandPrev && currentClose > upperBandCurrent && currentClose > currentEma200) {
-      direction = 'LONG';
+      if (trend1h === 'NEUTRAL' || trend1h === 'LONG') {
+        direction = 'LONG';
+      }
     } else if (prevClose >= lowerBandPrev && currentClose < lowerBandCurrent && currentClose < currentEma200) {
-      direction = 'SHORT';
+      if (trend1h === 'NEUTRAL' || trend1h === 'SHORT') {
+        direction = 'SHORT';
+      }
     }
   }
 
@@ -730,7 +817,7 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
  * Swing Support & Resistance Structure-Based Strategy
  * Uses EMA 9 & 21 crossover as trigger, but sets SL below swing support / above swing resistance.
  */
-export function analyzeSwingStructure(ohlcv: number[][]): {
+export function analyzeSwingStructure(ohlcv: number[][], ohlcv1h?: number[][]): {
   rsi: number;
   macdLine: number;
   signalLine: number;
@@ -773,12 +860,35 @@ export function analyzeSwingStructure(ohlcv: number[][]): {
     return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
+  // 1. Calculate 1-Hour Trend Alignment
+  let trend1h: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (ohlcv1h && ohlcv1h.length >= 200) {
+    const closes1h = ohlcv1h.map(c => c[4]);
+    const ema50_1h = calculateEMA(closes1h, 50);
+    const ema200_1h = calculateEMA(closes1h, 200);
+    const currentEma50_1h = ema50_1h[ema50_1h.length - 1];
+    const currentEma200_1h = ema200_1h[ema200_1h.length - 1];
+    if (!isNaN(currentEma50_1h) && !isNaN(currentEma200_1h)) {
+      trend1h = currentEma50_1h > currentEma200_1h ? 'LONG' : 'SHORT';
+    }
+  }
+
+  // 2. Calculate Volume Confirmation
+  const volSma = calculateVolumeSMA(ohlcv, 20);
+  const currentVolume = ohlcv[currentIdx][5];
+  const currentVolSma = volSma[currentIdx];
+  const isVolumeConfirmed = isNaN(currentVolSma) || (currentVolume >= 1.5 * currentVolSma);
+
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (currentAdx > 22) {
+  if (currentAdx > 22 && isVolumeConfirmed) {
     if (pEma9 <= pEma21 && cEma9 > cEma21 && closes[currentIdx] > currentEma200) {
-      direction = 'LONG';
+      if (trend1h === 'NEUTRAL' || trend1h === 'LONG') {
+        direction = 'LONG';
+      }
     } else if (pEma9 >= pEma21 && cEma9 < cEma21 && closes[currentIdx] < currentEma200) {
-      direction = 'SHORT';
+      if (trend1h === 'NEUTRAL' || trend1h === 'SHORT') {
+        direction = 'SHORT';
+      }
     }
   }
 
@@ -850,7 +960,8 @@ export function analyzeSwingStructure(ohlcv: number[][]): {
  */
 export function analyzeStrategy(
   ohlcv: number[][],
-  strategy: string = 'RSI_MACD'
+  strategy: string = 'RSI_MACD',
+  ohlcv1h?: number[][]
 ): {
   rsi: number;
   macdLine: number;
@@ -864,15 +975,15 @@ export function analyzeStrategy(
   if (strategy === 'BOLLINGER_RSI') {
     return analyzeBollingerRsi(closePrices);
   } else if (strategy === 'DOUBLE_EMA') {
-    return analyzeDoubleEma(ohlcv);
+    return analyzeDoubleEma(ohlcv, ohlcv1h);
   } else if (strategy === 'SUPERTREND_EMA') {
-    return analyzeSuperTrendEma(ohlcv);
+    return analyzeSuperTrendEma(ohlcv, ohlcv1h);
   } else if (strategy === 'STOCH_RSI_MACD') {
     return analyzeStochRsiMacd(ohlcv);
   } else if (strategy === 'ATR_BREAKOUT') {
-    return analyzeAtrBreakout(ohlcv);
+    return analyzeAtrBreakout(ohlcv, ohlcv1h);
   } else if (strategy === 'SWING_STRUCTURE') {
-    return analyzeSwingStructure(ohlcv);
+    return analyzeSwingStructure(ohlcv, ohlcv1h);
   } else {
     return analyzeRsiMacd(closePrices);
   }

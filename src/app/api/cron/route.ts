@@ -283,6 +283,14 @@ async function handleCron() {
             return { pair, error: 'Insufficient candles data (requires at least 205 candles)' };
           }
 
+          // Fetch 1h candles for trend alignment
+          let ohlcv1h: any[] = [];
+          try {
+            ohlcv1h = await exchange.fetchOHLCV(pair, '1h', undefined, 250);
+          } catch (err: any) {
+            logs.push(`Warning: Failed to fetch 1H candles for ${pair}: ${err.message}`);
+          }
+
           const highs = ohlcv.map((candle: any) => candle[2]);
           const lows = ohlcv.map((candle: any) => candle[3]);
           const closePrices = ohlcv.map((candle: any) => candle[4]);
@@ -295,11 +303,11 @@ async function handleCron() {
 
           const rsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'RSI_MACD');
           const bbRsiAnalysis = analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI');
-          const doubleEmaAnalysis = analyzeStrategy(ohlcv as any, 'DOUBLE_EMA');
-          const supertrendEmaAnalysis = analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA');
+          const doubleEmaAnalysis = analyzeStrategy(ohlcv as any, 'DOUBLE_EMA', ohlcv1h as any);
+          const supertrendEmaAnalysis = analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA', ohlcv1h as any);
           const stochRsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD');
-          const atrBreakoutAnalysis = analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT');
-          const swingStructureAnalysis = analyzeStrategy(ohlcv as any, 'SWING_STRUCTURE');
+          const atrBreakoutAnalysis = analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT', ohlcv1h as any);
+          const swingStructureAnalysis = analyzeStrategy(ohlcv as any, 'SWING_STRUCTURE', ohlcv1h as any);
 
           return {
             pair,
