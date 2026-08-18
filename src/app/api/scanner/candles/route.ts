@@ -14,7 +14,7 @@ export async function GET() {
   try {
     const { data: settings } = await supabase
       .from('settings')
-      .select('pairs, binance_api_key, binance_secret_key')
+      .select('pairs, binance_api_key, binance_secret_key, active_strategy')
       .eq('id', 1)
       .single();
 
@@ -24,6 +24,14 @@ export async function GET() {
       'AVAXUSDT', 'DOTUSDT', 'MATICUSDT', 'LTCUSDT', 'LINKUSDT',
       'ATOMUSDT', 'XLMUSDT', 'BCHUSDT', 'OPUSDT', 'ARBUSDT'
     ];
+
+    const currentStrategy = settings?.active_strategy || 'RSI_MACD';
+    let timeframe = '1m';
+    if (currentStrategy === 'DOUBLE_EMA_5M') {
+      timeframe = '5m';
+    } else if (currentStrategy === 'DOUBLE_EMA_15M') {
+      timeframe = '15m';
+    }
 
     const apiKey = settings?.binance_api_key || process.env.BINANCE_API_KEY || '';
     const secretKey = settings?.binance_secret_key || process.env.BINANCE_SECRET_KEY || '';
@@ -40,7 +48,7 @@ export async function GET() {
     await Promise.all(
       pairs.map(async (pair: string) => {
         try {
-          const ohlcv = await exchange.fetchOHLCV(pair, '1m', undefined, 35);
+          const ohlcv = await exchange.fetchOHLCV(pair, timeframe, undefined, 35);
           candlesData[pair] = ohlcv.map((c: any) => c[4]); // close prices
         } catch (err) {
           console.error(`Failed to fetch candles for ${pair}:`, err);
@@ -49,7 +57,7 @@ export async function GET() {
       })
     );
 
-    return NextResponse.json({ success: true, candles: candlesData });
+    return NextResponse.json({ success: true, candles: candlesData, timeframe });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

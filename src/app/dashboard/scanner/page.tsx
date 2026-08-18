@@ -18,6 +18,7 @@ export default function ScannerPage() {
   const [pairsData, setPairsData] = useState<{ [symbol: string]: PairScannerState }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [wsConnected, setWsConnected] = useState(false);
+  const [timeframe, setTimeframe] = useState('1m');
   const socketRef = useRef<WebSocket | null>(null);
 
   // 1. Fetch initial historical candles from REST API
@@ -28,6 +29,7 @@ export default function ScannerPage() {
       const data = await res.json();
 
       if (data.success) {
+        setTimeframe(data.timeframe || '1m');
         const initialStates: { [symbol: string]: PairScannerState } = {};
 
         Object.keys(data.candles).forEach((symbol) => {
@@ -95,7 +97,7 @@ export default function ScannerPage() {
 
     // Connect to Binance Futures WebSocket stream
     const symbols = Object.keys(pairsData);
-    const streams = symbols.map((s) => `${s.toLowerCase()}@kline_1m`).join('/');
+    const streams = symbols.map((s) => `${s.toLowerCase()}@kline_${timeframe}`).join('/');
     const wsUrl = `wss://fstream.binance.com/stream?streams=${streams}`;
 
     const ws = new WebSocket(wsUrl);
@@ -195,7 +197,7 @@ export default function ScannerPage() {
     return () => {
       ws.close();
     };
-  }, [isLoading]);
+  }, [isLoading, timeframe]);
 
   if (isLoading) {
     return (
@@ -215,7 +217,7 @@ export default function ScannerPage() {
         <div>
           <h2 className="text-2xl font-extrabold tracking-tight">Live Strategy Scanner</h2>
           <p className="text-sm text-zinc-400 mt-1">
-            Real-time RSI(14) & MACD(12, 26, 9) analyzer via Binance WebSocket.
+            Real-time RSI(14) & MACD(12, 26, 9) analyzer via Binance WebSocket ({timeframe} chart).
           </p>
         </div>
 
