@@ -974,7 +974,7 @@ export function analyzeStrategy(
 
   if (strategy === 'BOLLINGER_RSI') {
     return analyzeBollingerRsi(closePrices);
-  } else if (strategy === 'DOUBLE_EMA') {
+  } else if (strategy === 'DOUBLE_EMA' || strategy === 'DOUBLE_EMA_5M' || strategy === 'DOUBLE_EMA_15M') {
     return analyzeDoubleEma(ohlcv, ohlcv1h);
   } else if (strategy === 'SUPERTREND_EMA') {
     return analyzeSuperTrendEma(ohlcv, ohlcv1h);

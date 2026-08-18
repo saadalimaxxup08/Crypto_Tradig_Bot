@@ -277,8 +277,16 @@ async function handleCron() {
     const scanResults = await Promise.all(
       pairs.map(async (pair: string) => {
         try {
+          // Determine timeframe based on active strategy
+          let timeframe = '1m';
+          if (currentStrategy === 'DOUBLE_EMA_5M') {
+            timeframe = '5m';
+          } else if (currentStrategy === 'DOUBLE_EMA_15M') {
+            timeframe = '15m';
+          }
+
           // Fetch 250 candles to satisfy EMA 200 length requirements
-          const ohlcv = await exchange.fetchOHLCV(pair, '1m', undefined, 250);
+          const ohlcv = await exchange.fetchOHLCV(pair, timeframe, undefined, 250);
           if (!ohlcv || ohlcv.length < 205) {
             return { pair, error: 'Insufficient candles data (requires at least 205 candles)' };
           }
@@ -304,6 +312,8 @@ async function handleCron() {
           const rsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'RSI_MACD');
           const bbRsiAnalysis = analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI');
           const doubleEmaAnalysis = analyzeStrategy(ohlcv as any, 'DOUBLE_EMA', ohlcv1h as any);
+          const doubleEma5mAnalysis = analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_5M', ohlcv1h as any);
+          const doubleEma15mAnalysis = analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_15M', ohlcv1h as any);
           const supertrendEmaAnalysis = analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA', ohlcv1h as any);
           const stochRsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD');
           const atrBreakoutAnalysis = analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT', ohlcv1h as any);
@@ -317,6 +327,8 @@ async function handleCron() {
               RSI_MACD: rsiMacdAnalysis,
               BOLLINGER_RSI: bbRsiAnalysis,
               DOUBLE_EMA: doubleEmaAnalysis,
+              DOUBLE_EMA_5M: doubleEma5mAnalysis,
+              DOUBLE_EMA_15M: doubleEma15mAnalysis,
               SUPERTREND_EMA: supertrendEmaAnalysis,
               STOCH_RSI_MACD: stochRsiMacdAnalysis,
               ATR_BREAKOUT: atrBreakoutAnalysis,
@@ -405,7 +417,7 @@ async function handleCron() {
     logs.push(`Paper trades audit complete in ${paperDuration}ms.`);
 
      // 3c. Evaluate and place signals for all strategies
-     const strategiesList = ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE'];
+     const strategiesList = ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE'];
 
     for (const result of scanResults) {
       if (!result || 'error' in result) {
@@ -519,6 +531,10 @@ async function handleCron() {
               ? 'Bollinger Bands + RSI Reversion'
               : strategyName === 'DOUBLE_EMA'
               ? 'Double EMA Crossover'
+              : strategyName === 'DOUBLE_EMA_5M'
+              ? 'Double EMA 5-Minute'
+              : strategyName === 'DOUBLE_EMA_15M'
+              ? 'Double EMA 15-Minute'
               : strategyName === 'SUPERTREND_EMA'
               ? 'SuperTrend + 200 EMA'
               : strategyName === 'STOCH_RSI_MACD'

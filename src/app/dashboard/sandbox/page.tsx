@@ -32,7 +32,7 @@ export default function SandboxPage() {
   const [includePairwise, setIncludePairwise] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
-  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE'>('BOLLINGER_RSI');
+  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE'>('BOLLINGER_RSI');
   const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
   const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
@@ -218,7 +218,7 @@ export default function SandboxPage() {
   };
 
   const leaderboard = useMemo(() => {
-    return ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE'].map(strat => {
+    return ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE'].map(strat => {
       const isPaper = strat !== activeStrategySetting;
       const stratTrades = allRawTrades.filter(t => 
         (t.strategy || 'RSI_MACD') === strat && 
@@ -298,6 +298,10 @@ export default function SandboxPage() {
       ? 'Bollinger Bands + RSI Reversion'
       : selectedStrategy === 'DOUBLE_EMA'
       ? 'Double EMA Crossover'
+      : selectedStrategy === 'DOUBLE_EMA_5M'
+      ? 'Double EMA 5-Minute'
+      : selectedStrategy === 'DOUBLE_EMA_15M'
+      ? 'Double EMA 15-Minute'
       : selectedStrategy === 'SUPERTREND_EMA'
       ? 'SuperTrend + 200 EMA'
       : selectedStrategy === 'STOCH_RSI_MACD'
@@ -717,6 +721,10 @@ export default function SandboxPage() {
         ? 'Bollinger Bands + RSI Reversion'
         : selectedStrategy === 'DOUBLE_EMA'
         ? 'Double EMA Crossover'
+        : selectedStrategy === 'DOUBLE_EMA_5M'
+        ? 'Double EMA 5-Minute'
+        : selectedStrategy === 'DOUBLE_EMA_15M'
+        ? 'Double EMA 15-Minute'
         : selectedStrategy === 'SUPERTREND_EMA'
         ? 'SuperTrend + 200 EMA'
         : selectedStrategy === 'STOCH_RSI_MACD'
@@ -814,6 +822,34 @@ export default function SandboxPage() {
               </button>
 
               <button
+                onClick={() => setSelectedStrategy('DOUBLE_EMA_5M')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'DOUBLE_EMA_5M'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>🎢 Double EMA 5M</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'DOUBLE_EMA_5M' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'DOUBLE_EMA_5M' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('DOUBLE_EMA_15M')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'DOUBLE_EMA_15M'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>🎢 Double EMA 15M</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'DOUBLE_EMA_15M' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'DOUBLE_EMA_15M' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setSelectedStrategy('SUPERTREND_EMA')}
                 className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
                   selectedStrategy === 'SUPERTREND_EMA'
@@ -890,10 +926,16 @@ export default function SandboxPage() {
                 ? 'Bollinger + RSI'
                 : item.strategy === 'DOUBLE_EMA'
                 ? 'Double EMA'
+                : item.strategy === 'DOUBLE_EMA_5M'
+                ? 'Double EMA 5M'
+                : item.strategy === 'DOUBLE_EMA_15M'
+                ? 'Double EMA 15M'
                 : item.strategy === 'SUPERTREND_EMA'
                 ? 'SuperTrend + EMA'
                 : item.strategy === 'STOCH_RSI_MACD'
                 ? 'StochRSI + MACD'
+                : item.strategy === 'SWING_STRUCTURE'
+                ? 'Swing Structure'
                 : 'ATR Breakout';
 
               const isLive = item.strategy === activeStrategySetting;

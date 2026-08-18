@@ -460,10 +460,13 @@ export default function SettingsPage() {
             >
               <option value="RSI_MACD">📊 RSI + MACD Momentum Crossover (Default)</option>
               <option value="BOLLINGER_RSI">↕️ Bollinger Bands + RSI Range Reversion</option>
-              <option value="DOUBLE_EMA">🎢 Double EMA Crossover Trend Following</option>
+              <option value="DOUBLE_EMA">🎢 Double EMA Crossover Trend Following (1m)</option>
+              <option value="DOUBLE_EMA_5M">🎢 Double EMA 5-Minute (Trend + Volume)</option>
+              <option value="DOUBLE_EMA_15M">🎢 Double EMA 15-Minute (Trend + Volume)</option>
               <option value="SUPERTREND_EMA">⚡ SuperTrend + 200 EMA Trend Following</option>
               <option value="STOCH_RSI_MACD">🚀 Stochastic RSI + MACD Crossover</option>
               <option value="ATR_BREAKOUT">🎢 ATR Channel Breakout</option>
+              <option value="SWING_STRUCTURE">🛡️ Swing S&R Structure Trend Following</option>
             </select>
           </div>
 
