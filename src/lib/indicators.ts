@@ -284,21 +284,26 @@ export function analyzeBollingerRsi(prices: number[]): {
 /**
  * Double EMA Crossover Trend Following Strategy (EMA 9 & 21)
  */
-export function analyzeDoubleEma(prices: number[]): {
+export function analyzeDoubleEma(ohlcv: number[][]): {
   rsi: number;
   macdLine: number;
   signalLine: number;
   direction: 'LONG' | 'SHORT' | 'NEUTRAL';
 } {
-  const len = prices.length;
+  const len = ohlcv.length;
   if (len < 205) {
     return { rsi: NaN, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
-  const ema9 = calculateEMA(prices, 9);
-  const ema21 = calculateEMA(prices, 21);
-  const ema200 = calculateEMA(prices, 200);
-  const rsi = calculateRSI(prices, 14);
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+
+  const ema9 = calculateEMA(closes, 9);
+  const ema21 = calculateEMA(closes, 21);
+  const ema200 = calculateEMA(closes, 200);
+  const adx = calculateADX(highs, lows, closes, 14);
+  const rsi = calculateRSI(closes, 14);
 
   const currentIdx = len - 1;
   const prevIdx = len - 2;
@@ -309,20 +314,30 @@ export function analyzeDoubleEma(prices: number[]): {
   const pEma21 = ema21[prevIdx];
   const currentRsi = rsi[currentIdx] || 50;
   const currentEma200 = ema200[currentIdx];
+  const currentAdx = adx[currentIdx];
 
-  if (isNaN(cEma9) || isNaN(cEma21) || isNaN(pEma9) || isNaN(pEma21) || isNaN(currentEma200)) {
+  if (
+    isNaN(cEma9) ||
+    isNaN(cEma21) ||
+    isNaN(pEma9) ||
+    isNaN(pEma21) ||
+    isNaN(currentEma200) ||
+    isNaN(currentAdx)
+  ) {
     return { rsi: currentRsi, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (pEma9 <= pEma21 && cEma9 > cEma21 && prices[currentIdx] > currentEma200) {
-    direction = 'LONG';
-  } else if (pEma9 >= pEma21 && cEma9 < cEma21 && prices[currentIdx] < currentEma200) {
-    direction = 'SHORT';
+  if (currentAdx > 22) {
+    if (pEma9 <= pEma21 && cEma9 > cEma21 && closes[currentIdx] > currentEma200) {
+      direction = 'LONG';
+    } else if (pEma9 >= pEma21 && cEma9 < cEma21 && closes[currentIdx] < currentEma200) {
+      direction = 'SHORT';
+    }
   }
 
   return {
-    rsi: currentRsi,
+    rsi: currentAdx, // Return ADX value
     macdLine: cEma9,
     signalLine: cEma21,
     direction,
@@ -364,6 +379,100 @@ export function calculateATR(
 
   return atr;
 }
+
+/**
+ * Calculate Average Directional Index (ADX) using Wilder's smoothing
+ */
+export function calculateADX(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  period: number = 14
+): number[] {
+  const len = closes.length;
+  const adx: number[] = new Array(len).fill(NaN);
+  if (len < 2 * period) return adx;
+
+  const tr: number[] = [highs[0] - lows[0]];
+  const plusDM: number[] = [0];
+  const minusDM: number[] = [0];
+
+  for (let i = 1; i < len; i++) {
+    // True Range
+    tr.push(Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    ));
+
+    // DM+ and DM-
+    const upMove = highs[i] - highs[i - 1];
+    const downMove = lows[i - 1] - lows[i];
+
+    if (upMove > downMove && upMove > 0) {
+      plusDM.push(upMove);
+    } else {
+      plusDM.push(0);
+    }
+
+    if (downMove > upMove && downMove > 0) {
+      minusDM.push(downMove);
+    } else {
+      minusDM.push(0);
+    }
+  }
+
+  const smoothedTR: number[] = new Array(len).fill(NaN);
+  const smoothedPlusDM: number[] = new Array(len).fill(NaN);
+  const smoothedMinusDM: number[] = new Array(len).fill(NaN);
+
+  let sumTR = 0;
+  let sumPlus = 0;
+  let sumMinus = 0;
+
+  for (let i = 0; i < period; i++) {
+    sumTR += tr[i];
+    sumPlus += plusDM[i];
+    sumMinus += minusDM[i];
+  }
+
+  smoothedTR[period - 1] = sumTR;
+  smoothedPlusDM[period - 1] = sumPlus;
+  smoothedMinusDM[period - 1] = sumMinus;
+
+  for (let i = period; i < len; i++) {
+    smoothedTR[i] = smoothedTR[i - 1] - (smoothedTR[i - 1] / period) + tr[i];
+    smoothedPlusDM[i] = smoothedPlusDM[i - 1] - (smoothedPlusDM[i - 1] / period) + plusDM[i];
+    smoothedMinusDM[i] = smoothedMinusDM[i - 1] - (smoothedMinusDM[i - 1] / period) + minusDM[i];
+  }
+
+  const dx: number[] = new Array(len).fill(NaN);
+  for (let i = period - 1; i < len; i++) {
+    const trVal = smoothedTR[i];
+    if (trVal === 0) {
+      dx[i] = 0;
+      continue;
+    }
+    const plusDI = 100 * (smoothedPlusDM[i] / trVal);
+    const minusDI = 100 * (smoothedMinusDM[i] / trVal);
+    const sumDI = plusDI + minusDI;
+    const diffDI = Math.abs(plusDI - minusDI);
+    dx[i] = sumDI === 0 ? 0 : (diffDI / sumDI) * 100;
+  }
+
+  let sumDX = 0;
+  for (let i = period - 1; i < 2 * period - 1; i++) {
+    sumDX += dx[i];
+  }
+  adx[2 * period - 2] = sumDX / period;
+
+  for (let i = 2 * period - 1; i < len; i++) {
+    adx[i] = (adx[i - 1] * (period - 1) + dx[i]) / period;
+  }
+
+  return adx;
+}
+
 
 /**
  * Calculate Stochastic RSI
@@ -434,6 +543,7 @@ export function analyzeSuperTrendEma(ohlcv: number[][]): {
 
   const ema200 = calculateEMA(closes, 200);
   const atr = calculateATR(highs, lows, closes, 10);
+  const adx = calculateADX(highs, lows, closes, 14);
 
   const multiplier = 3;
   const trends: (string | null)[] = new Array(len).fill(null);
@@ -477,16 +587,19 @@ export function analyzeSuperTrendEma(ohlcv: number[][]): {
   const prevTrend = trends[prevIdx];
   const currentClose = closes[currentIdx];
   const currentEma200 = ema200[currentIdx];
+  const currentAdx = adx[currentIdx];
 
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (prevTrend === 'SHORT' && currentTrend === 'LONG' && currentClose > currentEma200) {
-    direction = 'LONG';
-  } else if (prevTrend === 'LONG' && currentTrend === 'SHORT' && currentClose < currentEma200) {
-    direction = 'SHORT';
+  if (currentAdx > 22) {
+    if (prevTrend === 'SHORT' && currentTrend === 'LONG' && currentClose > currentEma200) {
+      direction = 'LONG';
+    } else if (prevTrend === 'LONG' && currentTrend === 'SHORT' && currentClose < currentEma200) {
+      direction = 'SHORT';
+    }
   }
 
   return {
-    rsi: atr[currentIdx] || 0, // Store ATR value in rsi space for UI reference
+    rsi: currentAdx || 0, // Store ADX value in rsi space for UI reference
     macdLine: currentClose,
     signalLine: currentEma200,
     direction,
@@ -566,6 +679,7 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
   const ema20 = calculateEMA(closes, 20);
   const ema200 = calculateEMA(closes, 200);
   const atr = calculateATR(highs, lows, closes, 14);
+  const adx = calculateADX(highs, lows, closes, 14);
 
   const currentIdx = len - 1;
   const prevIdx = len - 2;
@@ -577,8 +691,16 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
   const prevEma20 = ema20[prevIdx];
   const prevAtr = atr[prevIdx];
   const currentEma200 = ema200[currentIdx];
+  const currentAdx = adx[currentIdx];
 
-  if (isNaN(currentEma20) || isNaN(currentAtr) || isNaN(prevEma20) || isNaN(prevAtr) || isNaN(currentEma200)) {
+  if (
+    isNaN(currentEma20) ||
+    isNaN(currentAtr) ||
+    isNaN(prevEma20) ||
+    isNaN(prevAtr) ||
+    isNaN(currentEma200) ||
+    isNaN(currentAdx)
+  ) {
     return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
@@ -588,14 +710,16 @@ export function analyzeAtrBreakout(ohlcv: number[][]): {
   const lowerBandPrev = prevEma20 - 2 * prevAtr;
 
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (prevClose <= upperBandPrev && currentClose > upperBandCurrent && currentClose > currentEma200) {
-    direction = 'LONG';
-  } else if (prevClose >= lowerBandPrev && currentClose < lowerBandCurrent && currentClose < currentEma200) {
-    direction = 'SHORT';
+  if (currentAdx > 22) {
+    if (prevClose <= upperBandPrev && currentClose > upperBandCurrent && currentClose > currentEma200) {
+      direction = 'LONG';
+    } else if (prevClose >= lowerBandPrev && currentClose < lowerBandCurrent && currentClose < currentEma200) {
+      direction = 'SHORT';
+    }
   }
 
   return {
-    rsi: currentAtr, // Store ATR value
+    rsi: currentAdx, // Return ADX value instead of ATR for chart representation
     macdLine: upperBandCurrent,
     signalLine: lowerBandCurrent,
     direction,
@@ -626,6 +750,7 @@ export function analyzeSwingStructure(ohlcv: number[][]): {
   const ema9 = calculateEMA(closes, 9);
   const ema21 = calculateEMA(closes, 21);
   const ema200 = calculateEMA(closes, 200);
+  const adx = calculateADX(highs, lows, closes, 14);
 
   const currentIdx = len - 1;
   const prevIdx = len - 2;
@@ -635,16 +760,26 @@ export function analyzeSwingStructure(ohlcv: number[][]): {
   const pEma9 = ema9[prevIdx];
   const pEma21 = ema21[prevIdx];
   const currentEma200 = ema200[currentIdx];
+  const currentAdx = adx[currentIdx];
 
-  if (isNaN(cEma9) || isNaN(cEma21) || isNaN(pEma9) || isNaN(pEma21) || isNaN(currentEma200)) {
+  if (
+    isNaN(cEma9) ||
+    isNaN(cEma21) ||
+    isNaN(pEma9) ||
+    isNaN(pEma21) ||
+    isNaN(currentEma200) ||
+    isNaN(currentAdx)
+  ) {
     return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
   }
 
   let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
-  if (pEma9 <= pEma21 && cEma9 > cEma21 && closes[currentIdx] > currentEma200) {
-    direction = 'LONG';
-  } else if (pEma9 >= pEma21 && cEma9 < cEma21 && closes[currentIdx] < currentEma200) {
-    direction = 'SHORT';
+  if (currentAdx > 22) {
+    if (pEma9 <= pEma21 && cEma9 > cEma21 && closes[currentIdx] > currentEma200) {
+      direction = 'LONG';
+    } else if (pEma9 >= pEma21 && cEma9 < cEma21 && closes[currentIdx] < currentEma200) {
+      direction = 'SHORT';
+    }
   }
 
   if (direction === 'NEUTRAL') {
@@ -729,7 +864,7 @@ export function analyzeStrategy(
   if (strategy === 'BOLLINGER_RSI') {
     return analyzeBollingerRsi(closePrices);
   } else if (strategy === 'DOUBLE_EMA') {
-    return analyzeDoubleEma(closePrices);
+    return analyzeDoubleEma(ohlcv);
   } else if (strategy === 'SUPERTREND_EMA') {
     return analyzeSuperTrendEma(ohlcv);
   } else if (strategy === 'STOCH_RSI_MACD') {
