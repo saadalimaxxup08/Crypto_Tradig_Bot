@@ -140,9 +140,61 @@ export default function SandboxPage() {
         stats[t.pair].losses += 1;
       }
     });
-
     return stats;
   }, [trades, dbSettings]);
+
+  const todayPnl = useMemo(() => {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Riyadh',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric'
+    });
+    const parts = formatter.formatToParts(now);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
+    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+
+    return trades
+      .filter((t) => {
+        if (!t.closed_at) return false;
+        const tDate = new Date(t.closed_at);
+        const tParts = formatter.formatToParts(tDate);
+        const tYear = tParts.find(p => p.type === 'year')?.value;
+        const tMonth = tParts.find(p => p.type === 'month')?.value;
+        const tDay = tParts.find(p => p.type === 'day')?.value;
+        return `${tYear}-${tMonth}-${tDay}` === `${year}-${month + 1}-${day}`;
+      })
+      .reduce((sum, t) => sum + (t.pnl || 0), 0);
+  }, [trades]);
+
+  const yesterdayPnl = useMemo(() => {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Riyadh',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric'
+    });
+    const parts = formatter.formatToParts(yesterday);
+    const year = parseInt(parts.find(p => p.type === 'year')?.value || '0');
+    const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
+    const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
+
+    return trades
+      .filter((t) => {
+        if (!t.closed_at) return false;
+        const tDate = new Date(t.closed_at);
+        const tParts = formatter.formatToParts(tDate);
+        const tYear = tParts.find(p => p.type === 'year')?.value;
+        const tMonth = tParts.find(p => p.type === 'month')?.value;
+        const tDay = tParts.find(p => p.type === 'day')?.value;
+        return `${tYear}-${tMonth}-${tDay}` === `${year}-${month + 1}-${day}`;
+      })
+      .reduce((sum, t) => sum + (t.pnl || 0), 0);
+  }, [trades]);
 
   useEffect(() => {
     if (!dbSettings) return;
@@ -1299,7 +1351,7 @@ export default function SandboxPage() {
       </div>
 
       {/* Summary Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
         {/* Simulated Wallet Balance */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl pointer-events-none" />
@@ -1368,7 +1420,7 @@ export default function SandboxPage() {
           </div>
         </div>
 
-        {/* Total Trades & Daily P&L */}
+        {/* Total Trades */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
           <div className="absolute top-0 right-0 w-24 h-24 bg-zinc-500/5 rounded-full blur-2xl pointer-events-none" />
           <div className="flex justify-between items-start">
@@ -1384,21 +1436,55 @@ export default function SandboxPage() {
               {totalTrades}
               <span className="text-sm font-medium text-zinc-500 ml-1.5">trades</span>
             </h3>
-            {(() => {
-              const startOfToday = new Date();
-              startOfToday.setUTCHours(0, 0, 0, 0);
-              const dailyPnl = trades
-                .filter((t) => t.closed_at && new Date(t.closed_at) >= startOfToday)
-                .reduce((sum, t) => sum + (t.pnl || 0), 0);
-              return (
-                <p className="text-xs text-zinc-450 mt-2 font-semibold flex items-center gap-1">
-                  <span>Today P&L:</span>
-                  <span className={dailyPnl >= 0 ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
-                    {dailyPnl >= 0 ? '+' : ''}{dailyPnl.toFixed(4)} USDT
-                  </span>
-                </p>
-              );
-            })()}
+            <p className="text-xs text-zinc-450 mt-2 font-semibold">
+              Realized completed trades count
+            </p>
+          </div>
+        </div>
+
+        {/* Today's P&L */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-teal-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex justify-between items-start">
+            <span className={`text-xs font-bold uppercase tracking-wider ${todayPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              Today's P&L
+            </span>
+            <span className={`p-2 rounded-xl border ${todayPnl >= 0 ? 'bg-emerald-950/30 border-emerald-900/50 text-emerald-400' : 'bg-red-950/30 border-red-900/50 text-red-400'}`}>
+              <TrendingUp className="w-4 h-4" />
+            </span>
+          </div>
+          <div className="mt-4">
+            <h3 className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${todayPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {todayPnl >= 0 ? '+' : ''}
+              {todayPnl.toFixed(4)}
+              <span className="text-sm font-medium ml-1.5">USDT</span>
+            </h3>
+            <p className="text-xs text-zinc-450 mt-2 font-semibold">
+              Closed trades today (Riyadh time)
+            </p>
+          </div>
+        </div>
+
+        {/* Yesterday's P&L */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex justify-between items-start">
+            <span className={`text-xs font-bold uppercase tracking-wider ${yesterdayPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              Yesterday's P&L
+            </span>
+            <span className={`p-2 rounded-xl border ${yesterdayPnl >= 0 ? 'bg-emerald-950/30 border-emerald-900/50 text-emerald-400' : 'bg-red-950/30 border-red-900/50 text-red-400'}`}>
+              <TrendingUp className="w-4 h-4" />
+            </span>
+          </div>
+          <div className="mt-4">
+            <h3 className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${yesterdayPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {yesterdayPnl >= 0 ? '+' : ''}
+              {yesterdayPnl.toFixed(4)}
+              <span className="text-sm font-medium ml-1.5">USDT</span>
+            </h3>
+            <p className="text-xs text-zinc-450 mt-2 font-semibold">
+              Closed trades yesterday (Riyadh time)
+            </p>
           </div>
         </div>
       </div>
