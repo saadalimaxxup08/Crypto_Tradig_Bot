@@ -548,12 +548,15 @@ async function handleCron() {
               ? 'Swing S&R Structure'
               : 'RSI + MACD Momentum Crossover';
 
-            // Query live strategy win rate from database
+            // Query live strategy and pair win rates from database
             let expectedWinRateStr = 'N/A (New Strategy)';
+            let pairWinRateStr = 'N/A (No Trades)';
+            let calculatedProbability = 65; // Fallback base probability
+            
             try {
               const { data: stratTrades } = await supabase
                 .from('trades')
-                .select('pnl')
+                .select('pnl, pair')
                 .eq('strategy', strategyName)
                 .eq('status', 'CLOSED');
 
@@ -562,10 +565,46 @@ async function handleCron() {
                 const winStratTrades = stratTrades?.filter((t: any) => parseFloat(t.pnl || 0) > 0).length || 0;
                 const winRatePct = (winStratTrades / totalStratTrades) * 100;
                 expectedWinRateStr = `${winRatePct.toFixed(1)}% (${winStratTrades}/${totalStratTrades} wins)`;
+                
+                // Pair specific win rate
+                const pairTrades = (stratTrades || []).filter((t: any) => t.pair === pair);
+                const totalPairTrades = pairTrades.length;
+                if (totalPairTrades > 0) {
+                  const winPairTrades = pairTrades.filter((t: any) => parseFloat(t.pnl || 0) > 0).length || 0;
+                  const pairWinRatePct = (winPairTrades / totalPairTrades) * 100;
+                  pairWinRateStr = `${pairWinRatePct.toFixed(1)}% (${winPairTrades}/${totalPairTrades} wins)`;
+                  calculatedProbability = Math.round(pairWinRatePct);
+                } else {
+                  calculatedProbability = Math.round(winRatePct);
+                }
               }
             } catch (err) {
               console.error('Error fetching strategy win rate for telegram:', err);
             }
+
+            // Adjust probability based on real-time indicator strength (ADX or RSI)
+            let indicatorModifier = 0;
+            const indicatorVal = parseFloat(rsi as any || 0);
+            
+            if (strategyName.includes('DOUBLE_EMA') || strategyName.includes('SUPERTREND') || strategyName.includes('ATR_BREAKOUT') || strategyName.includes('SWING_STRUCTURE')) {
+              // For trend-following strategies, rsi stores the ADX value
+              if (indicatorVal > 35) {
+                indicatorModifier = 8; // Strong trend confirmation
+              } else if (indicatorVal > 25) {
+                indicatorModifier = 4;
+              } else if (indicatorVal < 20) {
+                indicatorModifier = -5; // Weak trend
+              }
+            } else {
+              // For mean-reversion strategies, rsi stores standard RSI
+              if (direction === 'LONG' && indicatorVal < 25) {
+                indicatorModifier = 6; // Deep oversold, higher recovery chance
+              } else if (direction === 'SHORT' && indicatorVal > 75) {
+                indicatorModifier = 6; // Deep overbought
+              }
+            }
+            
+            const finalWinOdds = Math.min(95, Math.max(50, calculatedProbability + indicatorModifier));
 
             const totalVal = activeRiskAmount * activeLeverage;
             const entryFeeVal = totalVal * 0.0005;
@@ -588,7 +627,9 @@ async function handleCron() {
               `Entry Price: <b>${order.entryPrice}</b>\n` +
               `SL: <b>${slPrice.toFixed(4)}</b> (Target: -${activeSlPercent.toFixed(2)}% / -${expectedNetLoss.toFixed(2)} USDT)\n` +
               `TP: <b>${tpPrice.toFixed(4)}</b> (Target: +${activeTpPercent.toFixed(2)}% / +${expectedNetProfit.toFixed(2)} USDT)\n\n` +
-              `🎯 <b>Expected Win Chance:</b> <code>${expectedWinRateStr}</code>\n` +
+              `🎯 <b>Strategy Win Chance:</b> <code>${expectedWinRateStr}</code>\n` +
+              `📈 <b>Pair Win Chance (${pair}):</b> <code>${pairWinRateStr}</code>\n` +
+              `🔮 <b>Calculated Signal Win Odds:</b> <code>${finalWinOdds}%</code>\n\n` +
               `💰 <b>Expected Net Profit (on TP):</b> <code>+${expectedNetProfit.toFixed(4)} USDT</code> (Fees: -${(entryFeeVal + exitFeeTp).toFixed(4)} USDT)`;
 
             await sendTelegramMessage(telegram_token, telegram_chat_id, telegramMessage);
