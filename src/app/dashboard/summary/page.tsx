@@ -32,7 +32,7 @@ export default function SummaryPage() {
   const [includePairwise, setIncludePairwise] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
-  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE'>('RSI_MACD');
+  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE' | 'MACD_DIVERGENCE' | 'KDJ_REVERSION' | 'FIBONACCI_PULLBACK' | 'ICHIMOKU_CLOUDBREAK' | 'VWAP_REVERSION'>('RSI_MACD');
   const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
   const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
 

@@ -956,6 +956,282 @@ export function analyzeSwingStructure(ohlcv: number[][], ohlcv1h?: number[][]): 
 }
 
 /**
+ * MACD Bullish/Bearish Divergence Reversal Strategy
+ */
+export function analyzeMacdDivergence(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 40) return { rsi: NaN, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  
+  const closes = ohlcv.map(c => c[4]);
+  const macd = calculateMACD(closes);
+  const hist = macd.histogram;
+
+  const currentIdx = len - 1;
+  const currentPrice = closes[currentIdx];
+  const currentHist = hist[currentIdx];
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+
+  if (currentHist > 0) {
+    let prevHighIdx = -1;
+    for (let i = currentIdx - 4; i >= currentIdx - 20; i--) {
+      if (closes[i] > closes[i-1] && closes[i] > closes[i+1]) {
+        prevHighIdx = i;
+        break;
+      }
+    }
+    if (prevHighIdx !== -1 && currentPrice > closes[prevHighIdx] && currentHist < hist[prevHighIdx]) {
+      direction = 'SHORT';
+    }
+  } else {
+    let prevLowIdx = -1;
+    for (let i = currentIdx - 4; i >= currentIdx - 20; i--) {
+      if (closes[i] < closes[i-1] && closes[i] < closes[i+1]) {
+        prevLowIdx = i;
+        break;
+      }
+    }
+    if (prevLowIdx !== -1 && currentPrice < closes[prevLowIdx] && currentHist > hist[prevLowIdx]) {
+      direction = 'LONG';
+    }
+  }
+
+  return {
+    rsi: closes[currentIdx],
+    macdLine: currentHist,
+    signalLine: 0,
+    direction
+  };
+}
+
+/**
+ * KDJ + Stochastic RSI Reversion Strategy
+ */
+export function analyzeKdjReversion(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 20) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  let k = 50;
+  let d = 50;
+  let j = 50;
+  
+  const kList: number[] = [];
+  const dList: number[] = [];
+  const jList: number[] = [];
+
+  for (let i = 0; i < len; i++) {
+    if (i < 8) {
+      kList.push(50);
+      dList.push(50);
+      jList.push(50);
+      continue;
+    }
+    const chunk = ohlcv.slice(i - 8, i + 1);
+    const highs = chunk.map(c => c[2]);
+    const lows = chunk.map(c => c[3]);
+    const highest = Math.max(...highs);
+    const lowest = Math.min(...lows);
+    const close = ohlcv[i][4];
+    
+    const rsv = highest === lowest ? 50 : ((close - lowest) / (highest - lowest)) * 100;
+    k = (2 / 3) * k + (1 / 3) * rsv;
+    d = (2 / 3) * d + (1 / 3) * k;
+    j = 3 * k - 2 * d;
+
+    kList.push(k);
+    dList.push(d);
+    jList.push(j);
+  }
+
+  const currentIdx = len - 1;
+  const prevIdx = len - 2;
+
+  const curJ = jList[currentIdx];
+  const curK = kList[currentIdx];
+  const curD = dList[currentIdx];
+  const prevJ = jList[prevIdx];
+  
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (prevJ <= curD && curJ > curD && curK < 25) {
+    direction = 'LONG';
+  } else if (prevJ >= curD && curJ < curD && curK > 75) {
+    direction = 'SHORT';
+  }
+
+  return {
+    rsi: curK,
+    macdLine: curJ,
+    signalLine: curD,
+    direction
+  };
+}
+
+/**
+ * Fibonacci Pullback Reversion / Trend Continuation Strategy
+ */
+export function analyzeFibonacciPullback(ohlcv: number[][], ohlcv1h?: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 50) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  let trend1h = 'NEUTRAL';
+  if (ohlcv1h && ohlcv1h.length >= 200) {
+    const closes1h = ohlcv1h.map(c => c[4]);
+    const ema200_1h = calculateEMA(closes1h, 200);
+    const curEma200 = ema200_1h[ema200_1h.length - 1];
+    const curClose1h = closes1h[closes1h.length - 1];
+    trend1h = curClose1h > curEma200 ? 'LONG' : 'SHORT';
+  }
+
+  const closes = ohlcv.map(c => c[4]);
+  const highest = Math.max(...closes.slice(-30));
+  const lowest = Math.min(...closes.slice(-30));
+  const range = highest - lowest;
+  const currentPrice = closes[len - 1];
+  const openPrice = ohlcv[len - 1][1];
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (range > 0) {
+    if (trend1h === 'LONG') {
+      const fib50 = highest - 0.5 * range;
+      const fib618 = highest - 0.618 * range;
+      if (currentPrice >= fib618 && currentPrice <= fib50 && currentPrice > openPrice) {
+        direction = 'LONG';
+      }
+    } else if (trend1h === 'SHORT') {
+      const fib50 = lowest + 0.5 * range;
+      const fib618 = lowest + 0.618 * range;
+      if (currentPrice <= fib618 && currentPrice >= fib50 && currentPrice < openPrice) {
+        direction = 'SHORT';
+      }
+    }
+  }
+
+  return {
+    rsi: 50,
+    macdLine: highest,
+    signalLine: lowest,
+    direction
+  };
+}
+
+/**
+ * Ichimoku Cloud Breakout Trend Following Strategy
+ */
+export function analyzeIchimokuCloudBreakout(ohlcv: number[][], ohlcv1h?: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 100) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+
+  const calcPeriodValue = (pHighs: number[], pLows: number[], p: number, idx: number) => {
+    const chunkHighs = pHighs.slice(idx - p + 1, idx + 1);
+    const chunkLows = pLows.slice(idx - p + 1, idx + 1);
+    return (Math.max(...chunkHighs) + Math.min(...chunkLows)) / 2;
+  };
+
+  const currentIdx = len - 1;
+  const tenkan = calcPeriodValue(highs, lows, 9, currentIdx);
+  const kijun = calcPeriodValue(highs, lows, 26, currentIdx);
+  
+  const tenkanPast = calcPeriodValue(highs, lows, 9, currentIdx - 26);
+  const kijunPast = calcPeriodValue(highs, lows, 26, currentIdx - 26);
+  const spanA = (tenkanPast + kijunPast) / 2;
+  const spanB = calcPeriodValue(highs, lows, 52, currentIdx - 26);
+
+  const currentClose = closes[currentIdx];
+  const ema200 = calculateEMA(closes, 200)[currentIdx];
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (currentClose > spanA && currentClose > spanB && tenkan > kijun && currentClose > ema200) {
+    direction = 'LONG';
+  } else if (currentClose < spanA && currentClose < spanB && tenkan < kijun && currentClose < ema200) {
+    direction = 'SHORT';
+  }
+
+  return {
+    rsi: tenkan,
+    macdLine: spanA,
+    signalLine: spanB,
+    direction
+  };
+}
+
+/**
+ * VWAP Mean Reversion Strategy with Volatility Bands and Volume confirmation
+ */
+export function analyzeVwapReversion(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 30) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  let sumTypVol = 0;
+  let sumVol = 0;
+  
+  const typicalPrices = ohlcv.map(c => (c[2] + c[3] + c[4]) / 3);
+  const volumes = ohlcv.map(c => c[5]);
+
+  for (let i = len - 20; i < len; i++) {
+    sumTypVol += typicalPrices[i] * volumes[i];
+    sumVol += volumes[i];
+  }
+
+  const vwap = sumVol === 0 ? typicalPrices[len - 1] : sumTypVol / sumVol;
+
+  const avgPrice = typicalPrices.slice(-20).reduce((sum, p) => sum + p, 0) / 20;
+  const variance = typicalPrices.slice(-20).reduce((sum, p) => sum + Math.pow(p - avgPrice, 2), 0) / 20;
+  const stdDev = Math.sqrt(variance);
+
+  const upperBand = vwap + 2.2 * stdDev;
+  const lowerBand = vwap - 2.2 * stdDev;
+
+  const currentPrice = ohlcv[len - 1][4];
+  const currentVolume = volumes[len - 1];
+  
+  const volSma = calculateVolumeSMA(ohlcv, 20)[len - 1];
+  const isVolumeConfirmed = currentVolume > 1.8 * volSma;
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (currentPrice <= lowerBand && isVolumeConfirmed) {
+    direction = 'LONG';
+  } else if (currentPrice >= upperBand && isVolumeConfirmed) {
+    direction = 'SHORT';
+  }
+
+  return {
+    rsi: 50,
+    macdLine: vwap,
+    signalLine: stdDev,
+    direction
+  };
+}
+
+/**
  * Main Dispatcher Strategy analysis function.
  */
 export function analyzeStrategy(
@@ -984,6 +1260,16 @@ export function analyzeStrategy(
     return analyzeAtrBreakout(ohlcv, ohlcv1h);
   } else if (strategy === 'SWING_STRUCTURE') {
     return analyzeSwingStructure(ohlcv, ohlcv1h);
+  } else if (strategy === 'MACD_DIVERGENCE') {
+    return analyzeMacdDivergence(ohlcv);
+  } else if (strategy === 'KDJ_REVERSION') {
+    return analyzeKdjReversion(ohlcv);
+  } else if (strategy === 'FIBONACCI_PULLBACK') {
+    return analyzeFibonacciPullback(ohlcv, ohlcv1h);
+  } else if (strategy === 'ICHIMOKU_CLOUDBREAK') {
+    return analyzeIchimokuCloudBreakout(ohlcv, ohlcv1h);
+  } else if (strategy === 'VWAP_REVERSION') {
+    return analyzeVwapReversion(ohlcv);
   } else {
     return analyzeRsiMacd(closePrices);
   }

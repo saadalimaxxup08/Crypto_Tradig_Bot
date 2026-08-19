@@ -32,7 +32,7 @@ export default function SandboxPage() {
   const [includePairwise, setIncludePairwise] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
-  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE'>('BOLLINGER_RSI');
+  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE' | 'MACD_DIVERGENCE' | 'KDJ_REVERSION' | 'FIBONACCI_PULLBACK' | 'ICHIMOKU_CLOUDBREAK' | 'VWAP_REVERSION'>('BOLLINGER_RSI');
   const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
   const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
   const [dbSettings, setDbSettings] = useState<any>(null);
@@ -363,7 +363,7 @@ export default function SandboxPage() {
   };
 
   const leaderboard = useMemo(() => {
-    return ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE'].map(strat => {
+    return ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE', 'MACD_DIVERGENCE', 'KDJ_REVERSION', 'FIBONACCI_PULLBACK', 'ICHIMOKU_CLOUDBREAK', 'VWAP_REVERSION'].map(strat => {
       const isPaper = strat !== activeStrategySetting;
       const stratTrades = allRawTrades.filter(t => 
         (t.strategy || 'RSI_MACD') === strat && 
@@ -455,6 +455,16 @@ export default function SandboxPage() {
       ? 'ATR Channel Breakout'
       : selectedStrategy === 'SWING_STRUCTURE'
       ? 'Swing S&R Structure'
+      : selectedStrategy === 'MACD_DIVERGENCE'
+      ? 'MACD Reversal Divergence'
+      : selectedStrategy === 'KDJ_REVERSION'
+      ? 'KDJ + StochRSI Reversion'
+      : selectedStrategy === 'FIBONACCI_PULLBACK'
+      ? 'EMA Fibonacci Pullback'
+      : selectedStrategy === 'ICHIMOKU_CLOUDBREAK'
+      ? 'Ichimoku Cloud Breakout'
+      : selectedStrategy === 'VWAP_REVERSION'
+      ? 'VWAP Volatility Band Reversion'
       : 'RSI + MACD Momentum Crossover';
 
     // 1. Header Dark Banner Branding
@@ -878,6 +888,16 @@ export default function SandboxPage() {
         ? 'ATR Channel Breakout'
         : selectedStrategy === 'SWING_STRUCTURE'
         ? 'Swing S&R Structure'
+        : selectedStrategy === 'MACD_DIVERGENCE'
+        ? 'MACD Reversal Divergence'
+        : selectedStrategy === 'KDJ_REVERSION'
+        ? 'KDJ + StochRSI Reversion'
+        : selectedStrategy === 'FIBONACCI_PULLBACK'
+        ? 'EMA Fibonacci Pullback'
+        : selectedStrategy === 'ICHIMOKU_CLOUDBREAK'
+        ? 'Ichimoku Cloud Breakout'
+        : selectedStrategy === 'VWAP_REVERSION'
+        ? 'VWAP Volatility Band Reversion'
         : 'RSI + MACD Momentum Crossover';
 
       const file = new File([pdfBlob], `CryptoAI_Sandbox_${selectedStrategy}.pdf`, {
@@ -1049,6 +1069,76 @@ export default function SandboxPage() {
                   {activeStrategySetting === 'SWING_STRUCTURE' ? 'LIVE' : 'SANDBOX'}
                 </span>
               </button>
+
+              <button
+                onClick={() => setSelectedStrategy('MACD_DIVERGENCE')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'MACD_DIVERGENCE'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>📉 MACD Divergence</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'MACD_DIVERGENCE' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'MACD_DIVERGENCE' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('KDJ_REVERSION')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'KDJ_REVERSION'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>↕️ KDJ + StochRSI</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'KDJ_REVERSION' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'KDJ_REVERSION' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('FIBONACCI_PULLBACK')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'FIBONACCI_PULLBACK'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>🎢 Fib Pullback</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'FIBONACCI_PULLBACK' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'FIBONACCI_PULLBACK' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('ICHIMOKU_CLOUDBREAK')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'ICHIMOKU_CLOUDBREAK'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>☁️ Ichimoku Cloud</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'ICHIMOKU_CLOUDBREAK' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'ICHIMOKU_CLOUDBREAK' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('VWAP_REVERSION')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'VWAP_REVERSION'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>⚡ VWAP Reversion</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'VWAP_REVERSION' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'VWAP_REVERSION' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
             </div>
           </div>
         </div>
@@ -1081,7 +1171,19 @@ export default function SandboxPage() {
                 ? 'StochRSI + MACD'
                 : item.strategy === 'SWING_STRUCTURE'
                 ? 'Swing Structure'
-                : 'ATR Breakout';
+                : item.strategy === 'ATR_BREAKOUT'
+                ? 'ATR Breakout'
+                : item.strategy === 'MACD_DIVERGENCE'
+                ? 'MACD Divergence'
+                : item.strategy === 'KDJ_REVERSION'
+                ? 'KDJ Reversion'
+                : item.strategy === 'FIBONACCI_PULLBACK'
+                ? 'Fib Pullback'
+                : item.strategy === 'ICHIMOKU_CLOUDBREAK'
+                ? 'Ichimoku Cloud'
+                : item.strategy === 'VWAP_REVERSION'
+                ? 'VWAP Reversion'
+                : 'Unknown';
 
               const isLive = item.strategy === activeStrategySetting;
               const isSelected = item.strategy === selectedStrategy;

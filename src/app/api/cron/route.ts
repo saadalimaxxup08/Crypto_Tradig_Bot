@@ -321,6 +321,11 @@ async function handleCron() {
           const stochRsiMacdAnalysis = disabledStrats.includes('STOCH_RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD');
           const atrBreakoutAnalysis = disabledStrats.includes('ATR_BREAKOUT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT', ohlcv1h as any);
           const swingStructureAnalysis = disabledStrats.includes('SWING_STRUCTURE') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SWING_STRUCTURE', ohlcv1h as any);
+          const macdDivergenceAnalysis = disabledStrats.includes('MACD_DIVERGENCE') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'MACD_DIVERGENCE');
+          const kdjReversionAnalysis = disabledStrats.includes('KDJ_REVERSION') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'KDJ_REVERSION');
+          const fibonacciPullbackAnalysis = disabledStrats.includes('FIBONACCI_PULLBACK') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'FIBONACCI_PULLBACK', ohlcv1h as any);
+          const ichimokuCloudbreakAnalysis = disabledStrats.includes('ICHIMOKU_CLOUDBREAK') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ICHIMOKU_CLOUDBREAK', ohlcv1h as any);
+          const vwapReversionAnalysis = disabledStrats.includes('VWAP_REVERSION') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'VWAP_REVERSION');
 
           return {
             pair,
@@ -336,6 +341,11 @@ async function handleCron() {
               STOCH_RSI_MACD: stochRsiMacdAnalysis,
               ATR_BREAKOUT: atrBreakoutAnalysis,
               SWING_STRUCTURE: swingStructureAnalysis,
+              MACD_DIVERGENCE: macdDivergenceAnalysis,
+              KDJ_REVERSION: kdjReversionAnalysis,
+              FIBONACCI_PULLBACK: fibonacciPullbackAnalysis,
+              ICHIMOKU_CLOUDBREAK: ichimokuCloudbreakAnalysis,
+              VWAP_REVERSION: vwapReversionAnalysis,
             }
           };
         } catch (error: any) {
@@ -420,7 +430,22 @@ async function handleCron() {
     logs.push(`Paper trades audit complete in ${paperDuration}ms.`);
 
      // 3c. Evaluate and place signals for all strategies
-     const strategiesList = ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE'];
+     const strategiesList = [
+       'RSI_MACD',
+       'BOLLINGER_RSI',
+       'DOUBLE_EMA',
+       'DOUBLE_EMA_5M',
+       'DOUBLE_EMA_15M',
+       'SUPERTREND_EMA',
+       'STOCH_RSI_MACD',
+       'ATR_BREAKOUT',
+       'SWING_STRUCTURE',
+       'MACD_DIVERGENCE',
+       'KDJ_REVERSION',
+       'FIBONACCI_PULLBACK',
+       'ICHIMOKU_CLOUDBREAK',
+       'VWAP_REVERSION'
+     ];
 
     for (const result of scanResults) {
       if (!result || 'error' in result) {
@@ -546,6 +571,16 @@ async function handleCron() {
               ? 'ATR Channel Breakout'
               : strategyName === 'SWING_STRUCTURE'
               ? 'Swing S&R Structure'
+              : strategyName === 'MACD_DIVERGENCE'
+              ? 'MACD Reversal Divergence'
+              : strategyName === 'KDJ_REVERSION'
+              ? 'KDJ + StochRSI Reversion'
+              : strategyName === 'FIBONACCI_PULLBACK'
+              ? 'EMA Fibonacci Pullback'
+              : strategyName === 'ICHIMOKU_CLOUDBREAK'
+              ? 'Ichimoku Cloud Breakout'
+              : strategyName === 'VWAP_REVERSION'
+              ? 'VWAP Volatility Band Reversion'
               : 'RSI + MACD Momentum Crossover';
 
             // Query live strategy and pair win rates from database
