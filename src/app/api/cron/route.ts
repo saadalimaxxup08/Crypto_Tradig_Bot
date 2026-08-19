@@ -309,15 +309,18 @@ async function handleCron() {
           const currentAtr = atrList[atrList.length - 1] || 0;
           const atrPercent = currentPrice > 0 ? (currentAtr / currentPrice) * 100 : 0;
 
-          const rsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'RSI_MACD');
-          const bbRsiAnalysis = analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI');
-          const doubleEmaAnalysis = analyzeStrategy(ohlcv as any, 'DOUBLE_EMA', ohlcv1h as any);
-          const doubleEma5mAnalysis = analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_5M', ohlcv1h as any);
-          const doubleEma15mAnalysis = analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_15M', ohlcv1h as any);
-          const supertrendEmaAnalysis = analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA', ohlcv1h as any);
-          const stochRsiMacdAnalysis = analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD');
-          const atrBreakoutAnalysis = analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT', ohlcv1h as any);
-          const swingStructureAnalysis = analyzeStrategy(ohlcv as any, 'SWING_STRUCTURE', ohlcv1h as any);
+          const pairOverrides = settings.pair_overrides || {};
+          const disabledStrats = pairOverrides[pair]?.disabled_strategies || [];
+
+          const rsiMacdAnalysis = disabledStrats.includes('RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'RSI_MACD');
+          const bbRsiAnalysis = disabledStrats.includes('BOLLINGER_RSI') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI');
+          const doubleEmaAnalysis = disabledStrats.includes('DOUBLE_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA', ohlcv1h as any);
+          const doubleEma5mAnalysis = disabledStrats.includes('DOUBLE_EMA_5M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_5M', ohlcv1h as any);
+          const doubleEma15mAnalysis = disabledStrats.includes('DOUBLE_EMA_15M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_15M', ohlcv1h as any);
+          const supertrendEmaAnalysis = disabledStrats.includes('SUPERTREND_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA', ohlcv1h as any);
+          const stochRsiMacdAnalysis = disabledStrats.includes('STOCH_RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD');
+          const atrBreakoutAnalysis = disabledStrats.includes('ATR_BREAKOUT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT', ohlcv1h as any);
+          const swingStructureAnalysis = disabledStrats.includes('SWING_STRUCTURE') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SWING_STRUCTURE', ohlcv1h as any);
 
           return {
             pair,

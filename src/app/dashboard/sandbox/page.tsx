@@ -35,6 +35,9 @@ export default function SandboxPage() {
   const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE'>('BOLLINGER_RSI');
   const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
   const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
+  const [dbSettings, setDbSettings] = useState<any>(null);
+  const [localPairsConfig, setLocalPairsConfig] = useState<Record<string, boolean>>({});
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Default date ranges setup (Last 7 days)
@@ -95,9 +98,12 @@ export default function SandboxPage() {
       const settingsRes = await fetch('/api/settings');
       const settingsData = await settingsRes.json();
       let currentActiveStrategy = 'RSI_MACD';
-      if (settingsRes.ok && settingsData.active_strategy) {
-        currentActiveStrategy = settingsData.active_strategy;
-        setActiveStrategySetting(currentActiveStrategy);
+      if (settingsRes.ok) {
+        setDbSettings(settingsData);
+        if (settingsData.active_strategy) {
+          currentActiveStrategy = settingsData.active_strategy;
+          setActiveStrategySetting(currentActiveStrategy);
+        }
       }
 
       // 2. Fetch all trades
@@ -113,6 +119,93 @@ export default function SandboxPage() {
       console.error('Failed to load sandbox trades:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const pairStats = useMemo(() => {
+    const stats: Record<string, { wins: number; losses: number }> = {};
+    const activePairs = dbSettings?.pairs || [];
+    activePairs.forEach((p: string) => {
+      stats[p] = { wins: 0, losses: 0 };
+    });
+
+    trades.forEach((t) => {
+      if (!stats[t.pair]) {
+        stats[t.pair] = { wins: 0, losses: 0 };
+      }
+      const pnl = parseFloat(t.pnl as any || 0);
+      if (pnl > 0) {
+        stats[t.pair].wins += 1;
+      } else {
+        stats[t.pair].losses += 1;
+      }
+    });
+
+    return stats;
+  }, [trades, dbSettings]);
+
+  useEffect(() => {
+    if (!dbSettings) return;
+    const config: Record<string, boolean> = {};
+    const activePairs = dbSettings.pairs || [];
+    activePairs.forEach((p: string) => {
+      const disabledStrats = dbSettings.pair_overrides?.[p]?.disabled_strategies || [];
+      config[p] = !disabledStrats.includes(selectedStrategy);
+    });
+    setLocalPairsConfig(config);
+  }, [dbSettings, selectedStrategy]);
+
+  const handleSavePairsConfig = async () => {
+    if (!dbSettings) return;
+    setIsSavingConfig(true);
+    setStatusMsg({ type: '', text: '' });
+
+    const newOverrides = { ...(dbSettings.pair_overrides || {}) };
+    const activePairs = dbSettings.pairs || [];
+
+    activePairs.forEach((p: string) => {
+      if (!newOverrides[p]) {
+        newOverrides[p] = {};
+      }
+      const disabledStrats = [...(newOverrides[p].disabled_strategies || [])];
+      const isEnabled = localPairsConfig[p];
+
+      if (isEnabled) {
+        const idx = disabledStrats.indexOf(selectedStrategy);
+        if (idx > -1) {
+          disabledStrats.splice(idx, 1);
+        }
+      } else {
+        if (!disabledStrats.includes(selectedStrategy)) {
+          disabledStrats.push(selectedStrategy);
+        }
+      }
+
+      newOverrides[p].disabled_strategies = disabledStrats;
+    });
+
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pair_overrides: newOverrides })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDbSettings((prev: any) => ({
+          ...prev,
+          pair_overrides: newOverrides
+        }));
+        setStatusMsg({ type: 'success', text: 'Strategy pairs configuration updated successfully!' });
+      } else {
+        setStatusMsg({ type: 'error', text: data.error || 'Failed to update configuration.' });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setIsSavingConfig(false);
+      setTimeout(() => setStatusMsg({ type: '', text: '' }), 4000);
     }
   };
 
@@ -1416,84 +1509,137 @@ export default function SandboxPage() {
         )}
       </div>
 
-      {/* Trade Execution Ledger */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
-        <h3 className="text-md font-bold text-zinc-200 pb-2 border-b border-zinc-800/50 flex items-center justify-between">
-          <span>Completed Trade Ledger (Paper Sandbox)</span>
-          <span className="px-2 py-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-[10px] font-bold text-zinc-400">
-            {trades.length} trades
-          </span>
-        </h3>
+      {/* Two Column Grid for Completed Trades and Strategy Pairs Configuration */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* Left Column: Trade Execution Ledger */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4 lg:col-span-8">
+          <h3 className="text-md font-bold text-zinc-200 pb-2 border-b border-zinc-800/50 flex items-center justify-between">
+            <span>Completed Trade Ledger (Paper Sandbox)</span>
+            <span className="px-2 py-0.5 rounded-lg bg-zinc-950 border border-zinc-800 text-[10px] font-bold text-zinc-400">
+              {trades.length} trades
+            </span>
+          </h3>
 
-        {trades.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 border border-dashed border-zinc-800/80 rounded-2xl">
-            <p className="text-xs text-zinc-500 font-medium">No closed paper trade records found for this strategy.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="text-zinc-500 text-[10px] uppercase tracking-wider border-b border-zinc-800/50">
-                  <th className="pb-3">Close Time (Jeddah)</th>
-                  <th className="pb-3">Pair</th>
-                  <th className="pb-3 text-center">Direction</th>
-                  <th className="pb-3 text-right">Entry Price</th>
-                  <th className="pb-3 text-right">Exit Price</th>
-                  <th className="pb-3 text-right">Risk (USDT)</th>
-                  <th className="pb-3 text-right">Net Return</th>
-                  <th className="pb-3 text-right">Simulated Balance</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/50 text-xs">
-                {(() => {
-                  let runningBal = 100.0;
-                  return trades.map((t) => {
-                    const isWin = (t.pnl || 0) > 0;
-                    const closeTime = new Date(t.closed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
-                    runningBal += (t.pnl || 0);
-                    return (
-                      <tr key={t.id} className="hover:bg-zinc-900/10">
-                        <td className="py-3.5 font-mono text-zinc-400">{closeTime}</td>
-                        <td className="py-3.5 font-bold text-zinc-200">{t.pair}</td>
-                        <td className="py-3.5 text-center">
-                          <span
-                            className={`px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase ${
-                              t.direction === 'LONG'
-                                ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                                : 'bg-red-950/20 border-red-900/50 text-red-400'
+          {trades.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 border border-dashed border-zinc-800/80 rounded-2xl">
+              <p className="text-xs text-zinc-500 font-medium">No closed paper trade records found for this strategy.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="text-zinc-500 text-[10px] uppercase tracking-wider border-b border-zinc-800/50">
+                    <th className="pb-3">Close Time (Jeddah)</th>
+                    <th className="pb-3">Pair</th>
+                    <th className="pb-3 text-center">Direction</th>
+                    <th className="pb-3 text-right">Entry Price</th>
+                    <th className="pb-3 text-right">Exit Price</th>
+                    <th className="pb-3 text-right">Risk (USDT)</th>
+                    <th className="pb-3 text-right">Net Return</th>
+                    <th className="pb-3 text-right">Simulated Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/50 text-xs">
+                  {(() => {
+                    let runningBal = 100.0;
+                    return trades.map((t) => {
+                      const isWin = (t.pnl || 0) > 0;
+                      const closeTime = new Date(t.closed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
+                      runningBal += (t.pnl || 0);
+                      return (
+                        <tr key={t.id} className="hover:bg-zinc-900/10">
+                          <td className="py-3.5 font-mono text-zinc-400">{closeTime}</td>
+                          <td className="py-3.5 font-bold text-zinc-200">{t.pair}</td>
+                          <td className="py-3.5 text-center">
+                            <span
+                              className={`px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase ${
+                                t.direction === 'LONG'
+                                  ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+                                  : 'bg-red-950/20 border-red-900/50 text-red-400'
+                              }`}
+                            >
+                              {t.direction}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-right font-mono text-zinc-300">{t.entry_price}</td>
+                          <td className="py-3.5 text-right font-mono text-zinc-300">{t.exit_price || 'N/A'}</td>
+                          <td className="py-3.5 text-right text-zinc-400 font-mono">
+                            <div className="font-bold text-zinc-300">{t.margin ? `${t.margin.toFixed(1)} USDT` : '1.0 USDT'}</div>
+                            <div className="text-[9px] text-zinc-500">{t.leverage || 20}x leverage</div>
+                          </td>
+                          <td
+                            className={`py-3.5 text-right font-mono font-bold flex items-center justify-end gap-1 ${
+                              isWin ? 'text-emerald-400' : 'text-red-400'
                             }`}
                           >
-                            {t.direction}
-                          </span>
-                        </td>
-                        <td className="py-3.5 text-right font-mono text-zinc-300">{t.entry_price}</td>
-                        <td className="py-3.5 text-right font-mono text-zinc-300">{t.exit_price || 'N/A'}</td>
-                        <td className="py-3.5 text-right text-zinc-400 font-mono">
-                          <div className="font-bold text-zinc-300">{t.margin ? `${t.margin.toFixed(1)} USDT` : '1.0 USDT'}</div>
-                          <div className="text-[9px] text-zinc-500">{t.leverage || 20}x leverage</div>
-                        </td>
-                        <td
-                          className={`py-3.5 text-right font-mono font-bold flex items-center justify-end gap-1 ${
-                            isWin ? 'text-emerald-400' : 'text-red-400'
-                          }`}
-                        >
-                          {isWin ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
-                          <span>
-                            {isWin ? '+' : ''}
-                            {(t.pnl || 0).toFixed(2)} USDT
-                          </span>
-                        </td>
-                        <td className="py-3.5 text-right font-mono font-bold text-zinc-300">
-                          {runningBal.toFixed(2)} USDT
-                        </td>
-                      </tr>
-                    );
-                  });
-                })()}
-              </tbody>
-            </table>
+                            {isWin ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
+                            <span>
+                              {isWin ? '+' : ''}
+                              {(t.pnl || 0).toFixed(2)} USDT
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-right font-mono font-bold text-zinc-300">
+                            {runningBal.toFixed(2)} USDT
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Right Column: Strategy Pairs Configuration */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4 lg:col-span-4">
+          <div className="flex justify-between items-center pb-2 border-b border-zinc-800/50">
+            <h3 className="text-md font-bold text-zinc-200">Pairs Controller</h3>
+            <button
+              onClick={handleSavePairsConfig}
+              disabled={isSavingConfig || !dbSettings}
+              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 text-white rounded-lg text-xs font-bold transition-all"
+            >
+              {isSavingConfig ? 'Saving...' : 'Save Configuration'}
+            </button>
           </div>
-        )}
+          <p className="text-[11px] text-zinc-400">
+            Tick or untick pairs to enable/disable them for <b>{selectedStrategy}</b>. Shows Wins / Losses for the selected date range.
+          </p>
+
+          <div className="max-h-[500px] overflow-y-auto pr-1 space-y-2 divide-y divide-zinc-850">
+            {dbSettings?.pairs?.map((p: string) => {
+              const isChecked = !!localPairsConfig[p];
+              const stats = pairStats[p] || { wins: 0, losses: 0 };
+              
+              return (
+                <div key={p} className="flex justify-between items-center py-2.5 first:pt-0">
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => setLocalPairsConfig(prev => ({ ...prev, [p]: !prev[p] }))}
+                      className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <span className={`text-xs font-bold ${isChecked ? 'text-zinc-200' : 'text-zinc-500 line-through'}`}>
+                      {p}
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-1.5 font-mono text-[10px] font-bold">
+                    <span className="text-emerald-400 bg-emerald-950/20 border border-emerald-900/30 px-1.5 py-0.5 rounded">
+                      {stats.wins}W
+                    </span>
+                    <span className="text-red-400 bg-red-950/20 border border-red-900/30 px-1.5 py-0.5 rounded">
+                      {stats.losses}L
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
       </div>
     </div>
   );
