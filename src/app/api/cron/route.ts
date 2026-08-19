@@ -677,8 +677,22 @@ async function handleCron() {
 
         let tradesSummary = '• No trades closed in the last hour.';
         if (hourlyTrades && hourlyTrades.length > 0) {
-          tradesSummary = hourlyTrades
-            .map((t: any) => `• <b>${t.pair}</b> ${t.direction}: <b>${parseFloat(t.pnl || 0) >= 0 ? '+' : ''}${parseFloat(t.pnl || 0).toFixed(2)} USDT</b>`)
+          const summaryMap: { [key: string]: { pnl: number, count: number } } = {};
+          hourlyTrades.forEach((t: any) => {
+            const key = `${t.pair} (${t.is_paper ? 'Paper' : 'Live'})`;
+            if (!summaryMap[key]) {
+              summaryMap[key] = { pnl: 0, count: 0 };
+            }
+            summaryMap[key].pnl += parseFloat(t.pnl || 0);
+            summaryMap[key].count += 1;
+          });
+
+          tradesSummary = Object.keys(summaryMap)
+            .map((key) => {
+              const item = summaryMap[key];
+              const pnlPrefix = item.pnl >= 0 ? '+' : '';
+              return `• <b>${key}</b>: <b>${pnlPrefix}${item.pnl.toFixed(2)} USDT</b> (${item.count} trade${item.count > 1 ? 's' : ''})`;
+            })
             .join('\n');
         }
 
@@ -739,8 +753,27 @@ async function handleCron() {
 
         let tradesList = '• No trades completed today.';
         if (dailyTrades && dailyTrades.length > 0) {
-          tradesList = dailyTrades
-            .map((t: any) => `• <b>${t.pair}</b> ${t.direction}: <b>${parseFloat(t.pnl || 0) >= 0 ? '+' : ''}${parseFloat(t.pnl || 0).toFixed(2)} USDT</b> (Exit: ${t.exit_price})`)
+          const summaryMap: { [key: string]: { pnl: number, wins: number, losses: number } } = {};
+          dailyTrades.forEach((t: any) => {
+            const key = `${t.pair} (${t.is_paper ? 'Paper' : 'Live'})`;
+            if (!summaryMap[key]) {
+              summaryMap[key] = { pnl: 0, wins: 0, losses: 0 };
+            }
+            const pnl = parseFloat(t.pnl || 0);
+            summaryMap[key].pnl += pnl;
+            if (pnl > 0) {
+              summaryMap[key].wins += 1;
+            } else {
+              summaryMap[key].losses += 1;
+            }
+          });
+
+          tradesList = Object.keys(summaryMap)
+            .map((key) => {
+              const item = summaryMap[key];
+              const pnlPrefix = item.pnl >= 0 ? '+' : '';
+              return `• <b>${key}</b>: <b>${pnlPrefix}${item.pnl.toFixed(2)} USDT</b> (${item.wins}W / ${item.losses}L)`;
+            })
             .join('\n');
         }
 
