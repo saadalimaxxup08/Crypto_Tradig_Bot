@@ -43,8 +43,8 @@ async function connectToWhatsApp() {
     const credsPath = path.join(authFolder, 'creds.json');
 
     // 1. Sync credentials from Supabase to local filesystem on startup
-    if (!fs.existsSync(credsPath)) {
-      console.log('No local credentials file found. Checking Supabase for active WhatsApp session...');
+    if (!fs.existsSync(authFolder) || fs.readdirSync(authFolder).length === 0) {
+      console.log('No local credentials folder found. Checking Supabase for active WhatsApp session...');
       try {
         const { data, error } = await supabase
           .from('settings')
@@ -53,11 +53,24 @@ async function connectToWhatsApp() {
           .single();
         
         if (!error && data && data.whatsapp_session) {
-          if (!fs.existsSync(authFolder)) {
-            fs.mkdirSync(authFolder, { recursive: true });
+          let sessionObj;
+          try {
+            sessionObj = JSON.parse(data.whatsapp_session);
+          } catch {
+            // Fallback for older format
+            sessionObj = { 'creds.json': data.whatsapp_session };
           }
-          fs.writeFileSync(credsPath, data.whatsapp_session, 'utf-8');
-          console.log('WhatsApp credentials successfully restored from Supabase.');
+
+          if (sessionObj && typeof sessionObj === 'object') {
+            if (!fs.existsSync(authFolder)) {
+              fs.mkdirSync(authFolder, { recursive: true });
+            }
+            for (const [filename, content] of Object.entries(sessionObj)) {
+              const filePath = path.join(authFolder, filename);
+              fs.writeFileSync(filePath, String(content), 'utf-8');
+            }
+            console.log(`WhatsApp credentials successfully restored from Supabase (${Object.keys(sessionObj).length} files).`);
+          }
         }
       } catch (dbErr) {
         console.error('Failed to restore credentials from Supabase:', dbErr.message);
@@ -71,23 +84,35 @@ async function connectToWhatsApp() {
       logger: pino({ level: 'silent' }),
       printQRInTerminal: true,
       defaultQueryTimeoutMs: undefined,
+      keepAliveIntervalMs: 30000, // Send keep-alive pings every 30s to prevent silent timeouts
+      connectTimeoutMs: 60000,
     });
 
     sock.ev.on('creds.update', async () => {
       // Save locally
       saveCreds();
-      // Sync to Supabase in real-time
+      // Sync entire credentials folder to Supabase in real-time
       try {
-        if (fs.existsSync(credsPath)) {
-          const credsStr = fs.readFileSync(credsPath, 'utf-8');
+        if (fs.existsSync(authFolder)) {
+          const files = fs.readdirSync(authFolder);
+          const sessionObj = {};
+          
+          files.forEach(file => {
+            const filePath = path.join(authFolder, file);
+            if (fs.statSync(filePath).isFile()) {
+              sessionObj[file] = fs.readFileSync(filePath, 'utf-8');
+            }
+          });
+
+          const sessionStr = JSON.stringify(sessionObj);
           await supabase
             .from('settings')
-            .update({ whatsapp_session: credsStr })
+            .update({ whatsapp_session: sessionStr })
             .eq('id', 1);
-          console.log('WhatsApp session state synced to Supabase database.');
+          console.log(`WhatsApp session state (${files.length} files) synced to Supabase database.`);
         }
       } catch (syncErr) {
-        console.error('Failed to sync credentials to Supabase:', syncErr.message);
+        console.error('Failed to sync credentials folder to Supabase:', syncErr.message);
       }
     });
 
