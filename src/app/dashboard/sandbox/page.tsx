@@ -1231,20 +1231,6 @@ export default function SandboxPage() {
                   {activeStrategySetting === 'VWAP_REVERSION_OPT' ? 'LIVE' : 'SANDBOX'}
                 </span>
               </button>
-
-              <button
-                onClick={() => setSelectedStrategy('COMBINATION_STRATEGIES')}
-                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
-                  selectedStrategy === 'COMBINATION_STRATEGIES'
-                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
-                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
-                }`}
-              >
-                <span>💼 Combo Strategies</span>
-                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'COMBINATION_STRATEGIES' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
-                  {activeStrategySetting === 'COMBINATION_STRATEGIES' ? 'LIVE' : 'SANDBOX'}
-                </span>
-              </button>
             </div>
           </div>
         </div>
@@ -1267,12 +1253,16 @@ export default function SandboxPage() {
                 ? 'Bollinger + RSI'
                 : item.strategy === 'DOUBLE_EMA'
                 ? 'Double EMA'
+                : item.strategy === 'DOUBLE_EMA_OPT'
+                ? 'Double EMA (OPT)'
                 : item.strategy === 'DOUBLE_EMA_5M'
                 ? 'Double EMA 5M'
                 : item.strategy === 'DOUBLE_EMA_15M'
                 ? 'Double EMA 15M'
                 : item.strategy === 'SUPERTREND_EMA'
                 ? 'SuperTrend + EMA'
+                : item.strategy === 'SUPERTREND_EMA_OPT'
+                ? 'SuperTrend + EMA (OPT)'
                 : item.strategy === 'STOCH_RSI_MACD'
                 ? 'StochRSI + MACD'
                 : item.strategy === 'SWING_STRUCTURE'
@@ -1283,12 +1273,18 @@ export default function SandboxPage() {
                 ? 'MACD Divergence'
                 : item.strategy === 'KDJ_REVERSION'
                 ? 'KDJ Reversion'
+                : item.strategy === 'KDJ_REVERSION_OPT'
+                ? 'KDJ Reversion (OPT)'
                 : item.strategy === 'FIBONACCI_PULLBACK'
                 ? 'Fib Pullback'
                 : item.strategy === 'ICHIMOKU_CLOUDBREAK'
                 ? 'Ichimoku Cloud'
                 : item.strategy === 'VWAP_REVERSION'
                 ? 'VWAP Reversion'
+                : item.strategy === 'VWAP_REVERSION_OPT'
+                ? 'VWAP Reversion (OPT)'
+                : item.strategy === 'COMBINATION_STRATEGIES'
+                ? 'Combo Strategies'
                 : 'Unknown';
 
               const isLive = item.strategy === activeStrategySetting;

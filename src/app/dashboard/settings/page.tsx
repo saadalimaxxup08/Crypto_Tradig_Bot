@@ -460,13 +460,23 @@ export default function SettingsPage() {
             >
               <option value="RSI_MACD">📊 RSI + MACD Momentum Crossover (Default)</option>
               <option value="BOLLINGER_RSI">↕️ Bollinger Bands + RSI Range Reversion</option>
+              <option value="BOLLINGER_RSI_OPT">↕️ Bollinger Bands + RSI Range Reversion (Optimized)</option>
               <option value="DOUBLE_EMA">🎢 Double EMA Crossover Trend Following (1m)</option>
+              <option value="DOUBLE_EMA_OPT">🎢 Double EMA Crossover (Optimized)</option>
               <option value="DOUBLE_EMA_5M">🎢 Double EMA 5-Minute (Trend + Volume)</option>
               <option value="DOUBLE_EMA_15M">🎢 Double EMA 15-Minute (Trend + Volume)</option>
               <option value="SUPERTREND_EMA">⚡ SuperTrend + 200 EMA Trend Following</option>
+              <option value="SUPERTREND_EMA_OPT">⚡ SuperTrend + 200 EMA (Optimized)</option>
               <option value="STOCH_RSI_MACD">🚀 Stochastic RSI + MACD Crossover</option>
               <option value="ATR_BREAKOUT">🎢 ATR Channel Breakout</option>
               <option value="SWING_STRUCTURE">🛡️ Swing S&R Structure Trend Following</option>
+              <option value="KDJ_REVERSION">↕️ KDJ + StochRSI Reversion</option>
+              <option value="KDJ_REVERSION_OPT">↕️ KDJ + StochRSI Reversion (Optimized)</option>
+              <option value="FIBONACCI_PULLBACK">🎢 EMA Fibonacci Pullback</option>
+              <option value="ICHIMOKU_CLOUDBREAK">☁️ Ichimoku Cloud Breakout</option>
+              <option value="VWAP_REVERSION">⚡ VWAP Volatility Band Reversion</option>
+              <option value="VWAP_REVERSION_OPT">⚡ VWAP Volatility Band Reversion (Optimized)</option>
+              <option value="COMBINATION_STRATEGIES">💼 Combination Portfolio Dispatcher</option>
             </select>
           </div>
 
