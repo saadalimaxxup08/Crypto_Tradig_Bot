@@ -1232,6 +1232,305 @@ export function analyzeVwapReversion(ohlcv: number[][]): {
 }
 
 /**
+ * Optimized Bollinger Bands + RSI Reversion Strategy (Strict RSI limits)
+ */
+export function analyzeBollingerRsiOpt(prices: number[]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = prices.length;
+  if (len < 30) return { rsi: NaN, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const rsi = calculateRSI(prices, 14);
+  const { upper, lower } = calculateBollingerBands(prices, 20, 2);
+
+  const currentIdx = len - 1;
+  const currentRsi = rsi[currentIdx];
+  const currentPrice = prices[currentIdx];
+  const currentUpper = upper[currentIdx];
+  const currentLower = lower[currentIdx];
+
+  if (isNaN(currentRsi) || isNaN(currentUpper) || isNaN(currentLower)) {
+    return { rsi: currentRsi, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+  }
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (currentPrice <= currentLower && currentRsi <= 28) {
+    direction = 'LONG';
+  } else if (currentPrice >= currentUpper && currentRsi >= 72) {
+    direction = 'SHORT';
+  }
+
+  return { rsi: currentRsi, macdLine: 0, signalLine: 0, direction };
+}
+
+/**
+ * Optimized Double EMA Crossover (Strict ADX & 1.8x Volume Filter)
+ */
+export function analyzeDoubleEmaOpt(ohlcv: number[][], ohlcv1h?: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 205) return { rsi: NaN, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+  const volumes = ohlcv.map(c => c[5]);
+
+  const ema9 = calculateEMA(closes, 9);
+  const ema21 = calculateEMA(closes, 21);
+  const ema200 = calculateEMA(closes, 200);
+  const adx = calculateADX(highs, lows, closes, 14);
+
+  const currentIdx = len - 1;
+  const prevIdx = len - 2;
+
+  const cEma9 = ema9[currentIdx];
+  const cEma21 = ema21[currentIdx];
+  const pEma9 = ema9[prevIdx];
+  const pEma21 = ema21[prevIdx];
+  const currentEma200 = ema200[currentIdx];
+  const currentAdx = adx[currentIdx];
+
+  const currentVolume = volumes[currentIdx];
+  const volSma = calculateVolumeSMA(ohlcv, 20)[currentIdx];
+  const isVolumeConfirmed = currentVolume > 1.8 * volSma;
+
+  let trend1h = 'NEUTRAL';
+  if (ohlcv1h && ohlcv1h.length >= 200) {
+    const closes1h = ohlcv1h.map(c => c[4]);
+    const ema200_1h = calculateEMA(closes1h, 200);
+    const curEma200 = ema200_1h[ema200_1h.length - 1];
+    const curClose1h = closes1h[closes1h.length - 1];
+    trend1h = curClose1h > curEma200 ? 'LONG' : 'SHORT';
+  }
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (currentAdx > 26 && isVolumeConfirmed) {
+    if (pEma9 <= pEma21 && cEma9 > cEma21 && closes[currentIdx] > currentEma200 && trend1h === 'LONG') {
+      direction = 'LONG';
+    } else if (pEma9 >= pEma21 && cEma9 < cEma21 && closes[currentIdx] < currentEma200 && trend1h === 'SHORT') {
+      direction = 'SHORT';
+    }
+  }
+
+  return { rsi: currentAdx, macdLine: cEma9, signalLine: cEma21, direction };
+}
+
+/**
+ * Optimized SuperTrend + 200 EMA (Strict ADX & 1.8x Volume Filter)
+ */
+export function analyzeSuperTrendEmaOpt(ohlcv: number[][], ohlcv1h?: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 205) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+
+  const ema200 = calculateEMA(closes, 200);
+  const atr = calculateATR(highs, lows, closes, 10);
+  const adx = calculateADX(highs, lows, closes, 14);
+
+  const multiplier = 3;
+  const trends: (string | null)[] = new Array(len).fill(null);
+  const finalUpper: number[] = new Array(len).fill(NaN);
+  const finalLower: number[] = new Array(len).fill(NaN);
+
+  const startIdx = 10;
+  finalUpper[startIdx] = (highs[startIdx] + lows[startIdx]) / 2 + multiplier * atr[startIdx];
+  finalLower[startIdx] = (highs[startIdx] + lows[startIdx]) / 2 - multiplier * atr[startIdx];
+  trends[startIdx] = 'LONG';
+
+  for (let i = startIdx + 1; i < len; i++) {
+    const basicUpper = (highs[i] + lows[i]) / 2 + multiplier * atr[i];
+    const basicLower = (highs[i] + lows[i]) / 2 - multiplier * atr[i];
+
+    if (basicUpper < finalUpper[i - 1] || closes[i - 1] > finalUpper[i - 1]) {
+      finalUpper[i] = basicUpper;
+    } else {
+      finalUpper[i] = finalUpper[i - 1];
+    }
+
+    if (basicLower > finalLower[i - 1] || closes[i - 1] < finalLower[i - 1]) {
+      finalLower[i] = basicLower;
+    } else {
+      finalLower[i] = finalLower[i - 1];
+    }
+
+    if (closes[i] > finalUpper[i]) {
+      trends[i] = 'LONG';
+    } else if (closes[i] < finalLower[i]) {
+      trends[i] = 'SHORT';
+    } else {
+      trends[i] = trends[i - 1] || 'LONG';
+    }
+  }
+
+  const currentIdx = len - 1;
+  const prevIdx = len - 2;
+
+  const currentTrend = trends[currentIdx];
+  const prevTrend = trends[prevIdx];
+  const currentClose = closes[currentIdx];
+  const currentEma200 = ema200[currentIdx];
+  const currentAdx = adx[currentIdx];
+
+  let trend1h: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (ohlcv1h && ohlcv1h.length >= 200) {
+    const closes1h = ohlcv1h.map(c => c[4]);
+    const ema50_1h = calculateEMA(closes1h, 50);
+    const ema200_1h = calculateEMA(closes1h, 200);
+    const currentEma50_1h = ema50_1h[ema50_1h.length - 1];
+    const currentEma200_1h = ema200_1h[ema200_1h.length - 1];
+    if (!isNaN(currentEma50_1h) && !isNaN(currentEma200_1h)) {
+      trend1h = currentEma50_1h > currentEma200_1h ? 'LONG' : 'SHORT';
+    }
+  }
+
+  const volSma = calculateVolumeSMA(ohlcv, 20);
+  const currentVolume = ohlcv[currentIdx][5];
+  const currentVolSma = volSma[currentIdx];
+  const isVolumeConfirmed = !isNaN(currentVolSma) && (currentVolume >= 1.8 * currentVolSma);
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (currentAdx > 26 && isVolumeConfirmed) {
+    if (prevTrend === 'SHORT' && currentTrend === 'LONG' && currentClose > currentEma200) {
+      if (trend1h === 'NEUTRAL' || trend1h === 'LONG') {
+        direction = 'LONG';
+      }
+    } else if (prevTrend === 'LONG' && currentTrend === 'SHORT' && currentClose < currentEma200) {
+      if (trend1h === 'NEUTRAL' || trend1h === 'SHORT') {
+        direction = 'SHORT';
+      }
+    }
+  }
+
+  return { rsi: currentAdx, macdLine: 0, signalLine: 0, direction };
+}
+
+/**
+ * Optimized KDJ + Stochastic RSI Reversion Strategy (Strict limits: K < 20 / K > 80)
+ */
+export function analyzeKdjReversionOpt(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 20) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  let k = 50;
+  let d = 50;
+  let j = 50;
+  
+  const kList: number[] = [];
+  const dList: number[] = [];
+  const jList: number[] = [];
+
+  for (let i = 0; i < len; i++) {
+    if (i < 8) {
+      kList.push(50);
+      dList.push(50);
+      jList.push(50);
+      continue;
+    }
+    const chunk = ohlcv.slice(i - 8, i + 1);
+    const highs = chunk.map(c => c[2]);
+    const lows = chunk.map(c => c[3]);
+    const highest = Math.max(...highs);
+    const lowest = Math.min(...lows);
+    const close = ohlcv[i][4];
+    
+    const rsv = highest === lowest ? 50 : ((close - lowest) / (highest - lowest)) * 100;
+    k = (2 / 3) * k + (1 / 3) * rsv;
+    d = (2 / 3) * d + (1 / 3) * k;
+    j = 3 * k - 2 * d;
+
+    kList.push(k);
+    dList.push(d);
+    jList.push(j);
+  }
+
+  const currentIdx = len - 1;
+  const prevIdx = len - 2;
+
+  const curJ = jList[currentIdx];
+  const curK = kList[currentIdx];
+  const curD = dList[currentIdx];
+  const prevJ = jList[prevIdx];
+  
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (prevJ <= curD && curJ > curD && curK < 20) {
+    direction = 'LONG';
+  } else if (prevJ >= curD && curJ < curD && curK > 80) {
+    direction = 'SHORT';
+  }
+
+  return { rsi: curK, macdLine: curJ, signalLine: curD, direction };
+}
+
+/**
+ * Optimized VWAP Reversion Strategy (Strict bands: 2.5 * stdDev)
+ */
+export function analyzeVwapReversionOpt(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 30) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  let sumTypVol = 0;
+  let sumVol = 0;
+  
+  const typicalPrices = ohlcv.map(c => (c[2] + c[3] + c[4]) / 3);
+  const volumes = ohlcv.map(c => c[5]);
+
+  for (let i = len - 20; i < len; i++) {
+    sumTypVol += typicalPrices[i] * volumes[i];
+    sumVol += volumes[i];
+  }
+
+  const vwap = sumVol === 0 ? typicalPrices[len - 1] : sumTypVol / sumVol;
+
+  const avgPrice = typicalPrices.slice(-20).reduce((sum, p) => sum + p, 0) / 20;
+  const variance = typicalPrices.slice(-20).reduce((sum, p) => sum + Math.pow(p - avgPrice, 2), 0) / 20;
+  const stdDev = Math.sqrt(variance);
+
+  const upperBand = vwap + 2.5 * stdDev;
+  const lowerBand = vwap - 2.5 * stdDev;
+
+  const currentPrice = ohlcv[len - 1][4];
+  const currentVolume = volumes[len - 1];
+  
+  const volSma = calculateVolumeSMA(ohlcv, 20)[len - 1];
+  const isVolumeConfirmed = currentVolume > 1.8 * volSma;
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  if (currentPrice <= lowerBand && isVolumeConfirmed) {
+    direction = 'LONG';
+  } else if (currentPrice >= upperBand && isVolumeConfirmed) {
+    direction = 'SHORT';
+  }
+
+  return { rsi: 50, macdLine: vwap, signalLine: stdDev, direction };
+}
+
+/**
  * Main Dispatcher Strategy analysis function.
  */
 export function analyzeStrategy(
@@ -1250,10 +1549,16 @@ export function analyzeStrategy(
 
   if (strategy === 'BOLLINGER_RSI') {
     return analyzeBollingerRsi(closePrices);
+  } else if (strategy === 'BOLLINGER_RSI_OPT') {
+    return analyzeBollingerRsiOpt(closePrices);
   } else if (strategy === 'DOUBLE_EMA' || strategy === 'DOUBLE_EMA_5M' || strategy === 'DOUBLE_EMA_15M') {
     return analyzeDoubleEma(ohlcv, ohlcv1h);
+  } else if (strategy === 'DOUBLE_EMA_OPT') {
+    return analyzeDoubleEmaOpt(ohlcv, ohlcv1h);
   } else if (strategy === 'SUPERTREND_EMA') {
     return analyzeSuperTrendEma(ohlcv, ohlcv1h);
+  } else if (strategy === 'SUPERTREND_EMA_OPT') {
+    return analyzeSuperTrendEmaOpt(ohlcv, ohlcv1h);
   } else if (strategy === 'STOCH_RSI_MACD') {
     return analyzeStochRsiMacd(ohlcv);
   } else if (strategy === 'ATR_BREAKOUT') {
@@ -1264,12 +1569,16 @@ export function analyzeStrategy(
     return analyzeMacdDivergence(ohlcv);
   } else if (strategy === 'KDJ_REVERSION') {
     return analyzeKdjReversion(ohlcv);
+  } else if (strategy === 'KDJ_REVERSION_OPT') {
+    return analyzeKdjReversionOpt(ohlcv);
   } else if (strategy === 'FIBONACCI_PULLBACK') {
     return analyzeFibonacciPullback(ohlcv, ohlcv1h);
   } else if (strategy === 'ICHIMOKU_CLOUDBREAK') {
     return analyzeIchimokuCloudBreakout(ohlcv, ohlcv1h);
   } else if (strategy === 'VWAP_REVERSION') {
     return analyzeVwapReversion(ohlcv);
+  } else if (strategy === 'VWAP_REVERSION_OPT') {
+    return analyzeVwapReversionOpt(ohlcv);
   } else {
     return analyzeRsiMacd(closePrices);
   }

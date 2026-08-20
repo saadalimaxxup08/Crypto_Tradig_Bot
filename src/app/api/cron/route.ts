@@ -314,18 +314,23 @@ async function handleCron() {
 
           const rsiMacdAnalysis = disabledStrats.includes('RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'RSI_MACD');
           const bbRsiAnalysis = disabledStrats.includes('BOLLINGER_RSI') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI');
+          const bbRsiOptAnalysis = disabledStrats.includes('BOLLINGER_RSI_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI_OPT');
           const doubleEmaAnalysis = disabledStrats.includes('DOUBLE_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA', ohlcv1h as any);
+          const doubleEmaOptAnalysis = disabledStrats.includes('DOUBLE_EMA_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_OPT', ohlcv1h as any);
           const doubleEma5mAnalysis = disabledStrats.includes('DOUBLE_EMA_5M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_5M', ohlcv1h as any);
           const doubleEma15mAnalysis = disabledStrats.includes('DOUBLE_EMA_15M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_15M', ohlcv1h as any);
           const supertrendEmaAnalysis = disabledStrats.includes('SUPERTREND_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA', ohlcv1h as any);
+          const supertrendEmaOptAnalysis = disabledStrats.includes('SUPERTREND_EMA_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA_OPT', ohlcv1h as any);
           const stochRsiMacdAnalysis = disabledStrats.includes('STOCH_RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD');
           const atrBreakoutAnalysis = disabledStrats.includes('ATR_BREAKOUT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT', ohlcv1h as any);
           const swingStructureAnalysis = disabledStrats.includes('SWING_STRUCTURE') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SWING_STRUCTURE', ohlcv1h as any);
           const macdDivergenceAnalysis = disabledStrats.includes('MACD_DIVERGENCE') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'MACD_DIVERGENCE');
           const kdjReversionAnalysis = disabledStrats.includes('KDJ_REVERSION') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'KDJ_REVERSION');
+          const kdjReversionOptAnalysis = disabledStrats.includes('KDJ_REVERSION_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'KDJ_REVERSION_OPT');
           const fibonacciPullbackAnalysis = disabledStrats.includes('FIBONACCI_PULLBACK') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'FIBONACCI_PULLBACK', ohlcv1h as any);
           const ichimokuCloudbreakAnalysis = disabledStrats.includes('ICHIMOKU_CLOUDBREAK') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ICHIMOKU_CLOUDBREAK', ohlcv1h as any);
           const vwapReversionAnalysis = disabledStrats.includes('VWAP_REVERSION') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'VWAP_REVERSION');
+          const vwapReversionOptAnalysis = disabledStrats.includes('VWAP_REVERSION_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'VWAP_REVERSION_OPT');
 
           return {
             pair,
@@ -334,18 +339,23 @@ async function handleCron() {
             analyses: {
               RSI_MACD: rsiMacdAnalysis,
               BOLLINGER_RSI: bbRsiAnalysis,
+              BOLLINGER_RSI_OPT: bbRsiOptAnalysis,
               DOUBLE_EMA: doubleEmaAnalysis,
+              DOUBLE_EMA_OPT: doubleEmaOptAnalysis,
               DOUBLE_EMA_5M: doubleEma5mAnalysis,
               DOUBLE_EMA_15M: doubleEma15mAnalysis,
               SUPERTREND_EMA: supertrendEmaAnalysis,
+              SUPERTREND_EMA_OPT: supertrendEmaOptAnalysis,
               STOCH_RSI_MACD: stochRsiMacdAnalysis,
               ATR_BREAKOUT: atrBreakoutAnalysis,
               SWING_STRUCTURE: swingStructureAnalysis,
               MACD_DIVERGENCE: macdDivergenceAnalysis,
               KDJ_REVERSION: kdjReversionAnalysis,
+              KDJ_REVERSION_OPT: kdjReversionOptAnalysis,
               FIBONACCI_PULLBACK: fibonacciPullbackAnalysis,
               ICHIMOKU_CLOUDBREAK: ichimokuCloudbreakAnalysis,
               VWAP_REVERSION: vwapReversionAnalysis,
+              VWAP_REVERSION_OPT: vwapReversionOptAnalysis,
             }
           };
         } catch (error: any) {
@@ -380,20 +390,71 @@ async function handleCron() {
           if (!livePrice) continue;
 
           const entryPrice = parseFloat(trade.entry_price as any);
-          const tpPrice = parseFloat(trade.tp_price as any);
-          const slPrice = parseFloat(trade.sl_price as any);
+          let tpPrice = parseFloat(trade.tp_price as any);
+          let slPrice = parseFloat(trade.sl_price as any);
           const isLong = trade.direction === 'LONG';
+
+          // 1. Trailing Stop Loss (TSL) Rule for Optimized Strategies
+          if (trade.strategy && trade.strategy.endsWith('_OPT')) {
+            const distance = Math.abs(tpPrice - entryPrice);
+            if (isLong) {
+              const triggerPrice = entryPrice + 0.5 * distance;
+              if (livePrice >= triggerPrice && slPrice !== entryPrice) {
+                await supabase
+                  .from('trades')
+                  .update({ sl_price: entryPrice })
+                  .eq('id', trade.id);
+                slPrice = entryPrice;
+                logs.push(`[TSL Triggered] SL moved to entry price ${entryPrice} for ${trade.pair} (${trade.strategy})`);
+              }
+            } else {
+              const triggerPrice = entryPrice - 0.5 * distance;
+              if (livePrice <= triggerPrice && slPrice !== entryPrice) {
+                await supabase
+                  .from('trades')
+                  .update({ sl_price: entryPrice })
+                  .eq('id', trade.id);
+                slPrice = entryPrice;
+                logs.push(`[TSL Triggered] SL moved to entry price ${entryPrice} for ${trade.pair} (${trade.strategy})`);
+              }
+            }
+          }
 
           let hitTp = false;
           let hitSl = false;
 
-          if (isLong) {
-            if (livePrice >= tpPrice) hitTp = true;
-            else if (livePrice <= slPrice) hitSl = true;
-          } else {
-            // SHORT
-            if (livePrice <= tpPrice) hitTp = true;
-            else if (livePrice >= slPrice) hitSl = true;
+          // 2. 48-Hour Expiration / Breakeven Rule
+          const hoursOpen = (Date.now() - new Date(trade.timestamp).getTime()) / (1000 * 60 * 60);
+          let isExpiredClose = false;
+          
+          if (hoursOpen >= 48) {
+            const isProfit = isLong ? (livePrice > entryPrice) : (livePrice < entryPrice);
+            if (isProfit) {
+              hitTp = true;
+              tpPrice = livePrice;
+              isExpiredClose = true;
+              logs.push(`[48h Expired Profit] Closing trade ${trade.id} immediately at current price ${livePrice} (Profit).`);
+            } else {
+              if (parseFloat(trade.tp_price as any) !== entryPrice) {
+                await supabase
+                  .from('trades')
+                  .update({ tp_price: entryPrice })
+                  .eq('id', trade.id);
+                tpPrice = entryPrice;
+                logs.push(`[48h Expired Loss] Moved TP to entry price ${entryPrice} for breakeven on ${trade.pair} (${trade.strategy})`);
+              }
+            }
+          }
+
+          if (!isExpiredClose) {
+            if (isLong) {
+              if (livePrice >= tpPrice) hitTp = true;
+              else if (livePrice <= slPrice) hitSl = true;
+            } else {
+              // SHORT
+              if (livePrice <= tpPrice) hitTp = true;
+              else if (livePrice >= slPrice) hitSl = true;
+            }
           }
 
           if (hitTp || hitSl) {
@@ -433,18 +494,23 @@ async function handleCron() {
      const strategiesList = [
        'RSI_MACD',
        'BOLLINGER_RSI',
+       'BOLLINGER_RSI_OPT',
        'DOUBLE_EMA',
+       'DOUBLE_EMA_OPT',
        'DOUBLE_EMA_5M',
        'DOUBLE_EMA_15M',
        'SUPERTREND_EMA',
+       'SUPERTREND_EMA_OPT',
        'STOCH_RSI_MACD',
        'ATR_BREAKOUT',
        'SWING_STRUCTURE',
        'MACD_DIVERGENCE',
        'KDJ_REVERSION',
+       'KDJ_REVERSION_OPT',
        'FIBONACCI_PULLBACK',
        'ICHIMOKU_CLOUDBREAK',
-       'VWAP_REVERSION'
+       'VWAP_REVERSION',
+       'VWAP_REVERSION_OPT'
      ];
 
     for (const result of scanResults) {
@@ -557,14 +623,20 @@ async function handleCron() {
             // Send Telegram alert
             const finalStrategyName = strategyName === 'BOLLINGER_RSI'
               ? 'Bollinger Bands + RSI Reversion'
+              : strategyName === 'BOLLINGER_RSI_OPT'
+              ? 'Bollinger Bands + RSI Reversion (Optimized)'
               : strategyName === 'DOUBLE_EMA'
               ? 'Double EMA Crossover'
+              : strategyName === 'DOUBLE_EMA_OPT'
+              ? 'Double EMA Crossover (Optimized)'
               : strategyName === 'DOUBLE_EMA_5M'
               ? 'Double EMA 5-Minute'
               : strategyName === 'DOUBLE_EMA_15M'
               ? 'Double EMA 15-Minute'
               : strategyName === 'SUPERTREND_EMA'
               ? 'SuperTrend + 200 EMA'
+              : strategyName === 'SUPERTREND_EMA_OPT'
+              ? 'SuperTrend + 200 EMA (Optimized)'
               : strategyName === 'STOCH_RSI_MACD'
               ? 'Stochastic RSI + MACD Crossover'
               : strategyName === 'ATR_BREAKOUT'
@@ -575,12 +647,16 @@ async function handleCron() {
               ? 'MACD Reversal Divergence'
               : strategyName === 'KDJ_REVERSION'
               ? 'KDJ + StochRSI Reversion'
+              : strategyName === 'KDJ_REVERSION_OPT'
+              ? 'KDJ + StochRSI Reversion (Optimized)'
               : strategyName === 'FIBONACCI_PULLBACK'
               ? 'EMA Fibonacci Pullback'
               : strategyName === 'ICHIMOKU_CLOUDBREAK'
               ? 'Ichimoku Cloud Breakout'
               : strategyName === 'VWAP_REVERSION'
               ? 'VWAP Volatility Band Reversion'
+              : strategyName === 'VWAP_REVERSION_OPT'
+              ? 'VWAP Volatility Band Reversion (Optimized)'
               : 'RSI + MACD Momentum Crossover';
 
             // Query live strategy and pair win rates from database

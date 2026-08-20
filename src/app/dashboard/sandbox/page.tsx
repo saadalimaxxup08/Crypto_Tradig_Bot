@@ -32,7 +32,7 @@ export default function SandboxPage() {
   const [includePairwise, setIncludePairwise] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
-  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'DOUBLE_EMA' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE' | 'MACD_DIVERGENCE' | 'KDJ_REVERSION' | 'FIBONACCI_PULLBACK' | 'ICHIMOKU_CLOUDBREAK' | 'VWAP_REVERSION'>('BOLLINGER_RSI');
+  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'BOLLINGER_RSI_OPT' | 'DOUBLE_EMA' | 'DOUBLE_EMA_OPT' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'SUPERTREND_EMA_OPT' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE' | 'MACD_DIVERGENCE' | 'KDJ_REVERSION' | 'KDJ_REVERSION_OPT' | 'FIBONACCI_PULLBACK' | 'ICHIMOKU_CLOUDBREAK' | 'VWAP_REVERSION' | 'VWAP_REVERSION_OPT'>('BOLLINGER_RSI');
   const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
   const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
   const [dbSettings, setDbSettings] = useState<any>(null);
@@ -363,7 +363,7 @@ export default function SandboxPage() {
   };
 
   const leaderboard = useMemo(() => {
-    return ['RSI_MACD', 'BOLLINGER_RSI', 'DOUBLE_EMA', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE', 'MACD_DIVERGENCE', 'KDJ_REVERSION', 'FIBONACCI_PULLBACK', 'ICHIMOKU_CLOUDBREAK', 'VWAP_REVERSION'].map(strat => {
+    return ['RSI_MACD', 'BOLLINGER_RSI', 'BOLLINGER_RSI_OPT', 'DOUBLE_EMA', 'DOUBLE_EMA_OPT', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'SUPERTREND_EMA_OPT', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE', 'MACD_DIVERGENCE', 'KDJ_REVERSION', 'KDJ_REVERSION_OPT', 'FIBONACCI_PULLBACK', 'ICHIMOKU_CLOUDBREAK', 'VWAP_REVERSION', 'VWAP_REVERSION_OPT'].map(strat => {
       const isPaper = strat !== activeStrategySetting;
       const stratTrades = allRawTrades.filter(t => 
         (t.strategy || 'RSI_MACD') === strat && 
@@ -441,14 +441,20 @@ export default function SandboxPage() {
 
     const finalStrategyName = selectedStrategy === 'BOLLINGER_RSI'
       ? 'Bollinger Bands + RSI Reversion'
+      : selectedStrategy === 'BOLLINGER_RSI_OPT'
+      ? 'Bollinger Bands + RSI Reversion (Optimized)'
       : selectedStrategy === 'DOUBLE_EMA'
       ? 'Double EMA Crossover'
+      : selectedStrategy === 'DOUBLE_EMA_OPT'
+      ? 'Double EMA Crossover (Optimized)'
       : selectedStrategy === 'DOUBLE_EMA_5M'
       ? 'Double EMA 5-Minute'
       : selectedStrategy === 'DOUBLE_EMA_15M'
       ? 'Double EMA 15-Minute'
       : selectedStrategy === 'SUPERTREND_EMA'
       ? 'SuperTrend + 200 EMA'
+      : selectedStrategy === 'SUPERTREND_EMA_OPT'
+      ? 'SuperTrend + 200 EMA (Optimized)'
       : selectedStrategy === 'STOCH_RSI_MACD'
       ? 'Stochastic RSI + MACD Crossover'
       : selectedStrategy === 'ATR_BREAKOUT'
@@ -459,12 +465,16 @@ export default function SandboxPage() {
       ? 'MACD Reversal Divergence'
       : selectedStrategy === 'KDJ_REVERSION'
       ? 'KDJ + StochRSI Reversion'
+      : selectedStrategy === 'KDJ_REVERSION_OPT'
+      ? 'KDJ + StochRSI Reversion (Optimized)'
       : selectedStrategy === 'FIBONACCI_PULLBACK'
       ? 'EMA Fibonacci Pullback'
       : selectedStrategy === 'ICHIMOKU_CLOUDBREAK'
       ? 'Ichimoku Cloud Breakout'
       : selectedStrategy === 'VWAP_REVERSION'
       ? 'VWAP Volatility Band Reversion'
+      : selectedStrategy === 'VWAP_REVERSION_OPT'
+      ? 'VWAP Volatility Band Reversion (Optimized)'
       : 'RSI + MACD Momentum Crossover';
 
     // 1. Header Dark Banner Branding
@@ -874,14 +884,20 @@ export default function SandboxPage() {
 
       const finalStrategyName = selectedStrategy === 'BOLLINGER_RSI'
         ? 'Bollinger Bands + RSI Reversion'
+        : selectedStrategy === 'BOLLINGER_RSI_OPT'
+        ? 'Bollinger Bands + RSI Reversion (Optimized)'
         : selectedStrategy === 'DOUBLE_EMA'
         ? 'Double EMA Crossover'
+        : selectedStrategy === 'DOUBLE_EMA_OPT'
+        ? 'Double EMA Crossover (Optimized)'
         : selectedStrategy === 'DOUBLE_EMA_5M'
         ? 'Double EMA 5-Minute'
         : selectedStrategy === 'DOUBLE_EMA_15M'
         ? 'Double EMA 15-Minute'
         : selectedStrategy === 'SUPERTREND_EMA'
         ? 'SuperTrend + 200 EMA'
+        : selectedStrategy === 'SUPERTREND_EMA_OPT'
+        ? 'SuperTrend + 200 EMA (Optimized)'
         : selectedStrategy === 'STOCH_RSI_MACD'
         ? 'Stochastic RSI + MACD Crossover'
         : selectedStrategy === 'ATR_BREAKOUT'
@@ -892,12 +908,16 @@ export default function SandboxPage() {
         ? 'MACD Reversal Divergence'
         : selectedStrategy === 'KDJ_REVERSION'
         ? 'KDJ + StochRSI Reversion'
+        : selectedStrategy === 'KDJ_REVERSION_OPT'
+        ? 'KDJ + StochRSI Reversion (Optimized)'
         : selectedStrategy === 'FIBONACCI_PULLBACK'
         ? 'EMA Fibonacci Pullback'
         : selectedStrategy === 'ICHIMOKU_CLOUDBREAK'
         ? 'Ichimoku Cloud Breakout'
         : selectedStrategy === 'VWAP_REVERSION'
         ? 'VWAP Volatility Band Reversion'
+        : selectedStrategy === 'VWAP_REVERSION_OPT'
+        ? 'VWAP Volatility Band Reversion (Optimized)'
         : 'RSI + MACD Momentum Crossover';
 
       const file = new File([pdfBlob], `CryptoAI_Sandbox_${selectedStrategy}.pdf`, {
@@ -973,6 +993,20 @@ export default function SandboxPage() {
               </button>
 
               <button
+                onClick={() => setSelectedStrategy('BOLLINGER_RSI_OPT')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'BOLLINGER_RSI_OPT'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>↕️ Bollinger + RSI (OPT)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'BOLLINGER_RSI_OPT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'BOLLINGER_RSI_OPT' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setSelectedStrategy('DOUBLE_EMA')}
                 className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
                   selectedStrategy === 'DOUBLE_EMA'
@@ -983,6 +1017,20 @@ export default function SandboxPage() {
                 <span>🎢 Double EMA</span>
                 <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'DOUBLE_EMA' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
                   {activeStrategySetting === 'DOUBLE_EMA' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('DOUBLE_EMA_OPT')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'DOUBLE_EMA_OPT'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>🎢 Double EMA (OPT)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'DOUBLE_EMA_OPT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'DOUBLE_EMA_OPT' ? 'LIVE' : 'SANDBOX'}
                 </span>
               </button>
 
@@ -1025,6 +1073,20 @@ export default function SandboxPage() {
                 <span>⚡ SuperTrend + EMA</span>
                 <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'SUPERTREND_EMA' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
                   {activeStrategySetting === 'SUPERTREND_EMA' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('SUPERTREND_EMA_OPT')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'SUPERTREND_EMA_OPT'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>⚡ SuperTrend + EMA (OPT)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'SUPERTREND_EMA_OPT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'SUPERTREND_EMA_OPT' ? 'LIVE' : 'SANDBOX'}
                 </span>
               </button>
 
@@ -1099,6 +1161,20 @@ export default function SandboxPage() {
               </button>
 
               <button
+                onClick={() => setSelectedStrategy('KDJ_REVERSION_OPT')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'KDJ_REVERSION_OPT'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>↕️ KDJ + StochRSI (OPT)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'KDJ_REVERSION_OPT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'KDJ_REVERSION_OPT' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setSelectedStrategy('FIBONACCI_PULLBACK')}
                 className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
                   selectedStrategy === 'FIBONACCI_PULLBACK'
@@ -1137,6 +1213,20 @@ export default function SandboxPage() {
                 <span>⚡ VWAP Reversion</span>
                 <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'VWAP_REVERSION' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
                   {activeStrategySetting === 'VWAP_REVERSION' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('VWAP_REVERSION_OPT')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'VWAP_REVERSION_OPT'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>⚡ VWAP Reversion (OPT)</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'VWAP_REVERSION_OPT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'VWAP_REVERSION_OPT' ? 'LIVE' : 'SANDBOX'}
                 </span>
               </button>
             </div>
