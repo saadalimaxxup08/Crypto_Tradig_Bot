@@ -312,25 +312,26 @@ async function handleCron() {
           const pairOverrides = settings.pair_overrides || {};
           const disabledStrats = pairOverrides[pair]?.disabled_strategies || [];
 
-          const rsiMacdAnalysis = disabledStrats.includes('RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'RSI_MACD');
-          const bbRsiAnalysis = disabledStrats.includes('BOLLINGER_RSI') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI');
-          const bbRsiOptAnalysis = disabledStrats.includes('BOLLINGER_RSI_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI_OPT');
-          const doubleEmaAnalysis = disabledStrats.includes('DOUBLE_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA', ohlcv1h as any);
-          const doubleEmaOptAnalysis = disabledStrats.includes('DOUBLE_EMA_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_OPT', ohlcv1h as any);
-          const doubleEma5mAnalysis = disabledStrats.includes('DOUBLE_EMA_5M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_5M', ohlcv1h as any);
-          const doubleEma15mAnalysis = disabledStrats.includes('DOUBLE_EMA_15M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_15M', ohlcv1h as any);
-          const supertrendEmaAnalysis = disabledStrats.includes('SUPERTREND_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA', ohlcv1h as any);
-          const supertrendEmaOptAnalysis = disabledStrats.includes('SUPERTREND_EMA_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA_OPT', ohlcv1h as any);
-          const stochRsiMacdAnalysis = disabledStrats.includes('STOCH_RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD');
-          const atrBreakoutAnalysis = disabledStrats.includes('ATR_BREAKOUT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT', ohlcv1h as any);
-          const swingStructureAnalysis = disabledStrats.includes('SWING_STRUCTURE') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SWING_STRUCTURE', ohlcv1h as any);
-          const macdDivergenceAnalysis = disabledStrats.includes('MACD_DIVERGENCE') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'MACD_DIVERGENCE');
-          const kdjReversionAnalysis = disabledStrats.includes('KDJ_REVERSION') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'KDJ_REVERSION');
-          const kdjReversionOptAnalysis = disabledStrats.includes('KDJ_REVERSION_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'KDJ_REVERSION_OPT');
-          const fibonacciPullbackAnalysis = disabledStrats.includes('FIBONACCI_PULLBACK') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'FIBONACCI_PULLBACK', ohlcv1h as any);
-          const ichimokuCloudbreakAnalysis = disabledStrats.includes('ICHIMOKU_CLOUDBREAK') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ICHIMOKU_CLOUDBREAK', ohlcv1h as any);
-          const vwapReversionAnalysis = disabledStrats.includes('VWAP_REVERSION') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'VWAP_REVERSION');
-          const vwapReversionOptAnalysis = disabledStrats.includes('VWAP_REVERSION_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'VWAP_REVERSION_OPT');
+          const rsiMacdAnalysis = disabledStrats.includes('RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'RSI_MACD', undefined, pair);
+          const bbRsiAnalysis = disabledStrats.includes('BOLLINGER_RSI') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI', undefined, pair);
+          const bbRsiOptAnalysis = disabledStrats.includes('BOLLINGER_RSI_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI_OPT', undefined, pair);
+          const doubleEmaAnalysis = disabledStrats.includes('DOUBLE_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA', ohlcv1h as any, pair);
+          const doubleEmaOptAnalysis = disabledStrats.includes('DOUBLE_EMA_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_OPT', ohlcv1h as any, pair);
+          const doubleEma5mAnalysis = disabledStrats.includes('DOUBLE_EMA_5M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_5M', ohlcv1h as any, pair);
+          const doubleEma15mAnalysis = disabledStrats.includes('DOUBLE_EMA_15M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_15M', ohlcv1h as any, pair);
+          const supertrendEmaAnalysis = disabledStrats.includes('SUPERTREND_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA', ohlcv1h as any, pair);
+          const supertrendEmaOptAnalysis = disabledStrats.includes('SUPERTREND_EMA_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA_OPT', ohlcv1h as any, pair);
+          const stochRsiMacdAnalysis = disabledStrats.includes('STOCH_RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD', undefined, pair);
+          const atrBreakoutAnalysis = disabledStrats.includes('ATR_BREAKOUT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ATR_BREAKOUT', ohlcv1h as any, pair);
+          const swingStructureAnalysis = disabledStrats.includes('SWING_STRUCTURE') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SWING_STRUCTURE', ohlcv1h as any, pair);
+          const macdDivergenceAnalysis = disabledStrats.includes('MACD_DIVERGENCE') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'MACD_DIVERGENCE', undefined, pair);
+          const kdjReversionAnalysis = disabledStrats.includes('KDJ_REVERSION') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'KDJ_REVERSION', undefined, pair);
+          const kdjReversionOptAnalysis = disabledStrats.includes('KDJ_REVERSION_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'KDJ_REVERSION_OPT', undefined, pair);
+          const fibonacciPullbackAnalysis = disabledStrats.includes('FIBONACCI_PULLBACK') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'FIBONACCI_PULLBACK', ohlcv1h as any, pair);
+          const ichimokuCloudbreakAnalysis = disabledStrats.includes('ICHIMOKU_CLOUDBREAK') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ICHIMOKU_CLOUDBREAK', ohlcv1h as any, pair);
+          const vwapReversionAnalysis = disabledStrats.includes('VWAP_REVERSION') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'VWAP_REVERSION', undefined, pair);
+          const vwapReversionOptAnalysis = disabledStrats.includes('VWAP_REVERSION_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'VWAP_REVERSION_OPT', undefined, pair);
+          const combinationStrategiesAnalysis = disabledStrats.includes('COMBINATION_STRATEGIES') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'COMBINATION_STRATEGIES', ohlcv1h as any, pair);
 
           return {
             pair,
@@ -356,6 +357,7 @@ async function handleCron() {
               ICHIMOKU_CLOUDBREAK: ichimokuCloudbreakAnalysis,
               VWAP_REVERSION: vwapReversionAnalysis,
               VWAP_REVERSION_OPT: vwapReversionOptAnalysis,
+              COMBINATION_STRATEGIES: combinationStrategiesAnalysis,
             }
           };
         } catch (error: any) {
@@ -510,7 +512,8 @@ async function handleCron() {
        'FIBONACCI_PULLBACK',
        'ICHIMOKU_CLOUDBREAK',
        'VWAP_REVERSION',
-       'VWAP_REVERSION_OPT'
+       'VWAP_REVERSION_OPT',
+       'COMBINATION_STRATEGIES'
      ];
 
     for (const result of scanResults) {
@@ -657,6 +660,8 @@ async function handleCron() {
               ? 'VWAP Volatility Band Reversion'
               : strategyName === 'VWAP_REVERSION_OPT'
               ? 'VWAP Volatility Band Reversion (Optimized)'
+              : strategyName === 'COMBINATION_STRATEGIES'
+              ? 'Combination Portfolio Dispatcher'
               : 'RSI + MACD Momentum Crossover';
 
             // Query live strategy and pair win rates from database

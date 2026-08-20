@@ -1,4 +1,19 @@
 /**
+ * Global Strategy Portfolio Dispatcher Map
+ * Maps winning pairs to their designated top performing strategies.
+ */
+export const COMBINATION_MAP: Record<string, string> = {
+  'SUIUSDT': 'BOLLINGER_RSI_OPT',
+  'ETHUSDT': 'ICHIMOKU_CLOUDBREAK',
+  'ARBUSDT': 'ICHIMOKU_CLOUDBREAK',
+  'SEIUSDT': 'BOLLINGER_RSI_OPT',
+  'BTCUSDT': 'ICHIMOKU_CLOUDBREAK',
+  'LINKUSDT': 'DOUBLE_EMA_5M',
+  'GALAUSDT': 'DOUBLE_EMA_5M',
+  'LDOUSDT': 'ICHIMOKU_CLOUDBREAK'
+};
+
+/**
  * Calculate Exponential Moving Average (EMA)
  */
 export function calculateEMA(prices: number[], period: number): number[] {
@@ -1536,7 +1551,8 @@ export function analyzeVwapReversionOpt(ohlcv: number[][]): {
 export function analyzeStrategy(
   ohlcv: number[][],
   strategy: string = 'RSI_MACD',
-  ohlcv1h?: number[][]
+  ohlcv1h?: number[][],
+  pair?: string
 ): {
   rsi: number;
   macdLine: number;
@@ -1546,6 +1562,17 @@ export function analyzeStrategy(
   slPercent?: number;
 } {
   const closePrices = ohlcv.map((candle: any) => candle[4]);
+
+  if (strategy === 'COMBINATION_STRATEGIES') {
+    if (!pair) {
+      return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+    }
+    const delegatedStrategy = COMBINATION_MAP[pair];
+    if (!delegatedStrategy) {
+      return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+    }
+    return analyzeStrategy(ohlcv, delegatedStrategy, ohlcv1h, pair);
+  }
 
   if (strategy === 'BOLLINGER_RSI') {
     return analyzeBollingerRsi(closePrices);
