@@ -363,7 +363,7 @@ export default function SandboxPage() {
   };
 
   const leaderboard = useMemo(() => {
-    return ['RSI_MACD', 'BOLLINGER_RSI', 'BOLLINGER_RSI_OPT', 'DOUBLE_EMA', 'DOUBLE_EMA_OPT', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'SUPERTREND_EMA_OPT', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE', 'MACD_DIVERGENCE', 'KDJ_REVERSION', 'KDJ_REVERSION_OPT', 'FIBONACCI_PULLBACK', 'ICHIMOKU_CLOUDBREAK', 'VWAP_REVERSION', 'VWAP_REVERSION_OPT', 'COMBINATION_STRATEGIES'].map(strat => {
+    return ['RSI_MACD', 'COMBINATION_STRATEGIES', 'BOLLINGER_RSI', 'BOLLINGER_RSI_OPT', 'DOUBLE_EMA', 'DOUBLE_EMA_OPT', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'SUPERTREND_EMA_OPT', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE', 'MACD_DIVERGENCE', 'KDJ_REVERSION', 'KDJ_REVERSION_OPT', 'FIBONACCI_PULLBACK', 'ICHIMOKU_CLOUDBREAK', 'VWAP_REVERSION', 'VWAP_REVERSION_OPT'].map(strat => {
       const isPaper = strat !== activeStrategySetting;
       const stratTrades = allRawTrades.filter(t => 
         (t.strategy || 'RSI_MACD') === strat && 
@@ -981,6 +981,20 @@ export default function SandboxPage() {
               </button>
 
               <button
+                onClick={() => setSelectedStrategy('COMBINATION_STRATEGIES')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'COMBINATION_STRATEGIES'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>💼 Combo Strategies</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'COMBINATION_STRATEGIES' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'COMBINATION_STRATEGIES' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setSelectedStrategy('BOLLINGER_RSI')}
                 className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
                   selectedStrategy === 'BOLLINGER_RSI'
@@ -1229,20 +1243,6 @@ export default function SandboxPage() {
                 <span>⚡ VWAP Reversion (OPT)</span>
                 <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'VWAP_REVERSION_OPT' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
                   {activeStrategySetting === 'VWAP_REVERSION_OPT' ? 'LIVE' : 'SANDBOX'}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setSelectedStrategy('COMBINATION_STRATEGIES')}
-                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
-                  selectedStrategy === 'COMBINATION_STRATEGIES'
-                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
-                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
-                }`}
-              >
-                <span>💼 Combo Strategies</span>
-                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'COMBINATION_STRATEGIES' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
-                  {activeStrategySetting === 'COMBINATION_STRATEGIES' ? 'LIVE' : 'SANDBOX'}
                 </span>
               </button>
             </div>

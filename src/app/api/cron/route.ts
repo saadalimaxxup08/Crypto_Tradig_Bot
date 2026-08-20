@@ -495,6 +495,7 @@ async function handleCron() {
      // 3c. Evaluate and place signals for all strategies
      const strategiesList = [
        'RSI_MACD',
+       'COMBINATION_STRATEGIES',
        'BOLLINGER_RSI',
        'BOLLINGER_RSI_OPT',
        'DOUBLE_EMA',
@@ -512,8 +513,7 @@ async function handleCron() {
        'FIBONACCI_PULLBACK',
        'ICHIMOKU_CLOUDBREAK',
        'VWAP_REVERSION',
-       'VWAP_REVERSION_OPT',
-       'COMBINATION_STRATEGIES'
+       'VWAP_REVERSION_OPT'
      ];
 
     for (const result of scanResults) {

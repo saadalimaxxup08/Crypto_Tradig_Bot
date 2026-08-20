@@ -459,6 +459,7 @@ export default function SettingsPage() {
               className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3.5 px-4 font-bold text-zinc-200 focus:outline-none transition-all duration-200 text-sm cursor-pointer"
             >
               <option value="RSI_MACD">📊 RSI + MACD Momentum Crossover (Default)</option>
+              <option value="COMBINATION_STRATEGIES">💼 Combination Portfolio Dispatcher</option>
               <option value="BOLLINGER_RSI">↕️ Bollinger Bands + RSI Range Reversion</option>
               <option value="BOLLINGER_RSI_OPT">↕️ Bollinger Bands + RSI Range Reversion (Optimized)</option>
               <option value="DOUBLE_EMA">🎢 Double EMA Crossover Trend Following (1m)</option>
@@ -476,7 +477,6 @@ export default function SettingsPage() {
               <option value="ICHIMOKU_CLOUDBREAK">☁️ Ichimoku Cloud Breakout</option>
               <option value="VWAP_REVERSION">⚡ VWAP Volatility Band Reversion</option>
               <option value="VWAP_REVERSION_OPT">⚡ VWAP Volatility Band Reversion (Optimized)</option>
-              <option value="COMBINATION_STRATEGIES">💼 Combination Portfolio Dispatcher</option>
             </select>
           </div>
 
