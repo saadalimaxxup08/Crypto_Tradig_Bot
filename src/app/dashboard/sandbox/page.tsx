@@ -1361,7 +1361,7 @@ export default function SandboxPage() {
         </div>
 
         {/* Right Side: Leaderboard Panel (1/3 width) */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-3xl flex flex-col justify-between space-y-4">
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-3xl flex flex-col space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-zinc-800/50">
             <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
               <Trophy className="w-4 h-4 text-amber-500" />
@@ -1370,7 +1370,7 @@ export default function SandboxPage() {
             <span className="text-[9px] font-extrabold text-zinc-500 uppercase">by Balance</span>
           </div>
 
-          <div className="space-y-2 flex-grow overflow-y-auto max-h-[145px] pr-1">
+          <div className="space-y-2 flex-grow overflow-y-auto max-h-[480px] pr-1">
             {leaderboard.map((item, idx) => {
               const displayName = item.strategy === 'RSI_MACD'
                 ? 'RSI + MACD'
