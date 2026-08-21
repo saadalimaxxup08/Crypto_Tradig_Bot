@@ -1606,7 +1606,416 @@ export function analyzeStrategy(
     return analyzeVwapReversion(ohlcv);
   } else if (strategy === 'VWAP_REVERSION_OPT') {
     return analyzeVwapReversionOpt(ohlcv);
+  } else if (strategy === 'RSI_STOCH_EMA_TREND') {
+    return analyzeRsiStochEmaTrend(ohlcv);
+  } else if (strategy === 'CMF_BREAKOUT') {
+    return analyzeCmfBreakout(ohlcv);
+  } else if (strategy === 'HULL_MA_CROSSOVER') {
+    return analyzeHullMaCrossover(ohlcv);
+  } else if (strategy === 'DONCHIAN_BREAKOUT') {
+    return analyzeDonchianBreakout(ohlcv);
+  } else if (strategy === 'ADX_DI_MOMENTUM') {
+    return analyzeAdxDiMomentum(ohlcv);
   } else {
     return analyzeRsiMacd(closePrices);
   }
+}
+
+/**
+ * 1. RSI + Stochastic + EMA Trend Strategy
+ */
+export function analyzeRsiStochEmaTrend(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 200) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+
+  const currentIdx = len - 1;
+  const currentClose = closes[currentIdx];
+
+  const ema200 = calculateEMA(closes, 200)[currentIdx];
+  const rsi = calculateRSI(closes, 14)[currentIdx];
+  const { k, d } = calculateStochastic(highs, lows, closes, 14, 3, 3);
+  const currentK = k[currentIdx];
+  const currentD = d[currentIdx];
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+
+  if (currentClose > ema200 && rsi > 50 && currentK < 20 && currentK > currentD) {
+    direction = 'LONG';
+  } else if (currentClose < ema200 && rsi < 50 && currentK > 80 && currentK < currentD) {
+    direction = 'SHORT';
+  }
+
+  return { rsi: rsi || 50, macdLine: currentK || 0, signalLine: currentD || 0, direction };
+}
+
+/**
+ * 2. Chaikin Money Flow + Bollinger Bands Breakout Strategy
+ */
+export function analyzeCmfBreakout(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 30) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+  const volumes = ohlcv.map(c => c[5]);
+
+  const currentIdx = len - 1;
+  const currentClose = closes[currentIdx];
+
+  const cmf = calculateCMF(highs, lows, closes, volumes, 20)[currentIdx];
+  const { upper, lower } = calculateBollingerBands(closes, 20, 2);
+  const currentUpper = upper[currentIdx];
+  const currentLower = lower[currentIdx];
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+
+  if (cmf > 0.15 && currentClose > currentUpper) {
+    direction = 'LONG';
+  } else if (cmf < -0.15 && currentClose < currentLower) {
+    direction = 'SHORT';
+  }
+
+  return { rsi: cmf * 100, macdLine: currentUpper, signalLine: currentLower, direction };
+}
+
+/**
+ * 3. Hull Moving Average Trend Following Strategy
+ */
+export function analyzeHullMaCrossover(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 100) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const closes = ohlcv.map(c => c[4]);
+  const currentIdx = len - 1;
+  const currentClose = closes[currentIdx];
+
+  const ema100 = calculateEMA(closes, 100)[currentIdx];
+  const hma9 = calculateHMA(closes, 9);
+  const hma21 = calculateHMA(closes, 21);
+
+  const currentHma9 = hma9[currentIdx];
+  const currentHma21 = hma21[currentIdx];
+  const prevHma9 = hma9[currentIdx - 1];
+  const prevHma21 = hma21[currentIdx - 1];
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+
+  if (currentClose > ema100 && currentHma9 > currentHma21 && prevHma9 <= prevHma21) {
+    direction = 'LONG';
+  } else if (currentClose < ema100 && currentHma9 < currentHma21 && prevHma9 >= prevHma21) {
+    direction = 'SHORT';
+  }
+
+  return { rsi: 50, macdLine: currentHma9 || 0, signalLine: currentHma21 || 0, direction };
+}
+
+/**
+ * 4. Donchian Channel Breakout Strategy
+ */
+export function analyzeDonchianBreakout(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 50) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+
+  const currentIdx = len - 1;
+  const currentClose = closes[currentIdx];
+
+  const adx = calculateADX(highs, lows, closes, 14)[currentIdx];
+  const { upper, lower } = calculateDonchian(highs, lows, 20);
+  const currentUpper = upper[currentIdx - 1]; // Use previous bar's channel boundary to evaluate breakout
+  const currentLower = lower[currentIdx - 1];
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+
+  if (adx > 25 && currentClose > currentUpper) {
+    direction = 'LONG';
+  } else if (adx > 25 && currentClose < currentLower) {
+    direction = 'SHORT';
+  }
+
+  return { rsi: adx, macdLine: currentUpper, signalLine: currentLower, direction };
+}
+
+/**
+ * 5. Directional Movement Index (DMI/ADX) Momentum Strategy
+ */
+export function analyzeAdxDiMomentum(ohlcv: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 50) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+
+  const currentIdx = len - 1;
+  const { adx, plusDI, minusDI } = calculateDMI(highs, lows, closes, 14);
+
+  const currentAdx = adx[currentIdx];
+  const currentPlus = plusDI[currentIdx];
+  const currentMinus = minusDI[currentIdx];
+  const prevPlus = plusDI[currentIdx - 1];
+  const prevMinus = minusDI[currentIdx - 1];
+
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+
+  if (currentAdx > 28 && currentPlus > currentMinus && prevPlus <= prevMinus) {
+    direction = 'LONG';
+  } else if (currentAdx > 28 && currentMinus > currentPlus && prevMinus <= prevPlus) {
+    direction = 'SHORT';
+  }
+
+  return { rsi: currentAdx || 0, macdLine: currentPlus || 0, signalLine: currentMinus || 0, direction };
+}
+
+/**
+ * Calculation Helpers
+ */
+export function calculateDMI(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  period: number = 14
+): { adx: number[]; plusDI: number[]; minusDI: number[] } {
+  const len = closes.length;
+  const adx: number[] = new Array(len).fill(NaN);
+  const plusDI: number[] = new Array(len).fill(NaN);
+  const minusDI: number[] = new Array(len).fill(NaN);
+  if (len < 2 * period) return { adx, plusDI, minusDI };
+
+  const tr: number[] = [highs[0] - lows[0]];
+  const plusDM: number[] = [0];
+  const minusDM: number[] = [0];
+
+  for (let i = 1; i < len; i++) {
+    tr.push(Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1])
+    ));
+    const upMove = highs[i] - highs[i - 1];
+    const downMove = lows[i - 1] - lows[i];
+    plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+    minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
+  }
+
+  const smoothedTR: number[] = new Array(len).fill(NaN);
+  const smoothedPlusDM: number[] = new Array(len).fill(NaN);
+  const smoothedMinusDM: number[] = new Array(len).fill(NaN);
+
+  let sumTR = 0, sumPlus = 0, sumMinus = 0;
+  for (let i = 0; i < period; i++) {
+    sumTR += tr[i];
+    sumPlus += plusDM[i];
+    sumMinus += minusDM[i];
+  }
+  smoothedTR[period - 1] = sumTR;
+  smoothedPlusDM[period - 1] = sumPlus;
+  smoothedMinusDM[period - 1] = sumMinus;
+
+  for (let i = period; i < len; i++) {
+    smoothedTR[i] = smoothedTR[i - 1] - (smoothedTR[i - 1] / period) + tr[i];
+    smoothedPlusDM[i] = smoothedPlusDM[i - 1] - (smoothedPlusDM[i - 1] / period) + plusDM[i];
+    smoothedMinusDM[i] = smoothedMinusDM[i - 1] - (smoothedMinusDM[i - 1] / period) + minusDM[i];
+  }
+
+  const dx: number[] = new Array(len).fill(NaN);
+  for (let i = period - 1; i < len; i++) {
+    const trVal = smoothedTR[i];
+    if (trVal === 0) {
+      plusDI[i] = 0;
+      minusDI[i] = 0;
+      dx[i] = 0;
+      continue;
+    }
+    plusDI[i] = 100 * (smoothedPlusDM[i] / trVal);
+    minusDI[i] = 100 * (smoothedMinusDM[i] / trVal);
+    const sumDI = plusDI[i] + minusDI[i];
+    const diffDI = Math.abs(plusDI[i] - minusDI[i]);
+    dx[i] = sumDI === 0 ? 0 : (diffDI / sumDI) * 100;
+  }
+
+  let sumDX = 0;
+  for (let i = period - 1; i < 2 * period - 1; i++) {
+    sumDX += dx[i];
+  }
+  adx[2 * period - 2] = sumDX / period;
+
+  for (let i = 2 * period - 1; i < len; i++) {
+    adx[i] = (adx[i - 1] * (period - 1) + dx[i]) / period;
+  }
+
+  return { adx, plusDI, minusDI };
+}
+
+export function calculateStochastic(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  period: number = 14,
+  smoothK: number = 3,
+  smoothD: number = 3
+): { k: number[]; d: number[] } {
+  const len = closes.length;
+  const kList: number[] = new Array(len).fill(NaN);
+  const dList: number[] = new Array(len).fill(NaN);
+  if (len < period) return { k: kList, d: dList };
+
+  const rawK: number[] = new Array(len).fill(NaN);
+  for (let i = period - 1; i < len; i++) {
+    const sliceHighs = highs.slice(i - period + 1, i + 1);
+    const sliceLows = lows.slice(i - period + 1, i + 1);
+    const maxHigh = Math.max(...sliceHighs);
+    const minLow = Math.min(...sliceLows);
+    const range = maxHigh - minLow;
+    rawK[i] = range === 0 ? 50 : ((closes[i] - minLow) / range) * 100;
+  }
+
+  for (let i = period + smoothK - 2; i < len; i++) {
+    const slice = rawK.slice(i - smoothK + 1, i + 1);
+    kList[i] = slice.reduce((sum, v) => sum + v, 0) / smoothK;
+  }
+
+  for (let i = period + smoothK + smoothD - 3; i < len; i++) {
+    const slice = kList.slice(i - smoothD + 1, i + 1);
+    dList[i] = slice.reduce((sum, v) => sum + v, 0) / smoothD;
+  }
+
+  return { k: kList, d: dList };
+}
+
+export function calculateCMF(
+  highs: number[],
+  lows: number[],
+  closes: number[],
+  volumes: number[],
+  period: number = 20
+): number[] {
+  const len = closes.length;
+  const cmf: number[] = new Array(len).fill(NaN);
+  if (len < period) return cmf;
+
+  const mfv: number[] = [];
+  for (let i = 0; i < len; i++) {
+    const range = highs[i] - lows[i];
+    const mfm = range === 0 ? 0 : ((closes[i] - lows[i]) - (highs[i] - closes[i])) / range;
+    mfv.push(mfm * volumes[i]);
+  }
+
+  for (let i = period - 1; i < len; i++) {
+    const sumMfv = mfv.slice(i - period + 1, i + 1).reduce((sum, v) => sum + v, 0);
+    const sumVol = volumes.slice(i - period + 1, i + 1).reduce((sum, v) => sum + v, 0);
+    cmf[i] = sumVol === 0 ? 0 : sumMfv / sumVol;
+  }
+
+  return cmf;
+}
+
+export function calculateWMA(prices: number[], period: number): number[] {
+  const len = prices.length;
+  const wma: number[] = new Array(len).fill(NaN);
+  if (len < period) return wma;
+
+  let denominator = (period * (period + 1)) / 2;
+
+  for (let i = period - 1; i < len; i++) {
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += prices[i - period + 1 + j] * (j + 1);
+    }
+    wma[i] = sum / denominator;
+  }
+
+  return wma;
+}
+
+export function calculateHMA(prices: number[], period: number): number[] {
+  const len = prices.length;
+  const hma: number[] = new Array(len).fill(NaN);
+  const halfPeriod = Math.floor(period / 2);
+  const sqrtPeriod = Math.floor(Math.sqrt(period));
+
+  if (len < period) return hma;
+
+  const wmaHalf = calculateWMA(prices, halfPeriod);
+  const wmaFull = calculateWMA(prices, period);
+
+  const rawHma: number[] = new Array(len).fill(NaN);
+  for (let i = 0; i < len; i++) {
+    if (isNaN(wmaHalf[i]) || isNaN(wmaFull[i])) continue;
+    rawHma[i] = 2 * wmaHalf[i] - wmaFull[i];
+  }
+
+  const cleanRawHma: number[] = [];
+  const rawHmaIndexes: number[] = [];
+  for (let i = 0; i < len; i++) {
+    if (!isNaN(rawHma[i])) {
+      cleanRawHma.push(rawHma[i]);
+      rawHmaIndexes.push(i);
+    }
+  }
+
+  const wmaRaw = calculateWMA(cleanRawHma, sqrtPeriod);
+  for (let i = 0; i < wmaRaw.length; i++) {
+    if (!isNaN(wmaRaw[i])) {
+      const origIndex = rawHmaIndexes[i];
+      hma[origIndex] = wmaRaw[i];
+    }
+  }
+
+  return hma;
+}
+
+export function calculateDonchian(
+  highs: number[],
+  lows: number[],
+  period: number = 20
+): { upper: number[]; lower: number[]; middle: number[] } {
+  const len = highs.length;
+  const upper: number[] = new Array(len).fill(NaN);
+  const lower: number[] = new Array(len).fill(NaN);
+  const middle: number[] = new Array(len).fill(NaN);
+  if (len < period) return { upper, lower, middle };
+
+  for (let i = period - 1; i < len; i++) {
+    const sliceHighs = highs.slice(i - period + 1, i + 1);
+    const sliceLows = lows.slice(i - period + 1, i + 1);
+    upper[i] = Math.max(...sliceHighs);
+    lower[i] = Math.min(...sliceLows);
+    middle[i] = (upper[i] + lower[i]) / 2;
+  }
+
+  return { upper, lower, middle };
 }

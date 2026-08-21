@@ -477,6 +477,11 @@ export default function SettingsPage() {
               <option value="ICHIMOKU_CLOUDBREAK">☁️ Ichimoku Cloud Breakout</option>
               <option value="VWAP_REVERSION">⚡ VWAP Volatility Band Reversion</option>
               <option value="VWAP_REVERSION_OPT">⚡ VWAP Volatility Band Reversion (Optimized)</option>
+              <option value="RSI_STOCH_EMA_TREND">📈 RSI + Stoch + EMA Trend Pullback</option>
+              <option value="CMF_BREAKOUT">💰 Chaikin Money Flow Breakout</option>
+              <option value="HULL_MA_CROSSOVER">🌊 Hull Moving Average Crossover</option>
+              <option value="DONCHIAN_BREAKOUT">📦 Donchian Channel Breakout</option>
+              <option value="ADX_DI_MOMENTUM">💥 ADX DI Momentum Crossover</option>
             </select>
           </div>
 

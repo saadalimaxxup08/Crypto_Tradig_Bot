@@ -332,6 +332,11 @@ async function handleCron() {
           const vwapReversionAnalysis = disabledStrats.includes('VWAP_REVERSION') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'VWAP_REVERSION', undefined, pair);
           const vwapReversionOptAnalysis = disabledStrats.includes('VWAP_REVERSION_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'VWAP_REVERSION_OPT', undefined, pair);
           const combinationStrategiesAnalysis = disabledStrats.includes('COMBINATION_STRATEGIES') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'COMBINATION_STRATEGIES', ohlcv1h as any, pair);
+          const rsiStochEmaTrendAnalysis = disabledStrats.includes('RSI_STOCH_EMA_TREND') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'RSI_STOCH_EMA_TREND', undefined, pair);
+          const cmfBreakoutAnalysis = disabledStrats.includes('CMF_BREAKOUT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'CMF_BREAKOUT', undefined, pair);
+          const hullMaCrossoverAnalysis = disabledStrats.includes('HULL_MA_CROSSOVER') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'HULL_MA_CROSSOVER', undefined, pair);
+          const donchianBreakoutAnalysis = disabledStrats.includes('DONCHIAN_BREAKOUT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DONCHIAN_BREAKOUT', undefined, pair);
+          const adxDiMomentumAnalysis = disabledStrats.includes('ADX_DI_MOMENTUM') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ADX_DI_MOMENTUM', undefined, pair);
 
           return {
             pair,
@@ -358,6 +363,11 @@ async function handleCron() {
               VWAP_REVERSION: vwapReversionAnalysis,
               VWAP_REVERSION_OPT: vwapReversionOptAnalysis,
               COMBINATION_STRATEGIES: combinationStrategiesAnalysis,
+              RSI_STOCH_EMA_TREND: rsiStochEmaTrendAnalysis,
+              CMF_BREAKOUT: cmfBreakoutAnalysis,
+              HULL_MA_CROSSOVER: hullMaCrossoverAnalysis,
+              DONCHIAN_BREAKOUT: donchianBreakoutAnalysis,
+              ADX_DI_MOMENTUM: adxDiMomentumAnalysis,
             }
           };
         } catch (error: any) {
@@ -513,7 +523,12 @@ async function handleCron() {
        'FIBONACCI_PULLBACK',
        'ICHIMOKU_CLOUDBREAK',
        'VWAP_REVERSION',
-       'VWAP_REVERSION_OPT'
+       'VWAP_REVERSION_OPT',
+       'RSI_STOCH_EMA_TREND',
+       'CMF_BREAKOUT',
+       'HULL_MA_CROSSOVER',
+       'DONCHIAN_BREAKOUT',
+       'ADX_DI_MOMENTUM'
      ];
 
     for (const result of scanResults) {
@@ -662,6 +677,16 @@ async function handleCron() {
               ? 'VWAP Volatility Band Reversion (Optimized)'
               : strategyName === 'COMBINATION_STRATEGIES'
               ? 'Combination Portfolio Dispatcher'
+              : strategyName === 'RSI_STOCH_EMA_TREND'
+              ? 'RSI + Stochastic + EMA Trend'
+              : strategyName === 'CMF_BREAKOUT'
+              ? 'Chaikin Money Flow Breakout'
+              : strategyName === 'HULL_MA_CROSSOVER'
+              ? 'Hull Moving Average Crossover'
+              : strategyName === 'DONCHIAN_BREAKOUT'
+              ? 'Donchian Channel Breakout'
+              : strategyName === 'ADX_DI_MOMENTUM'
+              ? 'ADX DI Momentum Crossover'
               : 'RSI + MACD Momentum Crossover';
 
             // Query live strategy and pair win rates from database
