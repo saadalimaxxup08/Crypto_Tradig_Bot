@@ -567,6 +567,26 @@ async function handleCron() {
 
         // Determine parameters (use overrides if configured in settings)
         const overrides = settings.pair_overrides || {};
+
+        // Cooldown check to prevent immediate re-entry after closing a trade
+        const cooldownHours = overrides.GLOBAL_COOLDOWN_HOURS !== undefined ? parseFloat(overrides.GLOBAL_COOLDOWN_HOURS) : 0.0;
+        if (cooldownHours > 0) {
+          const cooldownTime = new Date(Date.now() - cooldownHours * 60 * 60 * 1000).toISOString();
+          const { data: recentlyClosedTrades } = await supabase
+            .from('trades')
+            .select('id')
+            .eq('pair', pair)
+            .eq('strategy', strategyName)
+            .eq('is_paper', isPaper)
+            .eq('status', 'CLOSED')
+            .gte('closed_at', cooldownTime);
+
+          if (recentlyClosedTrades && recentlyClosedTrades.length > 0) {
+            logs.push(`Trade recently closed for ${pair} [Strategy: ${strategyName}, isPaper: ${isPaper}] within the last ${cooldownHours} hour(s). Cooldown active. Skipping.`);
+            continue;
+          }
+        }
+
         const pairOverride = overrides[pair] || {};
 
         const activeLeverage = pairOverride.leverage !== undefined ? parseInt(pairOverride.leverage) : 20;

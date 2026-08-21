@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [binanceDemoSecretKey, setBinanceDemoSecretKey] = useState('');
   const [binanceRealApiKey, setBinanceRealApiKey] = useState('');
   const [binanceRealSecretKey, setBinanceRealSecretKey] = useState('');
+  const [cooldownHours, setCooldownHours] = useState('0.0');
 
   // WhatsApp Bridge states
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
@@ -243,7 +244,9 @@ export default function SettingsPage() {
         setBinanceDemoSecretKey(data.binance_demo_secret_key || '');
         setBinanceRealApiKey(data.binance_real_api_key || '');
         setBinanceRealSecretKey(data.binance_real_secret_key || '');
-        setPairOverrides(data.pair_overrides || {});
+        const overrides = data.pair_overrides || {};
+        setCooldownHours(String(overrides.GLOBAL_COOLDOWN_HOURS || '0.0'));
+        setPairOverrides(overrides);
         setActiveStrategy(data.active_strategy || 'RSI_MACD');
       }
     } catch (err) {
@@ -297,7 +300,10 @@ export default function SettingsPage() {
       binance_demo_secret_key: binanceDemoSecretKey,
       binance_real_api_key: binanceRealApiKey,
       binance_real_secret_key: binanceRealSecretKey,
-      pair_overrides: pairOverrides,
+      pair_overrides: {
+        ...pairOverrides,
+        GLOBAL_COOLDOWN_HOURS: parseFloat(cooldownHours || '0.0')
+      },
     };
 
     try {
@@ -484,6 +490,23 @@ export default function SettingsPage() {
               <option value="DONCHIAN_BREAKOUT">📦 Donchian Channel Breakout</option>
               <option value="ADX_DI_MOMENTUM">💥 ADX DI Momentum Crossover</option>
             </select>
+          </div>
+
+          {/* Post-Trade Cooldown Setting */}
+          <div className="space-y-2 max-w-md">
+            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+              <span>Post-Trade Cooldown (Hours)</span>
+              <span title="Wait hours after closing a trade before opening a new one on the same pair. Set to 0.0 to disable completely."><HelpCircle className="w-3.5 h-3.5 text-zinc-600" /></span>
+            </label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              value={cooldownHours}
+              onChange={(e) => setCooldownHours(e.target.value)}
+              placeholder="e.g. 1.0"
+              className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
+            />
           </div>
 
           {/* Active Pairs Array List */}
