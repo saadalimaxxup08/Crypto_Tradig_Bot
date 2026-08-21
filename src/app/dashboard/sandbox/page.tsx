@@ -32,7 +32,7 @@ export default function SandboxPage() {
   const [includePairwise, setIncludePairwise] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
-  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'BOLLINGER_RSI_OPT' | 'DOUBLE_EMA' | 'DOUBLE_EMA_OPT' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'SUPERTREND_EMA_OPT' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE' | 'MACD_DIVERGENCE' | 'KDJ_REVERSION' | 'KDJ_REVERSION_OPT' | 'FIBONACCI_PULLBACK' | 'ICHIMOKU_CLOUDBREAK' | 'VWAP_REVERSION' | 'VWAP_REVERSION_OPT' | 'COMBINATION_STRATEGIES' | 'RSI_STOCH_EMA_TREND' | 'CMF_BREAKOUT' | 'HULL_MA_CROSSOVER' | 'DONCHIAN_BREAKOUT' | 'ADX_DI_MOMENTUM'>('BOLLINGER_RSI');
+  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'BOLLINGER_RSI_OPT' | 'DOUBLE_EMA' | 'DOUBLE_EMA_OPT' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'SUPERTREND_EMA_OPT' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE' | 'MACD_DIVERGENCE' | 'KDJ_REVERSION' | 'KDJ_REVERSION_OPT' | 'FIBONACCI_PULLBACK' | 'ICHIMOKU_CLOUDBREAK' | 'VWAP_REVERSION' | 'VWAP_REVERSION_OPT' | 'COMBINATION_STRATEGIES' | 'RSI_STOCH_EMA_TREND' | 'CMF_BREAKOUT' | 'HULL_MA_CROSSOVER' | 'DONCHIAN_BREAKOUT' | 'ADX_DI_MOMENTUM' | 'REGIME_ENSEMBLE_PRO'>('BOLLINGER_RSI');
   const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
   const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
   const [dbSettings, setDbSettings] = useState<any>(null);
@@ -363,7 +363,7 @@ export default function SandboxPage() {
   };
 
   const leaderboard = useMemo(() => {
-    return ['RSI_MACD', 'COMBINATION_STRATEGIES', 'BOLLINGER_RSI', 'BOLLINGER_RSI_OPT', 'DOUBLE_EMA', 'DOUBLE_EMA_OPT', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'SUPERTREND_EMA_OPT', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE', 'MACD_DIVERGENCE', 'KDJ_REVERSION', 'KDJ_REVERSION_OPT', 'FIBONACCI_PULLBACK', 'ICHIMOKU_CLOUDBREAK', 'VWAP_REVERSION', 'VWAP_REVERSION_OPT', 'RSI_STOCH_EMA_TREND', 'CMF_BREAKOUT', 'HULL_MA_CROSSOVER', 'DONCHIAN_BREAKOUT', 'ADX_DI_MOMENTUM'].map(strat => {
+    return ['RSI_MACD', 'COMBINATION_STRATEGIES', 'REGIME_ENSEMBLE_PRO', 'BOLLINGER_RSI', 'BOLLINGER_RSI_OPT', 'DOUBLE_EMA', 'DOUBLE_EMA_OPT', 'DOUBLE_EMA_5M', 'DOUBLE_EMA_15M', 'SUPERTREND_EMA', 'SUPERTREND_EMA_OPT', 'STOCH_RSI_MACD', 'ATR_BREAKOUT', 'SWING_STRUCTURE', 'MACD_DIVERGENCE', 'KDJ_REVERSION', 'KDJ_REVERSION_OPT', 'FIBONACCI_PULLBACK', 'ICHIMOKU_CLOUDBREAK', 'VWAP_REVERSION', 'VWAP_REVERSION_OPT', 'RSI_STOCH_EMA_TREND', 'CMF_BREAKOUT', 'HULL_MA_CROSSOVER', 'DONCHIAN_BREAKOUT', 'ADX_DI_MOMENTUM'].map(strat => {
       const isPaper = strat !== activeStrategySetting;
       const stratTrades = allRawTrades.filter(t => 
         (t.strategy || 'RSI_MACD') === strat && 
@@ -477,6 +477,8 @@ export default function SandboxPage() {
       ? 'VWAP Volatility Band Reversion (Optimized)'
       : selectedStrategy === 'COMBINATION_STRATEGIES'
       ? 'Combination Portfolio Dispatcher'
+      : selectedStrategy === 'REGIME_ENSEMBLE_PRO'
+      ? 'Regime-Aware Ensemble Pro'
       : selectedStrategy === 'RSI_STOCH_EMA_TREND'
       ? 'RSI + Stochastic + EMA Trend'
       : selectedStrategy === 'CMF_BREAKOUT'
@@ -930,6 +932,10 @@ export default function SandboxPage() {
         ? 'VWAP Volatility Band Reversion'
         : selectedStrategy === 'VWAP_REVERSION_OPT'
         ? 'VWAP Volatility Band Reversion (Optimized)'
+        : selectedStrategy === 'COMBINATION_STRATEGIES'
+        ? 'Combination Portfolio Dispatcher'
+        : selectedStrategy === 'REGIME_ENSEMBLE_PRO'
+        ? 'Regime-Aware Ensemble Pro'
         : selectedStrategy === 'RSI_STOCH_EMA_TREND'
         ? 'RSI + Stochastic + EMA Trend'
         : selectedStrategy === 'CMF_BREAKOUT'
@@ -1011,6 +1017,20 @@ export default function SandboxPage() {
                 <span>💼 Combo Strategies</span>
                 <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'COMBINATION_STRATEGIES' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
                   {activeStrategySetting === 'COMBINATION_STRATEGIES' ? 'LIVE' : 'SANDBOX'}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setSelectedStrategy('REGIME_ENSEMBLE_PRO')}
+                className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl border transition-all duration-200 cursor-pointer flex items-center gap-2 ${
+                  selectedStrategy === 'REGIME_ENSEMBLE_PRO'
+                    ? 'bg-emerald-950/20 border-emerald-500/80 text-emerald-400 shadow-md shadow-emerald-500/5 font-extrabold'
+                    : 'bg-zinc-900/40 border-zinc-850 text-zinc-500 hover:text-zinc-300 hover:border-zinc-800'
+                }`}
+              >
+                <span>🛡️ Regime Ensemble Pro</span>
+                <span className={`px-1.5 py-0.2 rounded text-[8px] font-extrabold uppercase ${activeStrategySetting === 'REGIME_ENSEMBLE_PRO' ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-zinc-900 text-zinc-650'}`}>
+                  {activeStrategySetting === 'REGIME_ENSEMBLE_PRO' ? 'LIVE' : 'SANDBOX'}
                 </span>
               </button>
 

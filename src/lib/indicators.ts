@@ -1616,6 +1616,8 @@ export function analyzeStrategy(
     return analyzeDonchianBreakout(ohlcv);
   } else if (strategy === 'ADX_DI_MOMENTUM') {
     return analyzeAdxDiMomentum(ohlcv);
+  } else if (strategy === 'REGIME_ENSEMBLE_PRO') {
+    return analyzeRegimeEnsemblePro(ohlcv, ohlcv1h);
   } else {
     return analyzeRsiMacd(closePrices);
   }
@@ -2018,4 +2020,103 @@ export function calculateDonchian(
   }
 
   return { upper, lower, middle };
+}
+
+/**
+ * 6. REGIME_ENSEMBLE_PRO (Regime-Aware Ensemble Consensus Strategy)
+ */
+export function analyzeRegimeEnsemblePro(ohlcv: number[][], ohlcv1h?: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+} {
+  const len = ohlcv.length;
+  if (len < 50) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  // 1. Determine Market Regime using 1-Hour Timeframe (or fallback to execution timeframe)
+  const regimeSource = (ohlcv1h && ohlcv1h.length >= 100) ? ohlcv1h : ohlcv;
+  const rCloses = regimeSource.map(c => c[4]);
+  const rHighs = regimeSource.map(c => c[2]);
+  const rLows = regimeSource.map(c => c[3]);
+  const rLen = regimeSource.length;
+
+  const currentPrice = rCloses[rLen - 1];
+  const ema200 = calculateEMA(rCloses, 100)[rLen - 1]; // Responsive medium-term trend line
+  const adx = calculateADX(rHighs, rLows, rCloses, 14)[rLen - 1];
+
+  let regime: 'TRENDING_BULLISH' | 'TRENDING_BEARISH' | 'SIDEWAYS_CHOP' = 'SIDEWAYS_CHOP';
+
+  if (!isNaN(adx)) {
+    if (adx > 22) {
+      if (currentPrice > ema200) {
+        regime = 'TRENDING_BULLISH';
+      } else {
+        regime = 'TRENDING_BEARISH';
+      }
+    }
+  }
+
+  // 2. Define Pool of Active Strategies based on Regime
+  let activeStrategies: string[] = [];
+  if (regime === 'TRENDING_BULLISH') {
+    activeStrategies = [
+      'ICHIMOKU_CLOUDBREAK',
+      'FIBONACCI_PULLBACK',
+      'SUPERTREND_EMA_OPT',
+      'DOUBLE_EMA_OPT',
+      'DONCHIAN_BREAKOUT'
+    ];
+  } else if (regime === 'TRENDING_BEARISH') {
+    activeStrategies = [
+      'ICHIMOKU_CLOUDBREAK',
+      'SUPERTREND_EMA_OPT',
+      'DOUBLE_EMA_OPT',
+      'DONCHIAN_BREAKOUT'
+    ];
+  } else {
+    // SIDEWAYS_CHOP
+    activeStrategies = [
+      'BOLLINGER_RSI_OPT',
+      'VWAP_REVERSION_OPT',
+      'KDJ_REVERSION_OPT'
+    ];
+  }
+
+  // 3. Collect Signals / Votes
+  let longVotes = 0;
+  let shortVotes = 0;
+  const totalActive = activeStrategies.length;
+
+  activeStrategies.forEach(strat => {
+    const analysis = analyzeStrategy(ohlcv, strat, ohlcv1h);
+    if (analysis.direction === 'LONG') {
+      longVotes++;
+    } else if (analysis.direction === 'SHORT') {
+      shortVotes++;
+    }
+  });
+
+  // 4. Calculate Consensus
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+  const threshold = regime === 'SIDEWAYS_CHOP' ? 0.66 : 0.60;
+
+  if (longVotes / totalActive >= threshold) {
+    if (regime !== 'TRENDING_BEARISH') {
+      direction = 'LONG';
+    }
+  } else if (shortVotes / totalActive >= threshold) {
+    if (regime !== 'TRENDING_BULLISH') {
+      direction = 'SHORT';
+    }
+  }
+
+  const regimeNum = regime === 'TRENDING_BULLISH' ? 1 : regime === 'TRENDING_BEARISH' ? -1 : 0;
+
+  return {
+    rsi: adx || 0,
+    macdLine: regimeNum,
+    signalLine: totalActive,
+    direction
+  };
 }

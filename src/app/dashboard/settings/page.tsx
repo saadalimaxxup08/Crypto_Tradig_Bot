@@ -460,6 +460,7 @@ export default function SettingsPage() {
             >
               <option value="RSI_MACD">📊 RSI + MACD Momentum Crossover (Default)</option>
               <option value="COMBINATION_STRATEGIES">💼 Combination Portfolio Dispatcher</option>
+              <option value="REGIME_ENSEMBLE_PRO">🛡️ Regime-Aware Ensemble Pro (Consensus)</option>
               <option value="BOLLINGER_RSI">↕️ Bollinger Bands + RSI Range Reversion</option>
               <option value="BOLLINGER_RSI_OPT">↕️ Bollinger Bands + RSI Range Reversion (Optimized)</option>
               <option value="DOUBLE_EMA">🎢 Double EMA Crossover Trend Following (1m)</option>

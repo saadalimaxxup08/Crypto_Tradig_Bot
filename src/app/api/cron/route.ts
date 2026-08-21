@@ -337,6 +337,7 @@ async function handleCron() {
           const hullMaCrossoverAnalysis = disabledStrats.includes('HULL_MA_CROSSOVER') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'HULL_MA_CROSSOVER', undefined, pair);
           const donchianBreakoutAnalysis = disabledStrats.includes('DONCHIAN_BREAKOUT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DONCHIAN_BREAKOUT', undefined, pair);
           const adxDiMomentumAnalysis = disabledStrats.includes('ADX_DI_MOMENTUM') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ADX_DI_MOMENTUM', undefined, pair);
+          const regimeEnsembleProAnalysis = disabledStrats.includes('REGIME_ENSEMBLE_PRO') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'REGIME_ENSEMBLE_PRO', ohlcv1h as any, pair);
 
           return {
             pair,
@@ -368,6 +369,7 @@ async function handleCron() {
               HULL_MA_CROSSOVER: hullMaCrossoverAnalysis,
               DONCHIAN_BREAKOUT: donchianBreakoutAnalysis,
               ADX_DI_MOMENTUM: adxDiMomentumAnalysis,
+              REGIME_ENSEMBLE_PRO: regimeEnsembleProAnalysis,
             }
           };
         } catch (error: any) {
@@ -506,6 +508,7 @@ async function handleCron() {
      const strategiesList = [
        'RSI_MACD',
        'COMBINATION_STRATEGIES',
+       'REGIME_ENSEMBLE_PRO',
        'BOLLINGER_RSI',
        'BOLLINGER_RSI_OPT',
        'DOUBLE_EMA',
@@ -677,6 +680,8 @@ async function handleCron() {
               ? 'VWAP Volatility Band Reversion (Optimized)'
               : strategyName === 'COMBINATION_STRATEGIES'
               ? 'Combination Portfolio Dispatcher'
+              : strategyName === 'REGIME_ENSEMBLE_PRO'
+              ? 'Regime-Aware Ensemble Pro'
               : strategyName === 'RSI_STOCH_EMA_TREND'
               ? 'RSI + Stochastic + EMA Trend'
               : strategyName === 'CMF_BREAKOUT'
