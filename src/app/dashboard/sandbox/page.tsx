@@ -1969,11 +1969,15 @@ export default function SandboxPage() {
                 </thead>
                 <tbody className="divide-y divide-zinc-800/50 text-xs">
                   {(() => {
-                    let runningBal = 100.0;
-                    return trades.map((t) => {
+                    let running = 100.0;
+                    const tradesWithBalance = trades.map((t) => {
+                      running += (t.pnl || 0);
+                      return { ...t, runningBalance: running };
+                    });
+                    const displayTrades = [...tradesWithBalance].reverse();
+                    return displayTrades.map((t) => {
                       const isWin = (t.pnl || 0) > 0;
                       const closeTime = new Date(t.closed_at).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
-                      runningBal += (t.pnl || 0);
                       return (
                         <tr key={t.id} className="hover:bg-zinc-900/10">
                           <td className="py-3.5 font-mono text-zinc-400">{closeTime}</td>
@@ -2007,7 +2011,7 @@ export default function SandboxPage() {
                             </span>
                           </td>
                           <td className="py-3.5 text-right font-mono font-bold text-zinc-300">
-                            {runningBal.toFixed(2)} USDT
+                            {t.runningBalance.toFixed(2)} USDT
                           </td>
                         </tr>
                       );
