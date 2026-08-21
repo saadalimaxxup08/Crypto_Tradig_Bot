@@ -565,6 +565,22 @@ async function handleCron() {
           continue;
         }
 
+        // 1-Hour Cooldown check to prevent immediate re-entry after closing a trade
+        const cooldownTime = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const { data: recentlyClosedTrades } = await supabase
+          .from('trades')
+          .select('id')
+          .eq('pair', pair)
+          .eq('strategy', strategyName)
+          .eq('is_paper', isPaper)
+          .eq('status', 'CLOSED')
+          .gte('closed_at', cooldownTime);
+
+        if (recentlyClosedTrades && recentlyClosedTrades.length > 0) {
+          logs.push(`Trade recently closed for ${pair} [Strategy: ${strategyName}, isPaper: ${isPaper}] within the last 1 hour. Cooldown active. Skipping.`);
+          continue;
+        }
+
         // Determine parameters (use overrides if configured in settings)
         const overrides = settings.pair_overrides || {};
         const pairOverride = overrides[pair] || {};
