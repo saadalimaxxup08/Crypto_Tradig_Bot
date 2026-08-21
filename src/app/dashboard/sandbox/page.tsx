@@ -398,12 +398,13 @@ export default function SandboxPage() {
       const wins = closed.filter(t => (t.pnl || 0) > 0).length;
       const losses = total - wins;
       const winRate = total > 0 ? (wins / total) * 100 : 0;
-      const balance = 100.0 + netPnl;
+      const balance = 100.0 + realizedPnl;
 
       return {
         strategy: strat,
         balance,
         netPnl,
+        realizedPnl,
         winRate,
         totalTrades: total,
         wins,
@@ -1409,6 +1410,18 @@ export default function SandboxPage() {
                 ? 'VWAP Reversion (OPT)'
                 : item.strategy === 'COMBINATION_STRATEGIES'
                 ? 'Combo Strategies'
+                : item.strategy === 'REGIME_ENSEMBLE_PRO'
+                ? 'Regime Ensemble Pro'
+                : item.strategy === 'RSI_STOCH_EMA_TREND'
+                ? 'RSI + Stoch + EMA'
+                : item.strategy === 'CMF_BREAKOUT'
+                ? 'CMF Breakout'
+                : item.strategy === 'HULL_MA_CROSSOVER'
+                ? 'Hull MA Crossover'
+                : item.strategy === 'DONCHIAN_BREAKOUT'
+                ? 'Donchian Breakout'
+                : item.strategy === 'ADX_DI_MOMENTUM'
+                ? 'ADX DI Momentum'
                 : 'Unknown';
 
               const isLive = item.strategy === activeStrategySetting;
