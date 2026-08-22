@@ -589,16 +589,16 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4">
             <h3 className="text-3xl font-extrabold tracking-tight text-zinc-100">
-              {(stats?.tradingMode === 'REAL' ? (stats?.balance || 0) : (5000.0 + strategyRealizedPnl)).toFixed(2)}
+              {stats?.balance !== undefined ? stats.balance.toFixed(2) : '0.00'}
               <span className="text-sm font-medium text-zinc-500 ml-1.5">USDT</span>
             </h3>
-            {stats?.realBalance !== undefined && stats?.balanceFetched && stats?.tradingMode === 'REAL' && (
+            {stats?.realBalance !== undefined && stats?.balanceFetched && (
               <p className="text-[10px] text-zinc-500 font-semibold mt-1.5 flex items-center gap-1">
                 <span>Binance Wallet:</span>
                 <span className="text-zinc-300 font-bold">{stats.realBalance.toFixed(2)} USDT</span>
               </p>
             )}
-            {stats?.balanceError && stats?.tradingMode === 'REAL' && (
+            {stats?.balanceError && (
               <p className="text-[10px] text-amber-500 mt-2 flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>Default loaded (API check settings)</span>
