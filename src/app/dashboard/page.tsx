@@ -152,15 +152,13 @@ export default function DashboardPage() {
   };
 
   const displayedActiveTrades = activeTrades.filter((t) => {
-    const isDemoTrade = (t.binance_order_id || '').startsWith('DEMO_');
-    const isRealMode = stats?.tradingMode === 'REAL';
-    return isRealMode ? !isDemoTrade : isDemoTrade;
+    return !t.is_paper;
   });
 
   const displayedRecentTrades = recentTrades.filter((t) => {
-    const isDemoTrade = (t.binance_order_id || '').startsWith('DEMO_');
+    const isRealTrade = (t.binance_order_id || '').startsWith('REAL_');
     const isRealMode = stats?.tradingMode === 'REAL';
-    return isRealMode ? !isDemoTrade : isDemoTrade;
+    return isRealMode ? isRealTrade : !isRealTrade;
   });
 
   const strategyRealizedPnl = displayedRecentTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
