@@ -143,6 +143,15 @@ export default function SandboxPage() {
     return stats;
   }, [trades, dbSettings]);
 
+  const strategyAllClosedTrades = useMemo(() => {
+    const isTabPaper = selectedStrategy !== activeStrategySetting;
+    return allRawTrades.filter((t) => 
+      (t.strategy || 'RSI_MACD') === selectedStrategy && 
+      (isTabPaper ? t.is_paper === true : !t.is_paper) &&
+      t.status === 'CLOSED'
+    );
+  }, [allRawTrades, selectedStrategy, activeStrategySetting]);
+
   const todayPnl = useMemo(() => {
     const now = new Date();
     const formatter = new Intl.DateTimeFormat('en-US', {
@@ -156,7 +165,7 @@ export default function SandboxPage() {
     const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
     const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
 
-    return trades
+    return strategyAllClosedTrades
       .filter((t) => {
         if (!t.closed_at) return false;
         const tDate = new Date(t.closed_at);
@@ -167,7 +176,7 @@ export default function SandboxPage() {
         return `${tYear}-${tMonth}-${tDay}` === `${year}-${month + 1}-${day}`;
       })
       .reduce((sum, t) => sum + (t.pnl || 0), 0);
-  }, [trades]);
+  }, [strategyAllClosedTrades]);
 
   const yesterdayPnl = useMemo(() => {
     const now = new Date();
@@ -183,7 +192,7 @@ export default function SandboxPage() {
     const month = parseInt(parts.find(p => p.type === 'month')?.value || '0') - 1;
     const day = parseInt(parts.find(p => p.type === 'day')?.value || '0');
 
-    return trades
+    return strategyAllClosedTrades
       .filter((t) => {
         if (!t.closed_at) return false;
         const tDate = new Date(t.closed_at);
@@ -194,7 +203,7 @@ export default function SandboxPage() {
         return `${tYear}-${tMonth}-${tDay}` === `${year}-${month + 1}-${day}`;
       })
       .reduce((sum, t) => sum + (t.pnl || 0), 0);
-  }, [trades]);
+  }, [strategyAllClosedTrades]);
 
   useEffect(() => {
     if (!dbSettings) return;
