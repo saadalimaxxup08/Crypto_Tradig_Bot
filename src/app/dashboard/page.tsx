@@ -229,12 +229,11 @@ export default function DashboardPage() {
       const settingsData = await settingsRes.json();
 
       let activeStrats: string[] = [];
-      let defaultStrat = 'RSI_MACD';
+      let defaultStrat = 'ALL';
       if (settingsRes.ok) {
         activeStrats = settingsData.pair_overrides?.ACTIVE_STRATEGIES || [settingsData.active_strategy || 'RSI_MACD'];
         setActiveStrategies(activeStrats);
         setDraftActiveStrategies(activeStrats);
-        defaultStrat = settingsData.active_strategy || 'RSI_MACD';
       }
 
       const currentStrategyParam = selectedStrategy || defaultStrat;
@@ -242,7 +241,8 @@ export default function DashboardPage() {
         setSelectedStrategy(defaultStrat);
       }
 
-      const tradesRes = await fetch(`/api/trades?strategy=${currentStrategyParam}`);
+      const url = currentStrategyParam === 'ALL' ? '/api/trades' : `/api/trades?strategy=${currentStrategyParam}`;
+      const tradesRes = await fetch(url);
       const tradesData = await tradesRes.json();
 
       if (statsData.success) {
@@ -483,6 +483,22 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
+            {/* All Strategies View Toggle */}
+            <div
+              className={`flex items-center justify-between px-2.5 py-2 rounded-xl transition-all duration-200 text-[10px] font-bold cursor-pointer ${
+                selectedStrategy === 'ALL'
+                  ? 'bg-blue-950/20 text-blue-400 font-extrabold border border-blue-500/25'
+                  : 'text-zinc-300 hover:bg-zinc-900/40 hover:text-zinc-200'
+              }`}
+              onClick={() => setSelectedStrategy('ALL')}
+            >
+              <span className="uppercase tracking-wider font-mono flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                All Strategies
+              </span>
+            </div>
+            <div className="h-px bg-zinc-800/50 my-1.5" />
+
             {filteredStrategies.map((strat) => {
               const isTicked = draftActiveStrategies.includes(strat.id);
               const isSelected = selectedStrategy === strat.id;
@@ -541,7 +557,7 @@ export default function DashboardPage() {
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-2xl font-extrabold tracking-tight">
-                  VIP Dashboard <span className="text-zinc-500">/</span> <span className="text-emerald-400 font-bold">{STRATEGIES_LIST.find(s => s.id === selectedStrategy)?.name || selectedStrategy}</span>
+                  VIP Dashboard <span className="text-zinc-500">/</span> <span className="text-emerald-400 font-bold">{selectedStrategy === 'ALL' ? 'All Strategies' : (STRATEGIES_LIST.find(s => s.id === selectedStrategy)?.name || selectedStrategy)}</span>
                 </h2>
                 {stats?.tradingMode === 'REAL' ? (
                   <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full bg-emerald-950/30 text-emerald-400 border border-emerald-900/50 animate-pulse tracking-wide">
