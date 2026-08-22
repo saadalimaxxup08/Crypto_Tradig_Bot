@@ -34,7 +34,7 @@ export default function SummaryPage() {
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
   const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'BOLLINGER_RSI_OPT' | 'DOUBLE_EMA' | 'DOUBLE_EMA_OPT' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'SUPERTREND_EMA_OPT' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE' | 'MACD_DIVERGENCE' | 'KDJ_REVERSION' | 'KDJ_REVERSION_OPT' | 'FIBONACCI_PULLBACK' | 'ICHIMOKU_CLOUDBREAK' | 'VWAP_REVERSION' | 'VWAP_REVERSION_OPT' | 'COMBINATION_STRATEGIES' | 'RSI_STOCH_EMA_TREND' | 'CMF_BREAKOUT' | 'HULL_MA_CROSSOVER' | 'DONCHIAN_BREAKOUT' | 'ADX_DI_MOMENTUM' | 'REGIME_ENSEMBLE_PRO'>('RSI_MACD');
   const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
-  const [allRawTrades, setAllRawTrades] = useState<Trade[]>([]);
+
 
   // Default date ranges setup
   useEffect(() => {
@@ -93,7 +93,6 @@ export default function SummaryPage() {
       if (res.ok && data.success) {
         const detailedTrades: Trade[] = data.detailedTrades || [];
         setLivePrices(data.livePrices || {});
-        setAllRawTrades(detailedTrades);
         applyFilters(detailedTrades);
       }
     } catch (err) {
@@ -102,12 +101,6 @@ export default function SummaryPage() {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (allRawTrades.length > 0) {
-      applyFilters(allRawTrades);
-    }
-  }, [startDate, endDate, hourlyFilter, selectedStrategy]);
 
   useEffect(() => {
     fetchSummaryTrades();

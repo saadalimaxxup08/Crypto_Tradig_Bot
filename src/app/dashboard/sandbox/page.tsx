@@ -269,11 +269,7 @@ export default function SandboxPage() {
     }
   };
 
-  useEffect(() => {
-    if (allRawTrades.length > 0) {
-      applyFilters(allRawTrades);
-    }
-  }, [selectedStrategy, startDate, endDate, hourlyFilter, activeStrategySetting]);
+
 
   useEffect(() => {
     fetchSandboxTrades();
