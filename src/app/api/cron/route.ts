@@ -144,7 +144,66 @@ async function handleCron() {
               // If position size is 0 or undefined, it has been closed by TP/SL
               const currentSize = position ? parseFloat((position as any).contracts || (position as any).positionAmt || 0) : 0;
               
-              if (Math.abs(currentSize) === 0) {
+              if (Math.abs(currentSize) > 0) {
+                // --- AUTO-HEALING TP/SL SAFETY CHECK ---
+                // Fetch all open orders on Binance for this pair to make sure TP and SL exist
+                try {
+                  const openOrders = await exchange.fetchOpenOrders(trade.pair as string);
+                  const exitSide = trade.direction === 'LONG' ? 'sell' : 'buy';
+                  
+                  // Check if TP order exists (LIMIT order on correct side close to tp_price)
+                  const hasTp = openOrders.some((o: any) => 
+                    o.type.toUpperCase() === 'LIMIT' && 
+                    o.side.toLowerCase() === exitSide &&
+                    Math.abs(parseFloat(o.price) - parseFloat(trade.tp_price)) / parseFloat(trade.tp_price) < 0.005
+                  );
+
+                  // Check if SL order exists (STOP_MARKET or STOP order on correct side close to sl_price)
+                  const hasSl = openOrders.some((o: any) => 
+                    (o.type.toUpperCase() === 'STOP_MARKET' || o.type.toUpperCase() === 'STOP') && 
+                    o.side.toLowerCase() === exitSide &&
+                    Math.abs(parseFloat(o.stopPrice || o.price) - parseFloat(trade.sl_price)) / parseFloat(trade.sl_price) < 0.005
+                  );
+
+                  if (!hasTp || !hasSl) {
+                    const pairStr: string = (trade.pair as any) || '';
+                    const tpPriceVal: number = parseFloat(trade.tp_price as any) || 0;
+                    const slPriceVal: number = parseFloat(trade.sl_price as any) || 0;
+
+                    logs.push(`⚠️ Detected missing TP/SL for open position ${pairStr}. Restoring...`);
+                    
+                    // Restore missing TP
+                    if (!hasTp) {
+                      try {
+                        const formattedTpPrice = parseFloat((exchange.priceToPrecision(pairStr as any, tpPriceVal as any) as any) || '0');
+                        await exchange.createOrder(pairStr as any, 'LIMIT', exitSide, Math.abs(currentSize), formattedTpPrice, {
+                          reduceOnly: true,
+                          timeInForce: 'GTC',
+                        });
+                        logs.push(`✅ Restored missing TP Limit order for ${pairStr} at ${formattedTpPrice}`);
+                      } catch (tpErr: any) {
+                        logs.push(`❌ Failed to restore TP for ${pairStr}: ${tpErr.message}`);
+                      }
+                    }
+
+                    // Restore missing SL
+                    if (!hasSl) {
+                      try {
+                        const formattedSlPrice = parseFloat((exchange.priceToPrecision(pairStr as any, slPriceVal as any) as any) || '0');
+                        await exchange.createOrder(pairStr as any, 'STOP_MARKET', exitSide, Math.abs(currentSize), undefined, {
+                          stopPrice: formattedSlPrice,
+                          reduceOnly: true,
+                        });
+                        logs.push(`✅ Restored missing SL Stop Market order for ${pairStr} at ${formattedSlPrice}`);
+                      } catch (slErr: any) {
+                        logs.push(`❌ Failed to restore SL for ${pairStr}: ${slErr.message}`);
+                      }
+                    }
+                  }
+                } catch (orderCheckErr: any) {
+                  logs.push(`⚠️ Failed to verify/restore TP/SL for ${trade.pair}: ${orderCheckErr.message}`);
+                }
+              } else {
                 logs.push(`Position for ${trade.pair} is closed on Binance. Resolving trade details...`);
 
                 // Fetch recent user trades to calculate exact exit price & pnl
