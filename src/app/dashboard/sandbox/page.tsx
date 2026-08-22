@@ -106,14 +106,13 @@ export default function SandboxPage() {
         }
       }
 
-      // 2. Fetch all trades
-      const res = await fetch('/api/trades');
+      // 2. Fetch trades for the selected strategy
+      const res = await fetch(`/api/trades?strategy=${selectedStrategy}`);
       const data = await res.json();
       if (res.ok && data.success) {
-        const allTrades: Trade[] = data.trades || [];
         setLivePrices(data.livePrices || {});
-        setAllRawTrades(allTrades);
-        applyFilters(allTrades, currentActiveStrategy);
+        setAllRawTrades(data.allRawTrades || []);
+        applyFilters(data.detailedTrades || [], currentActiveStrategy);
       }
     } catch (err) {
       console.error('Failed to load sandbox trades:', err);
@@ -278,7 +277,7 @@ export default function SandboxPage() {
 
   useEffect(() => {
     fetchSandboxTrades();
-  }, [startDate, endDate, hourlyFilter]);
+  }, [startDate, endDate, hourlyFilter, selectedStrategy]);
 
   // Binance WebSocket connection for active trades (Live Floating P&L updates)
   useEffect(() => {

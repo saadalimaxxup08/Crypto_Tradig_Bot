@@ -5,48 +5,79 @@ import { getBinanceClient } from '@/lib/binance';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = getSessionUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  try {
-    // 1. Fetch up to 5000 trades using pagination to bypass Supabase 1000 limit
-    let allTrades: any[] = [];
-    let page = 0;
-    const pageSize = 1000;
-    let hasMore = true;
+  const { searchParams } = new URL(request.url);
+  const targetStrategy = searchParams.get('strategy') || 'RSI_MACD';
 
-    while (hasMore && allTrades.length < 5000) {
+  try {
+    // 1. Fetch detailed trades for the target strategy (up to 5000 rows paginated)
+    let detailedTrades: any[] = [];
+    let dPage = 0;
+    const dPageSize = 1000;
+    let dHasMore = true;
+
+    while (dHasMore && detailedTrades.length < 5000) {
       const { data, error } = await supabase
         .from('trades')
         .select('*')
+        .eq('strategy', targetStrategy)
         .order('timestamp', { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+        .range(dPage * dPageSize, (dPage + 1) * dPageSize - 1);
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
       if (data && data.length > 0) {
-        allTrades = [...allTrades, ...data];
-        if (data.length < pageSize) {
-          hasMore = false;
+        detailedTrades = [...detailedTrades, ...data];
+        if (data.length < dPageSize) {
+          dHasMore = false;
         } else {
-          page++;
+          dPage++;
         }
       } else {
-        hasMore = false;
+        dHasMore = false;
       }
     }
 
-    const trades = allTrades;
+    // 2. Fetch light records of ALL trades in the database for the leaderboard (up to 30,000 rows paginated)
+    let allRawTrades: any[] = [];
+    let rPage = 0;
+    const rPageSize = 1000;
+    let rHasMore = true;
 
-    const openTrades = trades?.filter((t) => t.status === 'OPEN') || [];
+    while (rHasMore && allRawTrades.length < 30000) {
+      const { data, error } = await supabase
+        .from('trades')
+        .select('strategy, pnl, status, is_paper, closed_at')
+        .order('timestamp', { ascending: false })
+        .range(rPage * rPageSize, (rPage + 1) * rPageSize - 1);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      if (data && data.length > 0) {
+        allRawTrades = [...allRawTrades, ...data];
+        if (data.length < rPageSize) {
+          rHasMore = false;
+        } else {
+          rPage++;
+        }
+      } else {
+        rHasMore = false;
+      }
+    }
+
+    const openTrades = detailedTrades.filter((t) => t.status === 'OPEN');
     const livePrices: Record<string, number> = {};
 
-    // 2. Fetch live prices from Binance server-side as a reliable fallback
+    // 3. Fetch live prices from Binance server-side as a reliable fallback
     if (openTrades.length > 0) {
       try {
         const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
@@ -87,7 +118,12 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ success: true, trades: trades || [], livePrices });
+    return NextResponse.json({ 
+      success: true, 
+      detailedTrades, 
+      allRawTrades, 
+      livePrices 
+    });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
