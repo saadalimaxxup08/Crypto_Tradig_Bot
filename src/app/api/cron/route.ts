@@ -808,7 +808,7 @@ async function handleCron() {
             const expectedGrossLoss = totalVal * (activeSlPercent / 100);
             const expectedNetLoss = expectedGrossLoss + (entryFeeVal + exitFeeSl);
 
-            const telegramMessage = `🟢 <b>NEW SIGNAL: ${pair} ${direction}</b>\n` +
+            let telegramMessage = `🟢 <b>NEW SIGNAL: ${pair} ${direction}</b>\n` +
               `Reason: <b>${finalStrategyName}</b>\n` +
               `Margin: <b>${activeRiskAmount.toFixed(2)} USDT</b>\n` +
               `Leverage: <b>${activeLeverage}x</b>\n` +
@@ -821,9 +821,20 @@ async function handleCron() {
               `🔮 <b>Calculated Signal Win Odds:</b> <code>${finalWinOdds}%</code>\n\n` +
               `💰 <b>Expected Net Profit (on TP):</b> <code>+${expectedNetProfit.toFixed(4)} USDT</code> (Fees: -${(entryFeeVal + exitFeeTp).toFixed(4)} USDT)`;
 
+            if (order.bracketError) {
+              telegramMessage += `\n\n⚠️ <b>WARNING: TP/SL orders failed to place!</b>\n` +
+                `Error: <code>${order.bracketError}</code>\n` +
+                `Please set your TP/SL manually on Binance!`;
+            }
+
             await sendTelegramMessage(telegram_token, telegram_chat_id, telegramMessage);
             await sendWhatsAppAlert(telegramMessage, logs, 'signals');
-            logs.push(`Successfully opened live trade for ${pair}.`);
+            
+            if (order.bracketError) {
+              logs.push(`Opened live trade for ${pair} but with TP/SL warning: ${order.bracketError}`);
+            } else {
+              logs.push(`Successfully opened live trade for ${pair}.`);
+            }
 
           } catch (err: any) {
             logs.push(`Failed to execute live trade for ${pair}: ${err.message}`);

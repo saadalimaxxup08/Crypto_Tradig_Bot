@@ -69,6 +69,7 @@ export async function placeFuturesOrder(
   slOrder: any;
   entryPrice: number;
   amount: number;
+  bracketError?: string;
 }> {
   try {
     // Set leverage on Binance USD-M Futures before opening the trade
@@ -128,17 +129,28 @@ export async function placeFuturesOrder(
     // 3. Place TP & SL orders in parallel
     // TP: LIMIT order with reduceOnly = true
     // SL: STOP_MARKET order with reduceOnly = true and stopPrice
-    const tpPromise = exchange.createOrder(symbol, 'LIMIT', exitSide, amount, formattedTpPrice, {
-      reduceOnly: true,
-      timeInForce: 'GTC', // Good Till Cancelled
-    });
+    let tpOrder = null;
+    let slOrder = null;
+    let bracketError = '';
 
-    const slPromise = exchange.createOrder(symbol, 'STOP_MARKET', exitSide, amount, undefined, {
-      stopPrice: formattedSlPrice,
-      reduceOnly: true,
-    });
+    try {
+      const tpPromise = exchange.createOrder(symbol, 'LIMIT', exitSide, amount, formattedTpPrice, {
+        reduceOnly: true,
+        timeInForce: 'GTC', // Good Till Cancelled
+      });
 
-    const [tpOrder, slOrder] = await Promise.all([tpPromise, slPromise]);
+      const slPromise = exchange.createOrder(symbol, 'STOP_MARKET', exitSide, amount, undefined, {
+        stopPrice: formattedSlPrice,
+        reduceOnly: true,
+      });
+
+      const [resTp, resSl] = await Promise.all([tpPromise, slPromise]);
+      tpOrder = resTp;
+      slOrder = resSl;
+    } catch (bracketErr: any) {
+      console.error(`⚠️ Entry filled for ${symbol} but TP/SL placement failed: ${bracketErr.message}`);
+      bracketError = bracketErr.message;
+    }
 
     return {
       entryOrder,
@@ -146,9 +158,10 @@ export async function placeFuturesOrder(
       slOrder,
       entryPrice,
       amount,
+      bracketError,
     };
   } catch (error) {
-    console.error(`Failed to place orders for ${symbol}:`, error);
+    console.error(`Failed to place entry market order for ${symbol}:`, error);
     throw error;
   }
 }
