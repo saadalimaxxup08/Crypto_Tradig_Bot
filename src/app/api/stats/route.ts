@@ -58,12 +58,16 @@ export async function GET() {
 
     const { data: todayTrades } = await supabase
       .from('trades')
-      .select('pnl')
+      .select('pnl, binance_order_id')
       .eq('status', 'CLOSED')
       .eq('is_paper', false)
       .gte('closed_at', startOfToday.toISOString());
 
-    const todayPnl = (todayTrades || []).reduce(
+    const filteredTodayTrades = (todayTrades || []).filter(t => 
+      isDemo ? (t.binance_order_id || '').startsWith('DEMO_') : !(t.binance_order_id || '').startsWith('DEMO_')
+    );
+
+    const todayPnl = filteredTodayTrades.reduce(
       (sum, t) => sum + parseFloat(t.pnl || 0),
       0
     );
@@ -71,22 +75,31 @@ export async function GET() {
     // 4. Calculate Win Rate
     const { data: allClosedTrades } = await supabase
       .from('trades')
-      .select('pnl')
+      .select('pnl, binance_order_id')
       .eq('status', 'CLOSED')
       .eq('is_paper', false);
 
-    const totalClosed = allClosedTrades?.length || 0;
-    const wins = allClosedTrades?.filter((t) => parseFloat(t.pnl || 0) > 0).length || 0;
+    const filteredClosedTrades = (allClosedTrades || []).filter(t => 
+      isDemo ? (t.binance_order_id || '').startsWith('DEMO_') : !(t.binance_order_id || '').startsWith('DEMO_')
+    );
+
+    const totalClosed = filteredClosedTrades.length;
+    const wins = filteredClosedTrades.filter((t) => parseFloat(t.pnl || 0) > 0).length;
     const winRate = totalClosed > 0 ? (wins / totalClosed) * 100 : 0;
 
     // 5. Get current open trades count
-    const { count: openTradesCount } = await supabase
+    const { data: allOpenTrades } = await supabase
       .from('trades')
-      .select('*', { count: 'exact', head: true })
+      .select('binance_order_id')
       .eq('status', 'OPEN')
       .eq('is_paper', false);
 
-    const netHistoricalPnl = (allClosedTrades || []).reduce(
+    const filteredOpenTrades = (allOpenTrades || []).filter(t => 
+      isDemo ? (t.binance_order_id || '').startsWith('DEMO_') : !(t.binance_order_id || '').startsWith('DEMO_')
+    );
+    const openTradesCount = filteredOpenTrades.length;
+
+    const netHistoricalPnl = filteredClosedTrades.reduce(
       (sum, t) => sum + parseFloat(t.pnl || 0),
       0
     );

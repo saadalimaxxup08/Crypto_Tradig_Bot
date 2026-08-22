@@ -52,6 +52,7 @@ interface Trade {
   margin?: number;
   strategy?: string;
   is_paper?: boolean;
+  binance_order_id?: string;
 }
 
 export default function DashboardPage() {
@@ -73,6 +74,111 @@ export default function DashboardPage() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [isTestingTrade, setIsTestingTrade] = useState(false);
   const [selectedChartSymbol, setSelectedChartSymbol] = useState<string | null>(null);
+
+  const [selectedStrategy, setSelectedStrategy] = useState<string>('');
+  const [activeStrategies, setActiveStrategies] = useState<string[]>([]);
+
+  const STRATEGIES_LIST = [
+    { id: 'RSI_MACD', name: 'RSI + MACD Trend' },
+    { id: 'BOLLINGER_RSI', name: 'Bollinger + RSI Reversion' },
+    { id: 'BOLLINGER_RSI_OPT', name: 'Bollinger + RSI (OPT)' },
+    { id: 'DOUBLE_EMA', name: 'Double EMA' },
+    { id: 'DOUBLE_EMA_OPT', name: 'Double EMA (OPT)' },
+    { id: 'DOUBLE_EMA_5M', name: 'Double EMA 5M' },
+    { id: 'DOUBLE_EMA_15M', name: 'Double EMA 15M' },
+    { id: 'SUPERTREND_EMA', name: 'SuperTrend + EMA' },
+    { id: 'SUPERTREND_EMA_OPT', name: 'SuperTrend + EMA (OPT)' },
+    { id: 'STOCH_RSI_MACD', name: 'StochRSI + MACD' },
+    { id: 'ATR_BREAKOUT', name: 'ATR Breakout' },
+    { id: 'SWING_STRUCTURE', name: 'Swing Structure' },
+    { id: 'MACD_DIVERGENCE', name: 'MACD Divergence' },
+    { id: 'KDJ_REVERSION', name: 'KDJ Reversion' },
+    { id: 'KDJ_REVERSION_OPT', name: 'KDJ Reversion (OPT)' },
+    { id: 'FIBONACCI_PULLBACK', name: 'Fib Pullback' },
+    { id: 'ICHIMOKU_CLOUDBREAK', name: 'Ichimoku Cloud' },
+    { id: 'VWAP_REVERSION', name: 'VWAP Reversion' },
+    { id: 'VWAP_REVERSION_OPT', name: 'VWAP Reversion (OPT)' },
+    { id: 'RSI_STOCH_EMA_TREND', name: 'RSI + Stoch + EMA Trend' },
+    { id: 'CMF_BREAKOUT', name: 'CMF + BB Breakout' },
+    { id: 'HULL_MA_CROSSOVER', name: 'Hull MA Crossover' },
+    { id: 'DONCHIAN_BREAKOUT', name: 'Donchian Breakout' },
+    { id: 'ADX_DI_MOMENTUM', name: 'ADX + DI Momentum' },
+    { id: 'REGIME_ENSEMBLE_PRO', name: 'Regime Ensemble Pro' },
+    { id: 'COMBINATION_STRATEGIES', name: 'Combo Strategies' },
+  ];
+
+  const handleToggleStrategy = async (strategyId: string) => {
+    let updatedActive = [...activeStrategies];
+    if (updatedActive.includes(strategyId)) {
+      if (updatedActive.length <= 1) {
+        alert('You must keep at least one strategy active for live/demo trading!');
+        return;
+      }
+      updatedActive = updatedActive.filter((s) => s !== strategyId);
+    } else {
+      updatedActive.push(strategyId);
+    }
+
+    try {
+      const settingsRes = await fetch('/api/settings');
+      const currentSettings = await settingsRes.json();
+
+      const pairOverrides = currentSettings.pair_overrides || {};
+      const updatedPayload = {
+        ...currentSettings,
+        pair_overrides: {
+          ...pairOverrides,
+          ACTIVE_STRATEGIES: updatedActive,
+        },
+      };
+
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPayload),
+      });
+
+      if (res.ok) {
+        setActiveStrategies(updatedActive);
+        confetti({
+          particleCount: 40,
+          spread: 50,
+          origin: { y: 0.8 },
+        });
+      }
+    } catch (err) {
+      console.error('Failed to toggle strategy:', err);
+    }
+  };
+
+  const displayedActiveTrades = activeTrades.filter((t) => {
+    const isDemoTrade = (t.binance_order_id || '').startsWith('DEMO_');
+    const isRealMode = stats?.tradingMode === 'REAL';
+    return isRealMode ? !isDemoTrade : isDemoTrade;
+  });
+
+  const displayedRecentTrades = recentTrades.filter((t) => {
+    const isDemoTrade = (t.binance_order_id || '').startsWith('DEMO_');
+    const isRealMode = stats?.tradingMode === 'REAL';
+    return isRealMode ? !isDemoTrade : isDemoTrade;
+  });
+
+  const strategyRealizedPnl = displayedRecentTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+
+  const strategyTodayPnl = displayedRecentTrades
+    .filter((t) => {
+      if (!t.closed_at) return false;
+      const startOfToday = new Date();
+      startOfToday.setUTCHours(0, 0, 0, 0);
+      return new Date(t.closed_at) >= startOfToday;
+    })
+    .reduce((sum, t) => sum + (t.pnl || 0), 0);
+
+  const strategyWinRate = (() => {
+    const total = displayedRecentTrades.length;
+    const wins = displayedRecentTrades.filter((t) => (t.pnl || 0) > 0).length;
+    return total > 0 ? (wins / total) * 100 : 0;
+  })();
 
   const runTestTrade = async () => {
     if (isTestingTrade) return;
@@ -109,16 +215,35 @@ export default function DashboardPage() {
       const statsRes = await fetch('/api/stats');
       const statsData = await statsRes.json();
 
-      const tradesRes = await fetch('/api/trades');
+      const settingsRes = await fetch('/api/settings');
+      const settingsData = await settingsRes.json();
+
+      let activeStrats: string[] = [];
+      let defaultStrat = 'RSI_MACD';
+      if (settingsRes.ok) {
+        activeStrats = settingsData.pair_overrides?.ACTIVE_STRATEGIES || [settingsData.active_strategy || 'RSI_MACD'];
+        setActiveStrategies(activeStrats);
+        defaultStrat = settingsData.active_strategy || 'RSI_MACD';
+      }
+
+      const currentStrategyParam = selectedStrategy || defaultStrat;
+      if (!selectedStrategy) {
+        setSelectedStrategy(defaultStrat);
+      }
+
+      const tradesRes = await fetch(`/api/trades?strategy=${currentStrategyParam}`);
       const tradesData = await tradesRes.json();
 
       if (statsData.success) {
         setStats(statsData);
       }
       if (tradesData.success) {
-        const allTrades: Trade[] = tradesData.trades || [];
-        setActiveTrades(allTrades.filter((t) => t.status === 'OPEN' && !t.is_paper));
-        setRecentTrades(allTrades.filter((t) => t.status === 'CLOSED' && !t.is_paper).slice(0, 10)); // Fetch up to 10 for chart data
+        const allDetailed: Trade[] = tradesData.detailedTrades || [];
+        const liveTrades = allDetailed.filter((t) => !t.is_paper);
+        
+        setActiveTrades(liveTrades.filter((t) => t.status === 'OPEN'));
+        setRecentTrades(liveTrades.filter((t) => t.status === 'CLOSED'));
+
         if (tradesData.livePrices) {
           setLivePrices((prev) => ({ ...prev, ...tradesData.livePrices }));
         }
@@ -134,7 +259,7 @@ export default function DashboardPage() {
     fetchDashboardData();
     const interval = setInterval(fetchDashboardData, 10000); // refresh every 10 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedStrategy]);
 
   // Binance WebSocket connection for active trades (Live Floating P&L)
   useEffect(() => {
@@ -286,7 +411,7 @@ export default function DashboardPage() {
   };
 
   const getChartData = () => {
-    const completed = recentTrades.length > 0 ? [...recentTrades].reverse() : [];
+    const completed = displayedRecentTrades.length > 0 ? [...displayedRecentTrades].reverse() : [];
     if (completed.length === 0) {
       return [{ time: 'Start', pnl: 0 }];
     }
@@ -313,28 +438,78 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto">
-      {/* Welcome & Global Toggle Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[#0c0c0f]/40 backdrop-blur-md border border-zinc-800/80 p-6 rounded-3xl">
-        <div>
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-extrabold tracking-tight">VIP Dashboard</h2>
-            {stats?.tradingMode === 'REAL' ? (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full bg-emerald-950/30 text-emerald-400 border border-emerald-900/50 animate-pulse tracking-wide">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                Live Mode
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full bg-amber-950/20 text-amber-500 border border-amber-900/50 tracking-wide">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                Demo Mode
-              </span>
-            )}
+    <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      
+      {/* 2-column Main Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        
+        {/* Left Column: Strategies Sidebar Checklist */}
+        <div className="lg:col-span-1 bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 h-fit space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-zinc-200">Strategies Trigger</h3>
+            <p className="text-[10px] text-zinc-500 mt-1 font-medium leading-relaxed">
+              Tick strategies to execute live/demo trades. Unticked strategies run in the virtual Sandbox.
+            </p>
           </div>
-          <p className="text-sm text-zinc-400 mt-1">
-            Real-time Binance {stats?.tradingMode === 'REAL' ? 'Live Production' : 'Demo Sandbox'} engine tracker.
-          </p>
+          <div className="space-y-2 max-h-[700px] overflow-y-auto pr-1">
+            {STRATEGIES_LIST.map((strat) => {
+              const isTicked = activeStrategies.includes(strat.id);
+              const isSelected = selectedStrategy === strat.id;
+              return (
+                <div
+                  key={strat.id}
+                  className={`flex items-center justify-between p-2.5 rounded-2xl transition-all duration-300 border ${
+                    isSelected
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-white'
+                      : 'bg-zinc-900/10 border-zinc-800/30 text-zinc-400 hover:border-zinc-700/50 hover:text-zinc-200'
+                  }`}
+                >
+                  <button
+                    onClick={() => setSelectedStrategy(strat.id)}
+                    className="flex-1 text-left text-[11px] font-bold uppercase tracking-wider cursor-pointer outline-none truncate mr-2"
+                  >
+                    {strat.name}
+                  </button>
+                  <label className="flex items-center justify-center cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isTicked}
+                      onChange={() => handleToggleStrategy(strat.id)}
+                      className="w-4 h-4 border-2 border-zinc-700 rounded-md bg-zinc-900 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none transition-all duration-300 cursor-pointer accent-emerald-500"
+                    />
+                  </label>
+                </div>
+              );
+            })}
+          </div>
         </div>
+
+        {/* Right Column: Dashboard Panel details */}
+        <div className="lg:col-span-3 space-y-8">
+
+          {/* Welcome & Global Toggle Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[#0c0c0f]/40 backdrop-blur-md border border-zinc-800/80 p-6 rounded-3xl">
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-extrabold tracking-tight">
+                  VIP Dashboard <span className="text-zinc-500">/</span> <span className="text-emerald-400 font-bold">{STRATEGIES_LIST.find(s => s.id === selectedStrategy)?.name || selectedStrategy}</span>
+                </h2>
+                {stats?.tradingMode === 'REAL' ? (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full bg-emerald-950/30 text-emerald-400 border border-emerald-900/50 animate-pulse tracking-wide">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Live Mode
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full bg-amber-950/20 text-amber-500 border border-amber-900/50 tracking-wide">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    Demo Mode
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-zinc-400 mt-1">
+                Real-time Binance {stats?.tradingMode === 'REAL' ? 'Live Production' : 'Demo Sandbox'} engine tracker.
+              </p>
+            </div>
 
         {/* Bot Toggle Switch & Diagnostics */}
         <div className="flex flex-wrap items-center gap-3">
@@ -414,16 +589,16 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4">
             <h3 className="text-3xl font-extrabold tracking-tight text-zinc-100">
-              {stats?.balance.toFixed(2)}
+              {(stats?.tradingMode === 'REAL' ? (stats?.balance || 0) : (5000.0 + strategyRealizedPnl)).toFixed(2)}
               <span className="text-sm font-medium text-zinc-500 ml-1.5">USDT</span>
             </h3>
-            {stats?.realBalance !== undefined && stats?.balanceFetched && (
+            {stats?.realBalance !== undefined && stats?.balanceFetched && stats?.tradingMode === 'REAL' && (
               <p className="text-[10px] text-zinc-500 font-semibold mt-1.5 flex items-center gap-1">
                 <span>Binance Wallet:</span>
                 <span className="text-zinc-300 font-bold">{stats.realBalance.toFixed(2)} USDT</span>
               </p>
             )}
-            {stats?.balanceError && (
+            {stats?.balanceError && stats?.tradingMode === 'REAL' && (
               <p className="text-[10px] text-amber-500 mt-2 flex items-center gap-1">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>Default loaded (API check settings)</span>
@@ -441,7 +616,7 @@ export default function DashboardPage() {
             </span>
             <span
               className={`p-2 rounded-xl border ${
-                (stats?.todayPnl || 0) >= 0
+                strategyTodayPnl >= 0
                   ? 'bg-emerald-950/30 border-emerald-900/50 text-emerald-400'
                   : 'bg-red-950/30 border-red-900/50 text-red-400'
               }`}
@@ -452,11 +627,11 @@ export default function DashboardPage() {
           <div className="mt-4">
             <h3
               className={`text-3xl font-extrabold tracking-tight ${
-                (stats?.todayPnl || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+                strategyTodayPnl >= 0 ? 'text-emerald-400' : 'text-red-400'
               }`}
             >
-              {(stats?.todayPnl || 0) >= 0 ? '+' : ''}
-              {stats?.todayPnl.toFixed(2)}
+              {strategyTodayPnl >= 0 ? '+' : ''}
+              {strategyTodayPnl.toFixed(2)}
               <span className="text-sm font-medium text-zinc-500 ml-1.5">USDT</span>
             </h3>
             <p className="text-[10px] text-zinc-500 mt-2 font-medium">Daily profit accumulation</p>
@@ -476,7 +651,7 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4">
             <h3 className="text-3xl font-extrabold tracking-tight text-purple-400">
-              {stats?.winRate.toFixed(1)}%
+              {strategyWinRate.toFixed(1)}%
             </h3>
             <p className="text-[10px] text-zinc-500 mt-2 font-medium">Of completed operations</p>
           </div>
@@ -495,7 +670,7 @@ export default function DashboardPage() {
           </div>
           <div className="mt-4">
             <h3 className="text-3xl font-extrabold tracking-tight text-amber-400">
-              {stats?.openTradesCount}
+              {displayedActiveTrades.length}
             </h3>
             <p className="text-[10px] text-zinc-500 mt-2 font-medium">Running on Binance Futures</p>
           </div>
@@ -527,29 +702,29 @@ export default function DashboardPage() {
               </button>
             </div>
 
-            {activeTrades.length > 0 && (
+            {displayedActiveTrades.length > 0 && (
               <div className="grid grid-cols-2 gap-4 mb-5 p-4 bg-zinc-950/20 border border-zinc-800/50 rounded-2xl">
                 <div>
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Deployed Margin</span>
                   <div className="text-sm font-extrabold text-zinc-200 mt-1 font-mono">
-                    {activeTrades.reduce((sum, t) => sum + (t.margin || 10.0), 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
+                    {displayedActiveTrades.reduce((sum, t) => sum + (t.margin || 10.0), 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
                   </div>
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Floating P&L</span>
                   <div className={`text-sm font-extrabold mt-1 font-mono ${
-                    activeTrades.reduce((sum, t) => {
+                    displayedActiveTrades.reduce((sum, t) => {
                       const currentPrice = livePrices[t.pair] || t.entry_price;
                       const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
                       return sum + pnl;
                     }, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
                   }`}>
-                    {activeTrades.reduce((sum, t) => {
+                    {displayedActiveTrades.reduce((sum, t) => {
                       const currentPrice = livePrices[t.pair] || t.entry_price;
                       const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
                       return sum + pnl;
                     }, 0) >= 0 ? '+' : ''}
-                    {activeTrades.reduce((sum, t) => {
+                    {displayedActiveTrades.reduce((sum, t) => {
                       const currentPrice = livePrices[t.pair] || t.entry_price;
                       const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
                       return sum + pnl;
@@ -559,7 +734,7 @@ export default function DashboardPage() {
               </div>
             )}
 
-            {activeTrades.length === 0 ? (
+            {displayedActiveTrades.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800/80 rounded-2xl">
                 <Layers className="w-8 h-8 text-zinc-600 mb-2" />
                 <p className="text-sm text-zinc-500 font-medium">No active positions open</p>
@@ -581,7 +756,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/50 text-sm">
-                    {activeTrades.map((trade) => {
+                    {displayedActiveTrades.map((trade) => {
                       const currentPrice = livePrices[trade.pair] || trade.entry_price;
                       const floatingPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
                       const isProfit = floatingPnl >= 0;
@@ -671,14 +846,14 @@ export default function DashboardPage() {
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6">
           <h3 className="text-lg font-bold text-zinc-200 mb-6">Recent Completed Trades</h3>
 
-          {recentTrades.length === 0 ? (
+          {displayedRecentTrades.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800/80 rounded-2xl">
               <HistoryIcon className="w-8 h-8 text-zinc-600 mb-2" />
               <p className="text-sm text-zinc-500 font-medium">No trade history yet</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {recentTrades.slice(0, 5).map((trade) => {
+              {displayedRecentTrades.slice(0, 5).map((trade) => {
                 const pnl = trade.pnl || 0;
                 const isWin = pnl >= 0;
                 return (
@@ -725,6 +900,10 @@ export default function DashboardPage() {
               })}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Close Right Column and 2-column Main Layout Grid */}
         </div>
       </div>
 

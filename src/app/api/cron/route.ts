@@ -571,7 +571,9 @@ async function handleCron() {
         if (!analysis || analysis.direction === 'NEUTRAL') continue;
 
         const { direction, rsi, macdLine, signalLine } = analysis;
-        const isPaper = strategyName !== currentStrategy;
+        const overrides = settings.pair_overrides || {};
+        const activeStrategies = overrides.ACTIVE_STRATEGIES || [currentStrategy];
+        const isPaper = !activeStrategies.includes(strategyName);
 
         logs.push(`Signal generated: ${pair} ${direction} via ${strategyName} (isPaper: ${isPaper})`);
 
@@ -588,9 +590,6 @@ async function handleCron() {
           logs.push(`Trade already open for ${pair} [Strategy: ${strategyName}, isPaper: ${isPaper}]. Skipping.`);
           continue;
         }
-
-        // Determine parameters (use overrides if configured in settings)
-        const overrides = settings.pair_overrides || {};
 
         // Cooldown check to prevent immediate re-entry after closing a trade
         const cooldownHours = overrides.GLOBAL_COOLDOWN_HOURS !== undefined ? parseFloat(overrides.GLOBAL_COOLDOWN_HOURS) : 0.0;
@@ -680,7 +679,7 @@ async function handleCron() {
               status: 'OPEN',
               leverage: activeLeverage,
               margin: activeRiskAmount,
-              binance_order_id: order.entryOrder.id,
+              binance_order_id: (isDemo ? 'DEMO_' : 'REAL_') + order.entryOrder.id,
               strategy: strategyName,
               is_paper: false,
             }]);
