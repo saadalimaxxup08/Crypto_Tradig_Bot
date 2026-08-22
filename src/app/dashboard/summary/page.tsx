@@ -88,13 +88,13 @@ export default function SummaryPage() {
     setStatusMsg({ type: '', text: '' });
 
     try {
-      const res = await fetch('/api/trades');
+      const res = await fetch(`/api/trades?strategy=${selectedStrategy}`);
       const data = await res.json();
       if (res.ok && data.success) {
-        const allTrades: Trade[] = data.trades || [];
+        const detailedTrades: Trade[] = data.detailedTrades || [];
         setLivePrices(data.livePrices || {});
-        setAllRawTrades(allTrades);
-        applyFilters(allTrades);
+        setAllRawTrades(detailedTrades);
+        applyFilters(detailedTrades);
       }
     } catch (err) {
       console.error('Failed to load summary:', err);
@@ -107,11 +107,11 @@ export default function SummaryPage() {
     if (allRawTrades.length > 0) {
       applyFilters(allRawTrades);
     }
-  }, [startDate, endDate, hourlyFilter]);
+  }, [startDate, endDate, hourlyFilter, selectedStrategy]);
 
   useEffect(() => {
     fetchSummaryTrades();
-  }, [startDate, endDate, hourlyFilter]);
+  }, [startDate, endDate, hourlyFilter, selectedStrategy]);
 
   // Set quick ranges
   const setRangeQuick = (rangeType: 'today' | 'yesterday' | '2days' | '3days' | '5days' | 'week' | 'month') => {

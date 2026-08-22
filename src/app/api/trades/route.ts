@@ -12,37 +12,52 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const targetStrategy = searchParams.get('strategy') || 'RSI_MACD';
+  const targetStrategy = searchParams.get('strategy') || '';
 
   try {
-    // 1. Fetch detailed trades for the target strategy (up to 5000 rows paginated)
     let detailedTrades: any[] = [];
-    let dPage = 0;
-    const dPageSize = 1000;
-    let dHasMore = true;
 
-    while (dHasMore && detailedTrades.length < 5000) {
+    if (targetStrategy) {
+      // 1. Fetch detailed trades for the target strategy (up to 5000 rows paginated)
+      let dPage = 0;
+      const dPageSize = 1000;
+      let dHasMore = true;
+
+      while (dHasMore && detailedTrades.length < 5000) {
+        const { data, error } = await supabase
+          .from('trades')
+          .select('*')
+          .eq('strategy', targetStrategy)
+          .order('timestamp', { ascending: false })
+          .range(dPage * dPageSize, (dPage + 1) * dPageSize - 1);
+
+        if (error) {
+          return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+
+        if (data && data.length > 0) {
+          detailedTrades = [...detailedTrades, ...data];
+          if (data.length < dPageSize) {
+            dHasMore = false;
+          } else {
+            dPage++;
+          }
+        } else {
+          dHasMore = false;
+        }
+      }
+    } else {
+      // Default behavior: fetch top 1000 trades across all strategies
       const { data, error } = await supabase
         .from('trades')
         .select('*')
-        .eq('strategy', targetStrategy)
         .order('timestamp', { ascending: false })
-        .range(dPage * dPageSize, (dPage + 1) * dPageSize - 1);
+        .limit(1000);
 
       if (error) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
-
-      if (data && data.length > 0) {
-        detailedTrades = [...detailedTrades, ...data];
-        if (data.length < dPageSize) {
-          dHasMore = false;
-        } else {
-          dPage++;
-        }
-      } else {
-        dHasMore = false;
-      }
+      detailedTrades = data || [];
     }
 
     // 2. Fetch light records of ALL trades in the database for the leaderboard (up to 30,000 rows paginated)
@@ -120,6 +135,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ 
       success: true, 
+      trades: detailedTrades,
       detailedTrades, 
       allRawTrades, 
       livePrices 
