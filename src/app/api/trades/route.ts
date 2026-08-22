@@ -12,15 +12,36 @@ export async function GET() {
   }
 
   try {
-    // 1. Fetch all trades from database
-    const { data: trades, error } = await supabase
-      .from('trades')
-      .select('*')
-      .order('timestamp', { ascending: false });
+    // 1. Fetch up to 5000 trades using pagination to bypass Supabase 1000 limit
+    let allTrades: any[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    let hasMore = true;
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    while (hasMore && allTrades.length < 5000) {
+      const { data, error } = await supabase
+        .from('trades')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      if (data && data.length > 0) {
+        allTrades = [...allTrades, ...data];
+        if (data.length < pageSize) {
+          hasMore = false;
+        } else {
+          page++;
+        }
+      } else {
+        hasMore = false;
+      }
     }
+
+    const trades = allTrades;
 
     const openTrades = trades?.filter((t) => t.status === 'OPEN') || [];
     const livePrices: Record<string, number> = {};
