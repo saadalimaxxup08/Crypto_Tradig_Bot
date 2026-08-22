@@ -440,32 +440,32 @@ export default function DashboardPage() {
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       
       {/* 2-column Main Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
         
         {/* Left Column: Strategies Sidebar Checklist */}
-        <div className="lg:col-span-1 bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 h-fit space-y-6">
+        <div className="lg:col-span-1 bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 h-fit space-y-4">
           <div>
-            <h3 className="text-sm font-bold text-zinc-200">Strategies Trigger</h3>
-            <p className="text-[10px] text-zinc-500 mt-1 font-medium leading-relaxed">
-              Tick strategies to execute live/demo trades. Unticked strategies run in the virtual Sandbox.
+            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Active Engines</h3>
+            <p className="text-[9px] text-zinc-500 mt-1 leading-relaxed">
+              Tick to run on Binance, untick to run in Sandbox.
             </p>
           </div>
-          <div className="space-y-2 max-h-[700px] overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
             {STRATEGIES_LIST.map((strat) => {
               const isTicked = activeStrategies.includes(strat.id);
               const isSelected = selectedStrategy === strat.id;
               return (
                 <div
                   key={strat.id}
-                  className={`flex items-center justify-between p-2.5 rounded-2xl transition-all duration-300 border ${
+                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all duration-200 text-[10px] font-bold ${
                     isSelected
-                      ? 'bg-emerald-950/20 border-emerald-500/30 text-white'
-                      : 'bg-zinc-900/10 border-zinc-800/30 text-zinc-400 hover:border-zinc-700/50 hover:text-zinc-200'
+                      ? 'bg-emerald-950/20 text-emerald-400 font-extrabold'
+                      : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
                   }`}
                 >
                   <button
                     onClick={() => setSelectedStrategy(strat.id)}
-                    className="flex-1 text-left text-[11px] font-bold uppercase tracking-wider cursor-pointer outline-none truncate mr-2"
+                    className="flex-1 text-left uppercase tracking-wider cursor-pointer outline-none truncate mr-2 font-mono"
                   >
                     {strat.name}
                   </button>
@@ -474,7 +474,7 @@ export default function DashboardPage() {
                       type="checkbox"
                       checked={isTicked}
                       onChange={() => handleToggleStrategy(strat.id)}
-                      className="w-4 h-4 border-2 border-zinc-700 rounded-md bg-zinc-900 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none transition-all duration-300 cursor-pointer accent-emerald-500"
+                      className="w-3.5 h-3.5 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none transition-all cursor-pointer accent-emerald-500"
                     />
                   </label>
                 </div>
@@ -484,7 +484,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right Column: Dashboard Panel details */}
-        <div className="lg:col-span-3 space-y-8">
+        <div className="lg:col-span-4 space-y-8">
 
           {/* Welcome & Global Toggle Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[#0c0c0f]/40 backdrop-blur-md border border-zinc-800/80 p-6 rounded-3xl">
