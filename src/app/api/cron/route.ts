@@ -299,6 +299,29 @@ async function handleCron() {
             logs.push(`Warning: Failed to fetch 1H candles for ${pair}: ${err.message}`);
           }
 
+          const pairOverrides = settings.pair_overrides || {};
+          const disabledStrats = pairOverrides[pair]?.disabled_strategies || [];
+
+          // Fetch 5m candles specifically for DOUBLE_EMA_5M
+          let ohlcv5m = ohlcv;
+          if (timeframe !== '5m' && !disabledStrats.includes('DOUBLE_EMA_5M')) {
+            try {
+              ohlcv5m = await exchange.fetchOHLCV(pair, '5m', undefined, 250);
+            } catch (err: any) {
+              logs.push(`Warning: Failed to fetch 5M candles for ${pair}: ${err.message}`);
+            }
+          }
+
+          // Fetch 15m candles specifically for DOUBLE_EMA_15M
+          let ohlcv15m = ohlcv;
+          if (timeframe !== '15m' && !disabledStrats.includes('DOUBLE_EMA_15M')) {
+            try {
+              ohlcv15m = await exchange.fetchOHLCV(pair, '15m', undefined, 250);
+            } catch (err: any) {
+              logs.push(`Warning: Failed to fetch 15M candles for ${pair}: ${err.message}`);
+            }
+          }
+
           const highs = ohlcv.map((candle: any) => candle[2]);
           const lows = ohlcv.map((candle: any) => candle[3]);
           const closePrices = ohlcv.map((candle: any) => candle[4]);
@@ -309,16 +332,17 @@ async function handleCron() {
           const currentAtr = atrList[atrList.length - 1] || 0;
           const atrPercent = currentPrice > 0 ? (currentAtr / currentPrice) * 100 : 0;
 
-          const pairOverrides = settings.pair_overrides || {};
-          const disabledStrats = pairOverrides[pair]?.disabled_strategies || [];
-
           const rsiMacdAnalysis = disabledStrats.includes('RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'RSI_MACD', undefined, pair);
           const bbRsiAnalysis = disabledStrats.includes('BOLLINGER_RSI') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI', undefined, pair);
           const bbRsiOptAnalysis = disabledStrats.includes('BOLLINGER_RSI_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'BOLLINGER_RSI_OPT', undefined, pair);
           const doubleEmaAnalysis = disabledStrats.includes('DOUBLE_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA', ohlcv1h as any, pair);
           const doubleEmaOptAnalysis = disabledStrats.includes('DOUBLE_EMA_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_OPT', ohlcv1h as any, pair);
-          const doubleEma5mAnalysis = disabledStrats.includes('DOUBLE_EMA_5M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_5M', ohlcv1h as any, pair);
-          const doubleEma15mAnalysis = disabledStrats.includes('DOUBLE_EMA_15M') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DOUBLE_EMA_15M', ohlcv1h as any, pair);
+          const doubleEma5mAnalysis = (disabledStrats.includes('DOUBLE_EMA_5M') || !ohlcv5m || ohlcv5m.length < 205) 
+            ? { signal: 'NEUTRAL' } 
+            : analyzeStrategy(ohlcv5m as any, 'DOUBLE_EMA_5M', ohlcv1h as any, pair);
+          const doubleEma15mAnalysis = (disabledStrats.includes('DOUBLE_EMA_15M') || !ohlcv15m || ohlcv15m.length < 205) 
+            ? { signal: 'NEUTRAL' } 
+            : analyzeStrategy(ohlcv15m as any, 'DOUBLE_EMA_15M', ohlcv1h as any, pair);
           const supertrendEmaAnalysis = disabledStrats.includes('SUPERTREND_EMA') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA', ohlcv1h as any, pair);
           const supertrendEmaOptAnalysis = disabledStrats.includes('SUPERTREND_EMA_OPT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'SUPERTREND_EMA_OPT', ohlcv1h as any, pair);
           const stochRsiMacdAnalysis = disabledStrats.includes('STOCH_RSI_MACD') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'STOCH_RSI_MACD', undefined, pair);
