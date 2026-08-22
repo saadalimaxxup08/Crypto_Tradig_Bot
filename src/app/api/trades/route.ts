@@ -89,10 +89,16 @@ export async function GET(request: Request) {
       }
     }
 
-    const openTrades = detailedTrades.filter((t) => t.status === 'OPEN');
+    // 3. Fetch all open trades in the database (across all strategies)
+    const { data: dbOpenTrades } = await supabase
+      .from('trades')
+      .select('*')
+      .eq('status', 'OPEN');
+      
+    const openTrades = dbOpenTrades || [];
     const livePrices: Record<string, number> = {};
 
-    // 3. Fetch live prices from Binance server-side as a reliable fallback
+    // 4. Fetch live prices from Binance server-side as a reliable fallback
     if (openTrades.length > 0) {
       try {
         const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
@@ -138,6 +144,7 @@ export async function GET(request: Request) {
       trades: detailedTrades,
       detailedTrades, 
       allRawTrades, 
+      openTrades,
       livePrices 
     });
   } catch (err: any) {

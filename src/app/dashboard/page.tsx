@@ -240,8 +240,9 @@ export default function DashboardPage() {
       if (tradesData.success) {
         const allDetailed: Trade[] = tradesData.detailedTrades || [];
         const liveTrades = allDetailed.filter((t) => !t.is_paper);
+        const allOpen: Trade[] = tradesData.openTrades || [];
         
-        setActiveTrades(liveTrades.filter((t) => t.status === 'OPEN'));
+        setActiveTrades(allOpen.filter((t) => !t.is_paper));
         setRecentTrades(liveTrades.filter((t) => t.status === 'CLOSED'));
 
         if (tradesData.livePrices) {
@@ -745,6 +746,7 @@ export default function DashboardPage() {
                   <thead>
                     <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                       <th className="pb-3">Pair</th>
+                      <th className="pb-3">Strategy</th>
                       <th className="pb-3 text-center">Direction</th>
                       <th className="pb-3 text-right">Entry Price</th>
                       <th className="pb-3 text-right">Live Price</th>
@@ -775,6 +777,9 @@ export default function DashboardPage() {
                       return (
                         <tr key={trade.id} className="group">
                           <td className="py-4 font-bold text-zinc-200">{trade.pair}</td>
+                          <td className="py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                            {STRATEGIES_LIST.find(s => s.id === trade.strategy)?.name || trade.strategy || 'RSI_MACD'}
+                          </td>
                           <td className="py-4 text-center">
                             <span
                               className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
