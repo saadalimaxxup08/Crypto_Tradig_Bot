@@ -1370,6 +1370,30 @@ export default function SandboxPage() {
             <span className="text-[9px] font-extrabold text-zinc-500 uppercase">by Balance</span>
           </div>
 
+          {/* Total Combined Simulated Balance */}
+          {(() => {
+            const totalSandboxBalance = leaderboard.reduce((sum, item) => sum + item.balance, 0);
+            const initialSandboxBalance = leaderboard.length * 100.0;
+            const profitOrLoss = totalSandboxBalance - initialSandboxBalance;
+            const isProfit = profitOrLoss >= 0;
+            return (
+              <div className="p-3.5 bg-zinc-950/50 border border-zinc-900 rounded-2xl flex items-center justify-between">
+                <div>
+                  <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block">Total Combined Balance</span>
+                  <span className="text-[10px] font-medium text-zinc-400">All {leaderboard.length} Strategies</span>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono font-extrabold text-zinc-200 text-sm block">
+                    {totalSandboxBalance.toFixed(2)} USDT
+                  </span>
+                  <span className={`text-[9px] font-extrabold font-mono ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {isProfit ? '+' : ''}{profitOrLoss.toFixed(2)} USDT
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="space-y-2 flex-grow overflow-y-auto max-h-[480px] pr-1">
             {leaderboard.map((item, idx) => {
               const displayName = item.strategy === 'RSI_MACD'
