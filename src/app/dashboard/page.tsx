@@ -77,6 +77,9 @@ export default function DashboardPage() {
 
   const [selectedStrategy, setSelectedStrategy] = useState<string>('');
   const [activeStrategies, setActiveStrategies] = useState<string[]>([]);
+  const [draftActiveStrategies, setDraftActiveStrategies] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isSavingStrategies, setIsSavingStrategies] = useState<boolean>(false);
 
   const STRATEGIES_LIST = [
     { id: 'RSI_MACD', name: 'RSI + MACD Trend' },
@@ -107,18 +110,22 @@ export default function DashboardPage() {
     { id: 'COMBINATION_STRATEGIES', name: 'Combo Strategies' },
   ];
 
-  const handleToggleStrategy = async (strategyId: string) => {
-    let updatedActive = [...activeStrategies];
+  const handleToggleStrategyDraft = (strategyId: string) => {
+    let updatedActive = [...draftActiveStrategies];
     if (updatedActive.includes(strategyId)) {
-      if (updatedActive.length <= 1) {
-        alert('You must keep at least one strategy active for live/demo trading!');
-        return;
-      }
       updatedActive = updatedActive.filter((s) => s !== strategyId);
     } else {
       updatedActive.push(strategyId);
     }
+    setDraftActiveStrategies(updatedActive);
+  };
 
+  const handleSaveActiveStrategies = async () => {
+    if (draftActiveStrategies.length === 0) {
+      alert('You must select at least one active strategy!');
+      return;
+    }
+    setIsSavingStrategies(true);
     try {
       const settingsRes = await fetch('/api/settings');
       const currentSettings = await settingsRes.json();
@@ -128,7 +135,7 @@ export default function DashboardPage() {
         ...currentSettings,
         pair_overrides: {
           ...pairOverrides,
-          ACTIVE_STRATEGIES: updatedActive,
+          ACTIVE_STRATEGIES: draftActiveStrategies,
         },
       };
 
@@ -139,15 +146,20 @@ export default function DashboardPage() {
       });
 
       if (res.ok) {
-        setActiveStrategies(updatedActive);
+        setActiveStrategies(draftActiveStrategies);
         confetti({
-          particleCount: 40,
-          spread: 50,
+          particleCount: 50,
+          spread: 60,
           origin: { y: 0.8 },
         });
+      } else {
+        alert('Failed to save configuration.');
       }
     } catch (err) {
-      console.error('Failed to toggle strategy:', err);
+      console.error('Failed to save strategy config:', err);
+      alert('Error saving strategy configuration.');
+    } finally {
+      setIsSavingStrategies(false);
     }
   };
 
@@ -221,6 +233,7 @@ export default function DashboardPage() {
       if (settingsRes.ok) {
         activeStrats = settingsData.pair_overrides?.ACTIVE_STRATEGIES || [settingsData.active_strategy || 'RSI_MACD'];
         setActiveStrategies(activeStrats);
+        setDraftActiveStrategies(activeStrats);
         defaultStrat = settingsData.active_strategy || 'RSI_MACD';
       }
 
@@ -436,6 +449,13 @@ export default function DashboardPage() {
     );
   }
 
+  const filteredStrategies = STRATEGIES_LIST.filter((strat) =>
+    strat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    strat.id.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const hasUnsavedChanges = JSON.stringify([...draftActiveStrategies].sort()) !== JSON.stringify([...activeStrategies].sort());
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       
@@ -450,9 +470,21 @@ export default function DashboardPage() {
               Tick to run on Binance, untick to run in Sandbox.
             </p>
           </div>
-          <div className="space-y-1.5 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
-            {STRATEGIES_LIST.map((strat) => {
-              const isTicked = activeStrategies.includes(strat.id);
+
+          {/* Search Box */}
+          <div>
+            <input
+              type="text"
+              placeholder="🔍 Search strategy..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-3 py-2 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-700/80 transition-all font-mono"
+            />
+          </div>
+
+          <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
+            {filteredStrategies.map((strat) => {
+              const isTicked = draftActiveStrategies.includes(strat.id);
               const isSelected = selectedStrategy === strat.id;
               return (
                 <div
@@ -473,14 +505,32 @@ export default function DashboardPage() {
                     <input
                       type="checkbox"
                       checked={isTicked}
-                      onChange={() => handleToggleStrategy(strat.id)}
+                      onChange={() => handleToggleStrategyDraft(strat.id)}
                       className="w-3.5 h-3.5 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none transition-all cursor-pointer accent-emerald-500"
                     />
                   </label>
                 </div>
               );
             })}
+            {filteredStrategies.length === 0 && (
+              <div className="text-[10px] text-zinc-650 italic text-center py-4">
+                No matching engines
+              </div>
+            )}
           </div>
+
+          {/* Save Button for Draft Config */}
+          {hasUnsavedChanges && (
+            <div className="pt-2 border-t border-zinc-800/60">
+              <button
+                onClick={handleSaveActiveStrategies}
+                disabled={isSavingStrategies}
+                className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-xl transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer disabled:opacity-50"
+              >
+                {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Right Column: Dashboard Panel details */}
