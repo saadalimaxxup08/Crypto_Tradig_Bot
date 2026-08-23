@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Play,
+  ShieldAlert,
   Square,
   TrendingUp,
   Percent,
@@ -62,6 +63,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isTogglingBot, setIsTogglingBot] = useState(false);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
+  const [isClosingAll, setIsClosingAll] = useState(false);
 
   // Live price states via WebSocket
   const [livePrices, setLivePrices] = useState<{ [symbol: string]: number }>({});
@@ -361,6 +363,29 @@ export default function DashboardPage() {
     }
   };
 
+  const handleEmergencyCloseAll = async () => {
+    const confirmClose = window.confirm("⚠️ ARE YOU ABSOLUTELY SURE?\n\nThis will instantly close all open positions on Binance Futures, cancel all pending orders, and mark all active trades in the database as CLOSED!");
+    if (!confirmClose) return;
+
+    setIsClosingAll(true);
+    try {
+      const res = await fetch('/api/trades/close-all', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert("🚨 EMERGENCY RESET COMPLETE!\n\nAll live positions closed and database trades resolved successfully.");
+        window.location.reload();
+      } else {
+        alert(`❌ EMERGENCY CLOSE FAILED: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`❌ EMERGENCY CLOSE ERROR: ${err.message}`);
+    } finally {
+      setIsClosingAll(false);
+    }
+  };
+
   const closePosition = async (tradeId: string, isProfitable: boolean) => {
     if (closingTradeId) return;
     setClosingTradeId(tradeId);
@@ -635,6 +660,16 @@ export default function DashboardPage() {
                 <span>BOT STOPPED</span>
               </>
             )}
+          </button>
+
+          <button
+            onClick={handleEmergencyCloseAll}
+            disabled={isClosingAll}
+            className="flex items-center gap-2 px-5 py-3 bg-red-950/30 hover:bg-red-900/40 border border-red-900/50 rounded-2xl text-xs font-bold uppercase tracking-wider text-red-400 hover:text-red-300 transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
+            title="Instantly close all open positions on Binance and reset database trades"
+          >
+            <ShieldAlert className="w-4 h-4 text-red-400" />
+            <span>{isClosingAll ? 'Closing All...' : 'Emergency Close'}</span>
           </button>
         </div>
       </div>
