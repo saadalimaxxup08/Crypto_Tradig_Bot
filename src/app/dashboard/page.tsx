@@ -19,6 +19,7 @@ import {
   FlaskConical,
   Eye,
   X,
+  Search,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -67,6 +68,7 @@ export default function DashboardPage() {
   const [binancePositions, setBinancePositions] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'db' | 'binance' | 'chart'>('binance');
   const [isClosingBinanceSymbol, setIsClosingBinanceSymbol] = useState<string | null>(null);
+  const [positionsSearchQuery, setPositionsSearchQuery] = useState('');
 
   // Live price states via WebSocket
   const [livePrices, setLivePrices] = useState<{ [symbol: string]: number }>({});
@@ -887,6 +889,33 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Search and Action Bar */}
+            {activeTab !== 'chart' && (
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-5 pb-4 border-b border-zinc-850">
+                <div className="relative flex-1 max-w-[280px]">
+                  <input
+                    type="text"
+                    placeholder="Search symbol (e.g. BTC)..."
+                    value={positionsSearchQuery}
+                    onChange={(e) => setPositionsSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 bg-zinc-950/65 hover:bg-zinc-950 border border-zinc-800 focus:border-zinc-700 focus:outline-none rounded-xl text-xs text-zinc-300 placeholder-zinc-500 transition-all font-semibold"
+                  />
+                  <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                </div>
+                
+                {activeTab === 'binance' && binancePositions.length > 0 && (
+                  <button
+                    onClick={handleEmergencyCloseAll}
+                    disabled={isClosingAll}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-red-950/40 hover:bg-red-900/50 border border-red-900/60 rounded-xl text-xs font-bold uppercase tracking-wider text-red-400 hover:text-red-300 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    <ShieldAlert className="w-4 h-4" />
+                    <span>Close All ({binancePositions.length})</span>
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* TAB: BINANCE POSITIONS */}
             {activeTab === 'binance' && (
               <div>
@@ -911,10 +940,12 @@ export default function DashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-800/50 text-sm">
-                        {binancePositions.map((pos) => {
-                          const pnl = pos.unrealizedPnl;
-                          const isProfit = pnl >= 0;
-                          return (
+                        {binancePositions
+                          .filter((pos) => pos.pair.toUpperCase().includes(positionsSearchQuery.toUpperCase()))
+                          .map((pos) => {
+                            const pnl = pos.unrealizedPnl;
+                            const isProfit = pnl >= 0;
+                            return (
                             <tr key={pos.symbol} className="group">
                               <td className="py-4 font-bold text-zinc-200">{pos.pair}</td>
                               <td className="py-4 text-center">
@@ -1023,10 +1054,12 @@ export default function DashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-zinc-800/50 text-sm">
-                        {displayedActiveTrades.map((trade) => {
-                          const currentPrice = livePrices[trade.pair] || trade.entry_price;
-                          const floatingPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
-                          const isProfit = floatingPnl >= 0;
+                        {displayedActiveTrades
+                          .filter((trade) => trade.pair.toUpperCase().includes(positionsSearchQuery.toUpperCase()))
+                          .map((trade) => {
+                            const currentPrice = livePrices[trade.pair] || trade.entry_price;
+                            const floatingPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
+                            const isProfit = floatingPnl >= 0;
 
                           const flashClass =
                             priceDirections[trade.pair] === 'up'
