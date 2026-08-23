@@ -64,6 +64,9 @@ export default function DashboardPage() {
   const [isTogglingBot, setIsTogglingBot] = useState(false);
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
   const [isClosingAll, setIsClosingAll] = useState(false);
+  const [binancePositions, setBinancePositions] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'db' | 'binance' | 'chart'>('binance');
+  const [isClosingBinanceSymbol, setIsClosingBinanceSymbol] = useState<string | null>(null);
 
   // Live price states via WebSocket
   const [livePrices, setLivePrices] = useState<{ [symbol: string]: number }>({});
@@ -258,6 +261,12 @@ export default function DashboardPage() {
         setActiveTrades(allOpen.filter((t) => !t.is_paper));
         setRecentTrades(liveTrades.filter((t) => t.status === 'CLOSED'));
 
+        if (tradesData.binancePositions) {
+          setBinancePositions(tradesData.binancePositions);
+        } else {
+          setBinancePositions([]);
+        }
+
         if (tradesData.livePrices) {
           setLivePrices((prev) => ({ ...prev, ...tradesData.livePrices }));
         }
@@ -384,6 +393,46 @@ export default function DashboardPage() {
     } finally {
       setIsClosingAll(false);
     }
+  };
+
+  const handleCloseBinancePosition = async (symbol: string) => {
+    const confirmClose = window.confirm(`Are you sure you want to CLOSE the active position for ${symbol} on Binance and cancel any associated open orders?`);
+    if (!confirmClose) return;
+
+    setIsClosingBinanceSymbol(symbol);
+    try {
+      const res = await fetch('/api/trades/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`Successfully closed position for ${symbol}!`);
+        fetchDashboardData();
+      } else {
+        alert(`Failed to close position: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Error closing position: ${err.message}`);
+    } finally {
+      setIsClosingBinanceSymbol(null);
+    }
+  };
+
+  const renderTradingViewChart = () => {
+    const symbolToUse = selectedChartSymbol || (binancePositions[0]?.pair || 'BTCUSDT');
+    const tradingViewSymbol = `BINANCE:${symbolToUse}`.replace('USDTUSDT', 'USDT');
+    
+    return (
+      <div className="w-full h-[450px] bg-zinc-950/40 border border-zinc-800 rounded-3xl overflow-hidden relative mt-4 shadow-inner">
+        <iframe
+          title="TradingView Chart"
+          src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_chart&symbol=${tradingViewSymbol}&interval=15&hidesidetoolbar=1&symboledit=0&saveimage=1&toolbarbg=f1f3f6&studies=%5B%5D&theme=dark&style=1&timezone=exchange&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=localhost&utm_medium=widget&utm_campaign=chart-embed`}
+          className="w-full h-full border-0"
+        />
+      </div>
+    );
   };
 
   const closePosition = async (tradeId: string, isProfitable: boolean) => {
@@ -792,155 +841,284 @@ export default function DashboardPage() {
         {/* Open Positions List */}
         <div className="lg:col-span-2 bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 flex flex-col justify-between">
           <div>
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-bold text-zinc-200">Active Positions</h3>
-              <button
-                onClick={fetchDashboardData}
-                className="p-1.5 hover:bg-zinc-800/60 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
+            <div className="flex flex-wrap justify-between items-center gap-4 mb-6 border-b border-zinc-800/60 pb-4">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-bold text-zinc-200">Active Account Tracking</h3>
+                <button
+                  onClick={fetchDashboardData}
+                  className="p-1.5 hover:bg-zinc-800/60 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex bg-zinc-950/80 border border-zinc-800/80 p-1 rounded-xl">
+                <button
+                  onClick={() => setActiveTab('binance')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'binance'
+                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  Binance Wallet ({binancePositions.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('db')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'db'
+                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  DB Managed ({displayedActiveTrades.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('chart')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'chart'
+                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  Interactive Chart
+                </button>
+              </div>
             </div>
 
-            {displayedActiveTrades.length > 0 && (
-              <div className="grid grid-cols-2 gap-4 mb-5 p-4 bg-zinc-950/20 border border-zinc-800/50 rounded-2xl">
-                <div>
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Deployed Margin</span>
-                  <div className="text-sm font-extrabold text-zinc-200 mt-1 font-mono">
-                    {displayedActiveTrades.reduce((sum, t) => sum + (t.margin || 10.0), 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
+            {/* TAB: BINANCE POSITIONS */}
+            {activeTab === 'binance' && (
+              <div>
+                {binancePositions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 border border-dashed border-zinc-800/80 rounded-2xl">
+                    <Layers className="w-8 h-8 text-zinc-600 mb-2" />
+                    <p className="text-sm text-zinc-500 font-medium">No active positions open on Binance Futures</p>
                   </div>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Floating P&L</span>
-                  <div className={`text-sm font-extrabold mt-1 font-mono ${
-                    displayedActiveTrades.reduce((sum, t) => {
-                      const currentPrice = livePrices[t.pair] || t.entry_price;
-                      const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-                      return sum + pnl;
-                    }, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
-                  }`}>
-                    {displayedActiveTrades.reduce((sum, t) => {
-                      const currentPrice = livePrices[t.pair] || t.entry_price;
-                      const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-                      return sum + pnl;
-                    }, 0) >= 0 ? '+' : ''}
-                    {displayedActiveTrades.reduce((sum, t) => {
-                      const currentPrice = livePrices[t.pair] || t.entry_price;
-                      const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-                      return sum + pnl;
-                    }, 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                          <th className="pb-3">Symbol</th>
+                          <th className="pb-3 text-center">Direction</th>
+                          <th className="pb-3 text-right">Size</th>
+                          <th className="pb-3 text-right">Entry Price</th>
+                          <th className="pb-3 text-right">Mark Price</th>
+                          <th className="pb-3 text-right">Unrealized P&L</th>
+                          <th className="pb-3 text-right">Leverage</th>
+                          <th className="pb-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/50 text-sm">
+                        {binancePositions.map((pos) => {
+                          const pnl = pos.unrealizedPnl;
+                          const isProfit = pnl >= 0;
+                          return (
+                            <tr key={pos.symbol} className="group">
+                              <td className="py-4 font-bold text-zinc-200">{pos.pair}</td>
+                              <td className="py-4 text-center">
+                                <span
+                                  className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
+                                    pos.side === 'LONG'
+                                      ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+                                      : 'bg-red-950/20 border-red-900/50 text-red-400'
+                                  }`}
+                                >
+                                  {pos.side}
+                                </span>
+                              </td>
+                              <td className="py-4 text-right font-mono font-medium">{pos.contracts.toFixed(3)}</td>
+                              <td className="py-4 text-right font-mono">{pos.entryPrice.toFixed(4)}</td>
+                              <td className="py-4 text-right font-mono">{pos.markPrice.toFixed(4)}</td>
+                              <td className="py-4 text-right font-mono font-bold">
+                                <span className={isProfit ? 'text-emerald-400' : 'text-red-400'}>
+                                  {isProfit ? '+' : ''}{pnl.toFixed(2)} USDT
+                                </span>
+                              </td>
+                              <td className="py-4 text-right font-mono text-zinc-400">{pos.leverage}x</td>
+                              <td className="py-4 text-right flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => {
+                                    setSelectedChartSymbol(pos.pair);
+                                    setActiveTab('chart');
+                                  }}
+                                  className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-950/20 rounded-lg transition-colors cursor-pointer"
+                                  title="View Live Chart"
+                                >
+                                  <Eye className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={() => handleCloseBinancePosition(pos.symbol)}
+                                  disabled={isClosingBinanceSymbol === pos.symbol}
+                                  className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                  title="Market Close Position on Binance"
+                                >
+                                  <XCircle className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
-            {displayedActiveTrades.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800/80 rounded-2xl">
-                <Layers className="w-8 h-8 text-zinc-600 mb-2" />
-                <p className="text-sm text-zinc-500 font-medium">No active positions open</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                      <th className="pb-3">Pair</th>
-                      <th className="pb-3">Strategy</th>
-                      <th className="pb-3 text-center">Direction</th>
-                      <th className="pb-3 text-right">Entry Price</th>
-                      <th className="pb-3 text-right">Live Price</th>
-                      <th className="pb-3 text-right">Live P&L</th>
-                      <th className="pb-3 text-right">SL / TP</th>
-                      <th className="pb-3 text-right">Leverage</th>
-                      <th className="pb-3 text-right">Margin / Size</th>
-                      <th className="pb-3 text-right">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/50 text-sm">
-                    {displayedActiveTrades.map((trade) => {
-                      const currentPrice = livePrices[trade.pair] || trade.entry_price;
-                      const floatingPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
-                      const isProfit = floatingPnl >= 0;
+            {/* TAB: DB MANAGED TRADES */}
+            {activeTab === 'db' && (
+              <div>
+                {displayedActiveTrades.length > 0 && (
+                  <div className="grid grid-cols-2 gap-4 mb-5 p-4 bg-zinc-950/20 border border-zinc-800/50 rounded-2xl">
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Deployed Margin</span>
+                      <div className="text-sm font-extrabold text-zinc-200 mt-1 font-mono">
+                        {displayedActiveTrades.reduce((sum, t) => sum + (t.margin || 10.0), 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Floating P&L</span>
+                      <div className={`text-sm font-extrabold mt-1 font-mono ${
+                        displayedActiveTrades.reduce((sum, t) => {
+                          const currentPrice = livePrices[t.pair] || t.entry_price;
+                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                          return sum + pnl;
+                        }, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+                      }`}>
+                        {displayedActiveTrades.reduce((sum, t) => {
+                          const currentPrice = livePrices[t.pair] || t.entry_price;
+                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                          return sum + pnl;
+                        }, 0) >= 0 ? '+' : ''}
+                        {displayedActiveTrades.reduce((sum, t) => {
+                          const currentPrice = livePrices[t.pair] || t.entry_price;
+                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                          return sum + pnl;
+                        }, 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-                      const flashClass =
-                        priceDirections[trade.pair] === 'up'
-                          ? 'text-emerald-400 bg-emerald-950/15'
-                          : priceDirections[trade.pair] === 'down'
-                          ? 'text-red-400 bg-red-950/15'
-                          : 'text-zinc-200';
-
-                      const margin = trade.margin || 10.0;
-                      const leverage = trade.leverage || 20;
-                      const notionalSize = trade.entry_price * trade.amount;
-
-                      return (
-                        <tr key={trade.id} className="group">
-                          <td className="py-4 font-bold text-zinc-200">{trade.pair}</td>
-                          <td className="py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                            {STRATEGIES_LIST.find(s => s.id === trade.strategy)?.name || trade.strategy || 'RSI_MACD'}
-                          </td>
-                          <td className="py-4 text-center">
-                            <span
-                              className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
-                                trade.direction === 'LONG'
-                                  ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                                  : 'bg-red-950/20 border-red-900/50 text-red-400'
-                              }`}
-                            >
-                              {trade.direction}
-                            </span>
-                          </td>
-                          <td className="py-4 text-right font-mono font-medium">
-                            {trade.entry_price.toFixed(4)}
-                          </td>
-                          <td className="py-4 text-right font-mono font-bold">
-                            <span className={`px-2 py-0.5 rounded transition-all duration-300 ${flashClass}`}>
-                              {currentPrice.toFixed(4)}
-                            </span>
-                          </td>
-                          <td className="py-4 text-right font-mono font-bold">
-                            <span className={isProfit ? 'text-emerald-400' : 'text-red-400'}>
-                              {isProfit ? '+' : ''}
-                              {floatingPnl.toFixed(2)} USDT
-                            </span>
-                          </td>
-                          <td className="py-4 text-right text-xs space-y-0.5">
-                            <div className="font-mono text-red-400/80 font-medium">
-                              SL: {trade.sl_price.toFixed(4)}
-                            </div>
-                            <div className="font-mono text-emerald-400/80 font-medium">
-                              TP: {trade.tp_price.toFixed(4)}
-                            </div>
-                          </td>
-                          <td className="py-4 text-right font-mono font-bold text-emerald-400">
-                            {leverage}x
-                          </td>
-                          <td className="py-4 text-right font-mono text-zinc-300">
-                            <div className="text-zinc-200 font-bold">{notionalSize.toFixed(2)} USDT</div>
-                            <div className="text-[10px] text-zinc-500 font-medium">Margin: {margin.toFixed(1)} USDT</div>
-                          </td>
-                           <td className="py-4 text-right flex items-center justify-end gap-1">
-                             <button
-                               onClick={() => setSelectedChartSymbol(trade.pair)}
-                               className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-950/20 rounded-lg transition-colors cursor-pointer"
-                               title="View Live Chart"
-                             >
-                               <Eye className="w-5 h-5" />
-                             </button>
-                             <button
-                               onClick={() => closePosition(trade.id, isProfit)}
-                               disabled={closingTradeId === trade.id}
-                               className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
-                               title="Force Manual Close"
-                             >
-                               <XCircle className="w-5 h-5" />
-                             </button>
-                           </td>
+                {displayedActiveTrades.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 border border-dashed border-zinc-800/80 rounded-2xl">
+                    <Layers className="w-8 h-8 text-zinc-600 mb-2" />
+                    <p className="text-sm text-zinc-500 font-medium">No bot trades registered in database</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                          <th className="pb-3">Pair</th>
+                          <th className="pb-3">Strategy</th>
+                          <th className="pb-3 text-center">Direction</th>
+                          <th className="pb-3 text-right">Entry Price</th>
+                          <th className="pb-3 text-right">Live Price</th>
+                          <th className="pb-3 text-right">Live P&L</th>
+                          <th className="pb-3 text-right">SL / TP</th>
+                          <th className="pb-3 text-right">Actions</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/50 text-sm">
+                        {displayedActiveTrades.map((trade) => {
+                          const currentPrice = livePrices[trade.pair] || trade.entry_price;
+                          const floatingPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
+                          const isProfit = floatingPnl >= 0;
+
+                          const flashClass =
+                            priceDirections[trade.pair] === 'up'
+                              ? 'text-emerald-400 bg-emerald-950/15'
+                              : priceDirections[trade.pair] === 'down'
+                              ? 'text-red-400 bg-red-950/15'
+                              : 'text-zinc-200';
+
+                          return (
+                            <tr key={trade.id} className="group">
+                              <td className="py-4 font-bold text-zinc-200">{trade.pair}</td>
+                              <td className="py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                                {STRATEGIES_LIST.find(s => s.id === trade.strategy)?.name || trade.strategy || 'RSI_MACD'}
+                              </td>
+                              <td className="py-4 text-center">
+                                <span
+                                  className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
+                                    trade.direction === 'LONG'
+                                      ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+                                      : 'bg-red-950/20 border-red-900/50 text-red-400'
+                                  }`}
+                                >
+                                  {trade.direction}
+                                </span>
+                              </td>
+                              <td className="py-4 text-right font-mono">{trade.entry_price.toFixed(4)}</td>
+                              <td className="py-4 text-right font-mono font-bold">
+                                <span className={`px-2 py-0.5 rounded transition-all duration-300 ${flashClass}`}>
+                                  {currentPrice.toFixed(4)}
+                                </span>
+                              </td>
+                              <td className="py-4 text-right font-mono font-bold">
+                                <span className={isProfit ? 'text-emerald-400' : 'text-red-400'}>
+                                  {isProfit ? '+' : ''}{floatingPnl.toFixed(2)} USDT
+                                </span>
+                              </td>
+                              <td className="py-4 text-right text-xs space-y-0.5">
+                                <div className="font-mono text-red-400/80 font-medium">SL: {trade.sl_price.toFixed(4)}</div>
+                                <div className="font-mono text-emerald-400/80 font-medium">TP: {trade.tp_price.toFixed(4)}</div>
+                              </td>
+                              <td className="py-4 text-right flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => {
+                                    setSelectedChartSymbol(trade.pair);
+                                    setActiveTab('chart');
+                                  }}
+                                  className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-950/20 rounded-lg transition-colors cursor-pointer"
+                                  title="View Live Chart"
+                                >
+                                  <Eye className="w-5 h-5" />
+                                </button>
+                                <button
+                                  onClick={() => closePosition(trade.id, isProfit)}
+                                  disabled={closingTradeId === trade.id}
+                                  className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
+                                  title="Force Manual Close"
+                                >
+                                  <XCircle className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: INTERACTIVE CHART */}
+            {activeTab === 'chart' && (
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Active Chart:</span>
+                  <select
+                    value={selectedChartSymbol || (binancePositions[0]?.pair || 'BTCUSDT')}
+                    onChange={(e) => setSelectedChartSymbol(e.target.value)}
+                    className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-zinc-300 outline-none cursor-pointer"
+                  >
+                    {binancePositions.length > 0 ? (
+                      binancePositions.map((pos) => (
+                        <option key={pos.symbol} value={pos.pair}>{pos.pair}</option>
+                      ))
+                    ) : (
+                      ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'TRXUSDT', 'XRPUSDT', 'LTCUSDT', 'XLMUSDT', 'ADAUSDT', 'LINKUSDT'].map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))
+                    )}
+                  </select>
+                </div>
+                {renderTradingViewChart()}
               </div>
             )}
           </div>

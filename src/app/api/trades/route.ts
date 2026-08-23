@@ -98,32 +98,42 @@ export async function GET(request: Request) {
     const openTrades = dbOpenTrades || [];
     const livePrices: Record<string, number> = {};
 
-    // 4. Fetch live prices from Binance server-side as a reliable fallback
-    if (openTrades.length > 0) {
-      try {
-        const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
-        if (settings) {
-          const isDemo = settings.trading_mode === 'DEMO';
-          const demoKey = settings.binance_demo_api_key || settings.binance_api_key || '';
-          const demoSecret = settings.binance_demo_secret_key || settings.binance_secret_key || '';
-          const realKey = settings.binance_real_api_key || '';
-          const realSecret = settings.binance_real_secret_key || '';
+    // 4. Fetch live prices and actual Binance positions
+    let binancePositions: any[] = [];
+    try {
+      const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
+      if (settings) {
+        const isDemo = settings.trading_mode === 'DEMO';
+        const demoKey = settings.binance_demo_api_key || settings.binance_api_key || '';
+        const demoSecret = settings.binance_demo_secret_key || settings.binance_secret_key || '';
+        const realKey = settings.binance_real_api_key || '';
+        const realSecret = settings.binance_real_secret_key || '';
 
-          const apiKey = isDemo ? demoKey : realKey;
-          const secretKey = isDemo ? demoSecret : realSecret;
+        const apiKey = isDemo ? demoKey : realKey;
+        const secretKey = isDemo ? demoSecret : realSecret;
 
-          if (apiKey && secretKey) {
-            const exchange = getBinanceClient(apiKey, secretKey, isDemo);
+        if (apiKey && secretKey) {
+          const exchange = getBinanceClient(apiKey, secretKey, isDemo);
+          
+          // Fetch positions
+          const allPositions = await exchange.fetchPositions();
+          binancePositions = allPositions
+            .filter((p: any) => Math.abs(parseFloat(p.contracts || p.positionAmt || 0)) > 0)
+            .map((p: any) => ({
+              symbol: p.symbol,
+              pair: p.symbol.includes('/') ? p.symbol.split('/')[0] + 'USDT' : p.symbol,
+              contracts: Math.abs(parseFloat(p.contracts || p.positionAmt || 0)),
+              side: parseFloat(p.contracts || p.positionAmt || 0) > 0 ? 'LONG' : 'SHORT',
+              entryPrice: parseFloat(p.entryPrice || 0),
+              markPrice: parseFloat(p.markPrice || 0),
+              unrealizedPnl: parseFloat(p.unrealizedPnl || 0),
+              leverage: parseInt(p.leverage || 20)
+            }));
+
+          // Fetch prices for fallback
+          if (openTrades.length > 0) {
             const pairs = Array.from(new Set(openTrades.map((t) => t.pair)));
-            
-            // Format to CCXT futures symbol e.g., XRP/USDT:USDT
-            const ccxtSymbols = pairs.map(p => {
-              if (p.endsWith('USDT')) {
-                return `${p.slice(0, -4)}/USDT:USDT`;
-              }
-              return p;
-            });
-
+            const ccxtSymbols = pairs.map(p => p.endsWith('USDT') ? `${p.slice(0, -4)}/USDT:USDT` : p);
             const tickers = await exchange.fetchTickers(ccxtSymbols);
             pairs.forEach(p => {
               const ccxtSym = p.endsWith('USDT') ? `${p.slice(0, -4)}/USDT:USDT` : p;
@@ -134,9 +144,9 @@ export async function GET(request: Request) {
             });
           }
         }
-      } catch (err: any) {
-        console.error('Server-side price fallback fetch failed:', err.message);
       }
+    } catch (err: any) {
+      console.error('Binance API fetch failed inside trades endpoint:', err.message);
     }
 
     return NextResponse.json({ 
@@ -145,7 +155,8 @@ export async function GET(request: Request) {
       detailedTrades, 
       allRawTrades, 
       openTrades,
-      livePrices 
+      livePrices,
+      binancePositions
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

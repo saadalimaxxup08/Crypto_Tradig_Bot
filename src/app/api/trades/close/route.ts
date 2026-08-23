@@ -11,12 +11,77 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { tradeId } = await request.json();
-    if (!tradeId) {
-      return NextResponse.json({ error: 'Trade ID is required' }, { status: 400 });
+    const { tradeId, symbol } = await request.json();
+    if (!tradeId && !symbol) {
+      return NextResponse.json({ error: 'Trade ID or Symbol is required' }, { status: 400 });
     }
 
-    // 1. Fetch trade details from Supabase
+    // 1. Fetch Binance credentials from settings
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    if (!settings) {
+      return NextResponse.json({ error: 'Settings not found' }, { status: 400 });
+    }
+
+    const isDemo = (settings.trading_mode || 'DEMO') === 'DEMO';
+    const binance_api_key = isDemo 
+      ? (settings.binance_demo_api_key || settings.binance_api_key || '')
+      : (settings.binance_real_api_key || '');
+    const binance_secret_key = isDemo 
+      ? (settings.binance_demo_secret_key || settings.binance_secret_key || '')
+      : (settings.binance_real_secret_key || '');
+
+    if (!binance_api_key || !binance_secret_key) {
+      return NextResponse.json({ error: 'Binance API credentials missing in settings' }, { status: 400 });
+    }
+
+    const exchange = getBinanceClient(binance_api_key, binance_secret_key, isDemo);
+
+    // --- CASE A: DIRECT SYMBOL CLOSURE (Orphaned positions) ---
+    if (symbol) {
+      const positions = await exchange.fetchPositions();
+      const pos = positions.find((p: any) => p.symbol === symbol || p.symbol.replace('/USDT:USDT', 'USDT') === symbol);
+      if (!pos) {
+        return NextResponse.json({ error: `Active position for ${symbol} not found on Binance` }, { status: 404 });
+      }
+
+      const amount = Math.abs(parseFloat((pos as any).contracts || (pos as any).positionAmt || 0));
+      const direction = parseFloat((pos as any).contracts || (pos as any).positionAmt || 0) > 0 ? 'LONG' : 'SHORT';
+
+      if (amount <= 0) {
+        return NextResponse.json({ error: 'Position is already closed' }, { status: 400 });
+      }
+
+      console.log(`Directly closing Binance position for ${symbol}: size ${amount}`);
+      const closeOrder = await closeActivePosition(exchange, (pos as any).symbol, direction, amount);
+
+      // Resolve any corresponding OPEN trades in the DB for this pair
+      const pairName = (pos as any).symbol.includes('/') ? (pos as any).symbol.split('/')[0] + 'USDT' : (pos as any).symbol;
+      const { data: dbOpenTrades } = await supabase
+        .from('trades')
+        .select('id')
+        .eq('pair', pairName)
+        .eq('status', 'OPEN');
+
+      if (dbOpenTrades && dbOpenTrades.length > 0) {
+        await supabase
+          .from('trades')
+          .update({
+            status: 'CLOSED',
+            closed_at: new Date().toISOString(),
+          })
+          .in('id', dbOpenTrades.map((t) => t.id));
+      }
+
+      return NextResponse.json({ success: true, symbol, amount, direction, closeOrder });
+    }
+
+    // --- CASE B: DATABASE TRADE ID CLOSURE (Standard trades) ---
+    // Fetch trade details from Supabase
     const { data: trade, error: tradeErr } = await supabase
       .from('trades')
       .select('*')
@@ -31,37 +96,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Trade is already closed' }, { status: 400 });
     }
 
-    // 2. Fetch Binance credentials from settings
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('binance_api_key, binance_secret_key, telegram_token, telegram_chat_id, trading_mode, binance_demo_api_key, binance_demo_secret_key, binance_real_api_key, binance_real_secret_key')
-      .eq('id', 1)
-      .single();
-
-    if (!settings) {
-      return NextResponse.json({ error: 'Settings not found' }, { status: 400 });
-    }
-
-    const isDemo = (settings.trading_mode || 'DEMO') === 'DEMO';
-    const binance_api_key = isDemo 
-      ? (settings?.binance_demo_api_key || settings?.binance_api_key || '')
-      : (settings?.binance_real_api_key || '');
-    const binance_secret_key = isDemo 
-      ? (settings?.binance_demo_secret_key || settings?.binance_secret_key || '')
-      : (settings?.binance_real_secret_key || '');
-
-    if (!binance_api_key || !binance_secret_key) {
-      return NextResponse.json({ error: 'Binance API credentials missing in settings' }, { status: 400 });
-    }
-
-    // 3. Initialize Binance Client & Close Position
-    const exchange = getBinanceClient(binance_api_key, binance_secret_key, isDemo);
-    
     // Fetch current price for final calculations
     const currentPrice = await fetchCurrentPrice(exchange, trade.pair);
     
     // Close position on Binance
-    console.log(`Manually closing position for ${trade.pair}: size ${trade.amount}`);
+    console.log(`Manually closing trade ${tradeId} for ${trade.pair}: size ${trade.amount}`);
     await closeActivePosition(exchange, trade.pair, trade.direction, trade.amount);
 
     // Calculate realized P&L (gross minus 0.05% entry and 0.05% exit taker fees)
@@ -70,7 +109,7 @@ export async function POST(request: Request) {
     const exitFee = currentPrice * trade.amount * 0.0005; // 0.05%
     const realizedPnl = grossPnl - (entryFee + exitFee);
 
-    // 4. Update Database
+    // Update Database
     const { error: updateErr } = await supabase
       .from('trades')
       .update({
@@ -113,15 +152,15 @@ export async function POST(request: Request) {
     const tradeLeverage = trade.leverage || 20;
     const totalSizeVal = tradeMargin * tradeLeverage;
 
-    // 5. Send Telegram Notification
+    // Send Telegram Notification
     const pnlEmoji = realizedPnl >= 0 ? '🟢' : '🔴';
     const sign = realizedPnl >= 0 ? '+' : '';
     const formattedPnl = realizedPnl.toFixed(2);
 
     // Fetch Real Account Balance from Real keys in Settings
     let realBalanceText = 'Not Configured';
-    const realKey = settings?.binance_real_api_key || '';
-    const realSecret = settings?.binance_real_secret_key || '';
+    const realKey = settings.binance_real_api_key || '';
+    const realSecret = settings.binance_real_secret_key || '';
     if (realKey && realSecret) {
       try {
         const realExchange = getBinanceClient(realKey, realSecret, false);
@@ -147,7 +186,7 @@ export async function POST(request: Request) {
       `Demo Balance: <b>${currentAccountBalance.toFixed(2)} USDT</b>\n` +
       `Real Balance: <b>${realBalanceText}</b>`;
 
-    await sendTelegramMessage(settings?.telegram_token || '', settings?.telegram_chat_id || '', msg);
+    await sendTelegramMessage(settings.telegram_token || '', settings.telegram_chat_id || '', msg);
 
     return NextResponse.json({ success: true, exitPrice: currentPrice, pnl: realizedPnl });
   } catch (err: any) {
