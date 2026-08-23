@@ -69,6 +69,8 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'db' | 'binance' | 'chart'>('binance');
   const [isClosingBinanceSymbol, setIsClosingBinanceSymbol] = useState<string | null>(null);
   const [positionsSearchQuery, setPositionsSearchQuery] = useState('');
+  const [dashboardMaxTrades, setDashboardMaxTrades] = useState('10');
+  const [isSavingMaxTrades, setIsSavingMaxTrades] = useState(false);
 
   // Live price states via WebSocket
   const [livePrices, setLivePrices] = useState<{ [symbol: string]: number }>({});
@@ -241,6 +243,7 @@ export default function DashboardPage() {
         activeStrats = settingsData.pair_overrides?.ACTIVE_STRATEGIES || [settingsData.active_strategy || 'RSI_MACD'];
         setActiveStrategies(activeStrats);
         setDraftActiveStrategies(activeStrats);
+        setDashboardMaxTrades(String(settingsData.max_open_trades !== undefined ? settingsData.max_open_trades : 10));
       }
 
       const currentStrategyParam = selectedStrategy || defaultStrat;
@@ -435,6 +438,28 @@ export default function DashboardPage() {
         />
       </div>
     );
+  };
+
+  const handleSaveDashboardMaxTrades = async () => {
+    setIsSavingMaxTrades(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ max_open_trades: parseInt(dashboardMaxTrades) })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`Successfully set maximum open trades limit to ${dashboardMaxTrades}!`);
+        fetchDashboardData();
+      } else {
+        alert(`Failed to save limit: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Error saving limit: ${err.message}`);
+    } finally {
+      setIsSavingMaxTrades(false);
+    }
   };
 
   const closePosition = async (tradeId: string, isProfitable: boolean) => {
@@ -690,6 +715,26 @@ export default function DashboardPage() {
             <FlaskConical className={`w-4 h-4 text-purple-400 ${isTestingTrade ? 'animate-spin' : ''}`} />
             <span>Test Trade</span>
           </button>
+
+          {/* Max Open Trades Inline Controller */}
+          <div className="flex items-center gap-2 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 px-4 py-2.5 rounded-2xl shadow-md transition-all duration-300">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block whitespace-nowrap">Max Trades:</span>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              value={dashboardMaxTrades}
+              onChange={(e) => setDashboardMaxTrades(e.target.value)}
+              className="w-12 bg-zinc-950 border border-zinc-800 rounded-xl py-1 px-1.5 font-mono text-center font-bold text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/85 focus:ring-1 focus:ring-emerald-500/20"
+            />
+            <button
+              onClick={handleSaveDashboardMaxTrades}
+              disabled={isSavingMaxTrades}
+              className="px-2.5 py-1 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-900/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isSavingMaxTrades ? 'Saving...' : 'Set'}
+            </button>
+          </div>
 
           <button
             onClick={toggleBot}
