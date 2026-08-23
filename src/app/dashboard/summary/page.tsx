@@ -32,8 +32,8 @@ export default function SummaryPage() {
   const [includePairwise, setIncludePairwise] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
-  const [selectedStrategy, setSelectedStrategy] = useState<'RSI_MACD' | 'BOLLINGER_RSI' | 'BOLLINGER_RSI_OPT' | 'DOUBLE_EMA' | 'DOUBLE_EMA_OPT' | 'DOUBLE_EMA_5M' | 'DOUBLE_EMA_15M' | 'SUPERTREND_EMA' | 'SUPERTREND_EMA_OPT' | 'STOCH_RSI_MACD' | 'ATR_BREAKOUT' | 'SWING_STRUCTURE' | 'MACD_DIVERGENCE' | 'KDJ_REVERSION' | 'KDJ_REVERSION_OPT' | 'FIBONACCI_PULLBACK' | 'ICHIMOKU_CLOUDBREAK' | 'VWAP_REVERSION' | 'VWAP_REVERSION_OPT' | 'COMBINATION_STRATEGIES' | 'RSI_STOCH_EMA_TREND' | 'CMF_BREAKOUT' | 'HULL_MA_CROSSOVER' | 'DONCHIAN_BREAKOUT' | 'ADX_DI_MOMENTUM' | 'REGIME_ENSEMBLE_PRO'>('RSI_MACD');
-  const [activeStrategySetting, setActiveStrategySetting] = useState('RSI_MACD');
+  const [rawTrades, setRawTrades] = useState<Trade[]>([]);
+  const [selectedPair, setSelectedPair] = useState<string>('ALL');
 
 
   // Default date ranges setup
@@ -51,11 +51,16 @@ export default function SummaryPage() {
   }, []);
 
   const applyFilters = (allTrades: Trade[]) => {
-    // Filter only live trades (is_paper is false)
-    const strategyTrades = allTrades.filter((t) => !t.is_paper);
+    // 1. Filter only live trades (is_paper is false)
+    let filteredTrades = allTrades.filter((t) => !t.is_paper);
 
-    // 2. Filter by date/hours cutoff
-    const filteredClosed = strategyTrades.filter((t) => {
+    // 2. Filter by selected Pair
+    if (selectedPair !== 'ALL') {
+      filteredTrades = filteredTrades.filter((t) => t.pair === selectedPair);
+    }
+
+    // 3. Filter by date/hours cutoff
+    const filteredClosed = filteredTrades.filter((t) => {
       if (t.status !== 'CLOSED' || !t.closed_at) return false;
       const closedTime = new Date(t.closed_at);
       
@@ -78,20 +83,20 @@ export default function SummaryPage() {
     setTrades(filteredClosed);
 
     // Filter active trades
-    const active = strategyTrades.filter((t) => t.status === 'OPEN');
+    const active = filteredTrades.filter((t) => t.status === 'OPEN');
     setActiveTrades(active);
   };
 
   const fetchSummaryTrades = async () => {
-    if (!startDate || !endDate) return;
     setIsLoading(true);
     setStatusMsg({ type: '', text: '' });
 
     try {
-      const res = await fetch(`/api/trades?strategy=${selectedStrategy}`);
+      const res = await fetch(`/api/trades`); // Fetch overall trades across all strategies
       const data = await res.json();
       if (res.ok && data.success) {
         const detailedTrades: Trade[] = data.detailedTrades || [];
+        setRawTrades(detailedTrades);
         setLivePrices(data.livePrices || {});
         applyFilters(detailedTrades);
       }
@@ -104,7 +109,11 @@ export default function SummaryPage() {
 
   useEffect(() => {
     fetchSummaryTrades();
-  }, [startDate, endDate, hourlyFilter, selectedStrategy]);
+  }, []);
+
+  useEffect(() => {
+    applyFilters(rawTrades);
+  }, [startDate, endDate, hourlyFilter, selectedPair, rawTrades]);
 
   // Set quick ranges
   const setRangeQuick = (rangeType: 'today' | 'yesterday' | '2days' | '3days' | '5days' | 'week' | 'month') => {
@@ -891,6 +900,51 @@ export default function SummaryPage() {
           </div>
         )}
       </div>
+
+      {/* Dynamic Pairs Filter Bar (Hidden in print) */}
+      {rawTrades.length > 0 && (
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 no-print space-y-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Filter History by Trading Pair</span>
+              <p className="text-xs text-zinc-400 mt-0.5">Click on a trading pair to view its separate performance history.</p>
+            </div>
+            {selectedPair !== 'ALL' && (
+              <button
+                onClick={() => setSelectedPair('ALL')}
+                className="text-xs text-blue-400 hover:text-blue-300 font-bold uppercase tracking-wider cursor-pointer border border-blue-900/50 bg-blue-950/10 px-3 py-1 rounded-xl transition-all"
+              >
+                Clear Filter
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+            <button
+              onClick={() => setSelectedPair('ALL')}
+              className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all duration-200 cursor-pointer ${
+                selectedPair === 'ALL'
+                  ? 'bg-blue-950/30 border-blue-500/40 text-blue-400 font-extrabold shadow-md shadow-blue-500/5'
+                  : 'bg-zinc-900 border-zinc-850 text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              Overall (All Pairs)
+            </button>
+            {Array.from(new Set(rawTrades.filter(t => !t.is_paper).map((t) => t.pair))).sort().map((pair) => (
+              <button
+                key={pair}
+                onClick={() => setSelectedPair(pair)}
+                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all duration-200 cursor-pointer ${
+                  selectedPair === pair
+                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-400 font-extrabold shadow-md shadow-emerald-500/5'
+                    : 'bg-zinc-900 border-zinc-850 text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                {pair}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* PRINT-ONLY HEADER */}
       <div className="hidden print-header text-black">
