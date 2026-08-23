@@ -152,18 +152,22 @@ async function handleCron() {
                   const exitSide = trade.direction === 'LONG' ? 'sell' : 'buy';
                   
                   // Check if TP order exists (LIMIT order on correct side close to tp_price)
-                  const hasTp = openOrders.some((o: any) => 
-                    o.type.toUpperCase() === 'LIMIT' && 
-                    o.side.toLowerCase() === exitSide &&
-                    Math.abs(parseFloat(o.price) - parseFloat(trade.tp_price)) / parseFloat(trade.tp_price) < 0.005
-                  );
+                  const hasTp = openOrders.some((o: any) => {
+                    const isLimit = o.type.toUpperCase() === 'LIMIT';
+                    const isCorrectSide = o.side.toLowerCase() === exitSide;
+                    const priceVal = parseFloat(o.price || (o.info && o.info.price) || 0);
+                    const diff = Math.abs(priceVal - parseFloat(trade.tp_price as any)) / parseFloat(trade.tp_price as any);
+                    return isLimit && isCorrectSide && diff < 0.01;
+                  });
 
                   // Check if SL order exists (STOP_MARKET or STOP order on correct side close to sl_price)
-                  const hasSl = openOrders.some((o: any) => 
-                    (o.type.toUpperCase() === 'STOP_MARKET' || o.type.toUpperCase() === 'STOP') && 
-                    o.side.toLowerCase() === exitSide &&
-                    Math.abs(parseFloat(o.stopPrice || o.price) - parseFloat(trade.sl_price)) / parseFloat(trade.sl_price) < 0.005
-                  );
+                  const hasSl = openOrders.some((o: any) => {
+                    const isStop = o.type.toUpperCase() === 'STOP_MARKET' || o.type.toUpperCase() === 'STOP';
+                    const isCorrectSide = o.side.toLowerCase() === exitSide;
+                    const triggerPrice = parseFloat(o.triggerPrice || o.stopPrice || (o.info && o.info.stopPrice) || 0);
+                    const diff = Math.abs(triggerPrice - parseFloat(trade.sl_price as any)) / parseFloat(trade.sl_price as any);
+                    return isStop && isCorrectSide && diff < 0.01;
+                  });
 
                   if (!hasTp || !hasSl) {
                     const pairStr: string = (trade.pair as any) || '';
