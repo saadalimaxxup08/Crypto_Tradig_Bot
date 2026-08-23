@@ -10,6 +10,7 @@ export default function SettingsPage() {
   const [slPercent, setSlPercent] = useState('1.0');
   const [riskAmount, setRiskAmount] = useState('10.0');
   const [leverage, setLeverage] = useState('20');
+  const [maxOpenTrades, setMaxOpenTrades] = useState('10');
   const [activeStrategy, setActiveStrategy] = useState('RSI_MACD');
   const [pairsText, setPairsText] = useState('');
   const [telegramToken, setTelegramToken] = useState('');
@@ -236,6 +237,7 @@ export default function SettingsPage() {
         setSlPercent(String(data.sl_percent));
         setRiskAmount(String(data.risk_amount));
         setLeverage(String(data.leverage || 20));
+        setMaxOpenTrades(String(data.max_open_trades !== undefined ? data.max_open_trades : 10));
         setPairsText((data.pairs || []).join(', '));
         setTelegramToken(data.telegram_token || '');
         setTelegramChatId(data.telegram_chat_id || '');
@@ -291,6 +293,7 @@ export default function SettingsPage() {
       sl_percent: parseFloat(slPercent),
       risk_amount: parseFloat(riskAmount),
       leverage: parseInt(leverage),
+      max_open_trades: parseInt(maxOpenTrades),
       active_strategy: activeStrategy,
       trading_mode: tradingMode,
       pairs: pairsArray,
@@ -448,6 +451,29 @@ export default function SettingsPage() {
                 />
                 <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-bold text-zinc-500">
                   x
+                </span>
+              </div>
+            </div>
+
+            {/* Max Open Trades Limit */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <span>Max Open Trades Limit</span>
+                <span title="Maximum number of concurrent open positions allowed"><HelpCircle className="w-3.5 h-3.5 text-zinc-600" /></span>
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="1"
+                  required
+                  min="1"
+                  max="100"
+                  value={maxOpenTrades}
+                  onChange={(e) => setMaxOpenTrades(e.target.value)}
+                  className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
+                />
+                <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-bold text-zinc-500">
+                  trades
                 </span>
               </div>
             </div>

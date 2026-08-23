@@ -79,10 +79,12 @@ async function handleCron() {
       pairs,
       leverage,
       active_strategy,
+      max_open_trades,
     } = settings;
 
     const leverage_val = leverage || 20;
     const currentStrategy = active_strategy || 'RSI_MACD';
+    const maxTradesLimit = max_open_trades !== undefined ? parseInt(max_open_trades as any) : 10;
 
     const telegram_token = settings.telegram_token || process.env.TELEGRAM_TOKEN || '';
     const telegram_chat_id = settings.telegram_chat_id || process.env.TELEGRAM_CHAT_ID || '';
@@ -671,6 +673,19 @@ async function handleCron() {
             logs.push(`Trade recently closed for ${pair} [Strategy: ${strategyName}, isPaper: ${isPaper}] within the last ${cooldownHours} hour(s). Cooldown active. Skipping.`);
             continue;
           }
+        }
+
+        // Check max open trades limit
+        const { count: openTradesCount } = await supabase
+          .from('trades')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'OPEN')
+          .eq('is_paper', isPaper);
+
+        const activeCount = openTradesCount || 0;
+        if (activeCount >= maxTradesLimit) {
+          logs.push(`⚠️ Halted execution: Open trades count (${activeCount}) reached the maximum limit of ${maxTradesLimit} for isPaper: ${isPaper}. Skipping.`);
+          continue;
         }
 
         const pairOverride = overrides[pair] || {};
