@@ -21,6 +21,35 @@ interface Trade {
   is_paper?: boolean;
 }
 
+const STRATEGY_NAMES: Record<string, string> = {
+  RSI_MACD: 'RSI + MACD Trend',
+  BOLLINGER_RSI: 'Bollinger Bands + RSI',
+  BOLLINGER_RSI_OPT: 'Bollinger Bands + RSI (Optimized)',
+  DOUBLE_EMA: 'Double EMA Crossover',
+  DOUBLE_EMA_OPT: 'Double EMA Crossover (Optimized)',
+  DOUBLE_EMA_5M: 'Double EMA 5M',
+  DOUBLE_EMA_15M: 'Double EMA 15M',
+  SUPERTREND_EMA: 'Supertrend + EMA Trend',
+  SUPERTREND_EMA_OPT: 'Supertrend + EMA Trend (Optimized)',
+  STOCH_RSI_MACD: 'Stochastic RSI + MACD',
+  ATR_BREAKOUT: 'ATR Channel Breakout',
+  SWING_STRUCTURE: 'Market Structure Breakout',
+  MACD_DIVERGENCE: 'MACD Divergence',
+  KDJ_REVERSION: 'KDJ Reversion',
+  KDJ_REVERSION_OPT: 'KDJ Reversion (Optimized)',
+  FIBONACCI_PULLBACK: 'EMA Fibonacci Pullback',
+  ICHIMOKU_CLOUDBREAK: 'Ichimoku Cloud Breakout',
+  VWAP_REVERSION: 'VWAP Volatility Band Reversion',
+  VWAP_REVERSION_OPT: 'VWAP Volatility Band Reversion (Optimized)',
+  COMBINATION_STRATEGIES: 'Combination Portfolio Dispatcher',
+  RSI_STOCH_EMA_TREND: 'RSI + Stochastic + EMA Trend',
+  CMF_BREAKOUT: 'Chaikin Money Flow Breakout',
+  HULL_MA_CROSSOVER: 'Hull Moving Average Crossover',
+  DONCHIAN_BREAKOUT: 'Donchian Channel Breakout',
+  ADX_DI_MOMENTUM: 'ADX DI Momentum Crossover',
+  REGIME_ENSEMBLE_PRO: 'Regime-Aware Ensemble Pro',
+};
+
 export default function SummaryPage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -33,7 +62,8 @@ export default function SummaryPage() {
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [hourlyFilter, setHourlyFilter] = useState<'none' | '1h' | '3h' | '6h' | '12h'>('none');
   const [rawTrades, setRawTrades] = useState<Trade[]>([]);
-  const [selectedPair, setSelectedPair] = useState<string>('ALL');
+  const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
+  const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
 
 
   // Default date ranges setup
@@ -54,12 +84,17 @@ export default function SummaryPage() {
     // 1. Filter only live trades (is_paper is false)
     let filteredTrades = allTrades.filter((t) => !t.is_paper);
 
-    // 2. Filter by selected Pair
-    if (selectedPair !== 'ALL') {
-      filteredTrades = filteredTrades.filter((t) => t.pair === selectedPair);
+    // 2. Filter by selected Pairs (if any are selected)
+    if (selectedPairs.length > 0) {
+      filteredTrades = filteredTrades.filter((t) => selectedPairs.includes(t.pair));
     }
 
-    // 3. Filter by date/hours cutoff
+    // 3. Filter by selected Strategies (if any are selected)
+    if (selectedStrategies.length > 0) {
+      filteredTrades = filteredTrades.filter((t) => t.strategy && selectedStrategies.includes(t.strategy));
+    }
+
+    // 4. Filter by date/hours cutoff
     const filteredClosed = filteredTrades.filter((t) => {
       if (t.status !== 'CLOSED' || !t.closed_at) return false;
       const closedTime = new Date(t.closed_at);
@@ -113,7 +148,7 @@ export default function SummaryPage() {
 
   useEffect(() => {
     applyFilters(rawTrades);
-  }, [startDate, endDate, hourlyFilter, selectedPair, rawTrades]);
+  }, [startDate, endDate, hourlyFilter, selectedPairs, selectedStrategies, rawTrades]);
 
   // Set quick ranges
   const setRangeQuick = (rangeType: 'today' | 'yesterday' | '2days' | '3days' | '5days' | 'week' | 'month') => {
@@ -901,48 +936,125 @@ export default function SummaryPage() {
         )}
       </div>
 
-      {/* Dynamic Pairs Filter Bar (Hidden in print) */}
+      {/* Dynamic Multi-Select Filter Boxes (Pairs & Strategies) (Hidden in print) */}
       {rawTrades.length > 0 && (
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 no-print space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Filter History by Trading Pair</span>
-              <p className="text-xs text-zinc-400 mt-0.5">Click on a trading pair to view its separate performance history.</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 no-print">
+          
+          {/* 1. Pairs Box */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-805/30 border-zinc-800 pb-3">
+              <div>
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest block">Trading Pairs</span>
+                <span className="text-[10px] text-zinc-500 font-medium">
+                  {selectedPairs.length === 0 ? 'Showing All Pairs (Overall)' : `Filtered to ${selectedPairs.length} selected pair(s)`}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedPairs(Array.from(new Set(rawTrades.filter(t => !t.is_paper).map(t => t.pair))).sort())}
+                  className="text-[10px] text-zinc-400 hover:text-zinc-200 uppercase tracking-wider font-semibold border border-zinc-800 bg-zinc-950/20 px-2 py-1 rounded-lg transition-all cursor-pointer"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => setSelectedPairs([])}
+                  className="text-[10px] text-zinc-500 hover:text-zinc-350 uppercase tracking-wider font-semibold border border-zinc-800 bg-zinc-950/20 px-2 py-1 rounded-lg transition-all cursor-pointer"
+                >
+                  Select None (All)
+                </button>
+              </div>
             </div>
-            {selectedPair !== 'ALL' && (
-              <button
-                onClick={() => setSelectedPair('ALL')}
-                className="text-xs text-blue-400 hover:text-blue-300 font-bold uppercase tracking-wider cursor-pointer border border-blue-900/50 bg-blue-950/10 px-3 py-1 rounded-xl transition-all"
-              >
-                Clear Filter
-              </button>
-            )}
+
+            <div className="flex flex-wrap items-center gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
+              {Array.from(new Set(rawTrades.filter(t => !t.is_paper).map((t) => t.pair))).sort().map((pair) => {
+                const isSelected = selectedPairs.includes(pair);
+                return (
+                  <button
+                    key={pair}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedPairs(selectedPairs.filter(p => p !== pair));
+                      } else {
+                        setSelectedPairs([...selectedPairs, pair]);
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all duration-150 cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-950/20 border-emerald-500/40 text-emerald-400 font-extrabold shadow-md'
+                        : 'bg-zinc-900 border-zinc-850 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      readOnly
+                      className="w-3 h-3 pointer-events-none accent-emerald-500 rounded border-zinc-700 focus:ring-0"
+                    />
+                    <span>{pair}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 max-h-[140px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
-            <button
-              onClick={() => setSelectedPair('ALL')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all duration-200 cursor-pointer ${
-                selectedPair === 'ALL'
-                  ? 'bg-blue-950/30 border-blue-500/40 text-blue-400 font-extrabold shadow-md shadow-blue-500/5'
-                  : 'bg-zinc-900 border-zinc-850 text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              Overall (All Pairs)
-            </button>
-            {Array.from(new Set(rawTrades.filter(t => !t.is_paper).map((t) => t.pair))).sort().map((pair) => (
-              <button
-                key={pair}
-                onClick={() => setSelectedPair(pair)}
-                className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider border transition-all duration-200 cursor-pointer ${
-                  selectedPair === pair
-                    ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-400 font-extrabold shadow-md shadow-emerald-500/5'
-                    : 'bg-zinc-900 border-zinc-850 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                {pair}
-              </button>
-            ))}
+
+          {/* 2. Strategies Box */}
+          <div className="space-y-4 border-t border-zinc-805/30 border-zinc-800 lg:border-t-0 lg:border-l lg:border-zinc-800 pt-4 lg:pt-0 lg:pl-6">
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+              <div>
+                <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest block">Trading Strategies</span>
+                <span className="text-[10px] text-zinc-500 font-medium">
+                  {selectedStrategies.length === 0 ? 'Showing All Strategies (Overall)' : `Filtered to ${selectedStrategies.length} selected strategy(s)`}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedStrategies(Array.from(new Set(rawTrades.filter(t => !t.is_paper).map(t => t.strategy).filter(Boolean))) as string[])}
+                  className="text-[10px] text-zinc-400 hover:text-zinc-200 uppercase tracking-wider font-semibold border border-zinc-800 bg-zinc-950/20 px-2 py-1 rounded-lg transition-all cursor-pointer"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => setSelectedStrategies([])}
+                  className="text-[10px] text-zinc-500 hover:text-zinc-350 uppercase tracking-wider font-semibold border border-zinc-800 bg-zinc-950/20 px-2 py-1 rounded-lg transition-all cursor-pointer"
+                >
+                  Select None (All)
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
+              {Array.from(new Set(rawTrades.filter(t => !t.is_paper).map((t) => t.strategy).filter(Boolean))).sort().map((strategy) => {
+                const isSelected = selectedStrategies.includes(strategy as string);
+                const displayName = STRATEGY_NAMES[strategy as string] || strategy;
+                return (
+                  <button
+                    key={strategy}
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedStrategies(selectedStrategies.filter(s => s !== strategy));
+                      } else {
+                        setSelectedStrategies([...selectedStrategies, strategy as string]);
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all duration-150 cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-950/20 border-blue-500/40 text-blue-400 font-extrabold shadow-md'
+                        : 'bg-zinc-900 border-zinc-850 text-zinc-400 hover:text-zinc-200'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      readOnly
+                      className="w-3 h-3 pointer-events-none accent-blue-500 rounded border-zinc-700 focus:ring-0"
+                    />
+                    <span className="truncate max-w-[180px]">{displayName}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
         </div>
       )}
 
