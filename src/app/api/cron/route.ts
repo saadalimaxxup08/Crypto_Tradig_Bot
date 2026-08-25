@@ -688,28 +688,6 @@ async function handleCron() {
           continue;
         }
 
-        // Check 3-loss streak cooldown guard
-        const { data: recentPairTrades } = await supabase
-          .from('trades')
-          .select('*')
-          .eq('pair', pair)
-          .eq('status', 'CLOSED')
-          .eq('is_paper', isPaper)
-          .order('closed_at', { ascending: false })
-          .limit(3);
-
-        if (recentPairTrades && recentPairTrades.length === 3) {
-          const allLosses = recentPairTrades.every(t => parseFloat(t.pnl || 0) < 0);
-          if (allLosses) {
-            const lastClosedTime = new Date(recentPairTrades[0].closed_at).getTime();
-            const timeDiffHours = (Date.now() - lastClosedTime) / (1000 * 60 * 60);
-            
-            if (timeDiffHours < 72) {
-              logs.push(`⚠️ Cooldown active: ${pair} is blocked for ${(72 - timeDiffHours).toFixed(1)} more hours due to a 3-loss streak [isPaper: ${isPaper}].`);
-              continue;
-            }
-          }
-        }
 
         const pairOverride = overrides[pair] || {};
 
