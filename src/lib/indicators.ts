@@ -1574,53 +1574,85 @@ export function analyzeStrategy(
     return analyzeStrategy(ohlcv, delegatedStrategy, ohlcv1h, pair);
   }
 
+  let result: {
+    rsi: number;
+    macdLine: number;
+    signalLine: number;
+    direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+    tpPercent?: number;
+    slPercent?: number;
+  };
+
   if (strategy === 'BOLLINGER_RSI') {
-    return analyzeBollingerRsi(closePrices);
+    result = analyzeBollingerRsi(closePrices);
   } else if (strategy === 'BOLLINGER_RSI_OPT') {
-    return analyzeBollingerRsiOpt(closePrices);
+    result = analyzeBollingerRsiOpt(closePrices);
   } else if (strategy === 'DOUBLE_EMA' || strategy === 'DOUBLE_EMA_5M' || strategy === 'DOUBLE_EMA_15M') {
-    return analyzeDoubleEma(ohlcv, ohlcv1h);
+    result = analyzeDoubleEma(ohlcv, ohlcv1h);
   } else if (strategy === 'DOUBLE_EMA_OPT') {
-    return analyzeDoubleEmaOpt(ohlcv, ohlcv1h);
+    result = analyzeDoubleEmaOpt(ohlcv, ohlcv1h);
   } else if (strategy === 'SUPERTREND_EMA') {
-    return analyzeSuperTrendEma(ohlcv, ohlcv1h);
+    result = analyzeSuperTrendEma(ohlcv, ohlcv1h);
   } else if (strategy === 'SUPERTREND_EMA_OPT') {
-    return analyzeSuperTrendEmaOpt(ohlcv, ohlcv1h);
+    result = analyzeSuperTrendEmaOpt(ohlcv, ohlcv1h);
   } else if (strategy === 'STOCH_RSI_MACD') {
-    return analyzeStochRsiMacd(ohlcv);
+    result = analyzeStochRsiMacd(ohlcv);
   } else if (strategy === 'ATR_BREAKOUT') {
-    return analyzeAtrBreakout(ohlcv, ohlcv1h);
+    result = analyzeAtrBreakout(ohlcv, ohlcv1h);
   } else if (strategy === 'SWING_STRUCTURE') {
-    return analyzeSwingStructure(ohlcv, ohlcv1h);
+    result = analyzeSwingStructure(ohlcv, ohlcv1h);
   } else if (strategy === 'MACD_DIVERGENCE') {
-    return analyzeMacdDivergence(ohlcv);
+    result = analyzeMacdDivergence(ohlcv);
   } else if (strategy === 'KDJ_REVERSION') {
-    return analyzeKdjReversion(ohlcv);
+    result = analyzeKdjReversion(ohlcv);
   } else if (strategy === 'KDJ_REVERSION_OPT') {
-    return analyzeKdjReversionOpt(ohlcv);
+    result = analyzeKdjReversionOpt(ohlcv);
   } else if (strategy === 'FIBONACCI_PULLBACK') {
-    return analyzeFibonacciPullback(ohlcv, ohlcv1h);
+    result = analyzeFibonacciPullback(ohlcv, ohlcv1h);
   } else if (strategy === 'ICHIMOKU_CLOUDBREAK') {
-    return analyzeIchimokuCloudBreakout(ohlcv, ohlcv1h);
+    result = analyzeIchimokuCloudBreakout(ohlcv, ohlcv1h);
   } else if (strategy === 'VWAP_REVERSION') {
-    return analyzeVwapReversion(ohlcv);
+    result = analyzeVwapReversion(ohlcv);
   } else if (strategy === 'VWAP_REVERSION_OPT') {
-    return analyzeVwapReversionOpt(ohlcv);
+    result = analyzeVwapReversionOpt(ohlcv);
   } else if (strategy === 'RSI_STOCH_EMA_TREND') {
-    return analyzeRsiStochEmaTrend(ohlcv);
+    result = analyzeRsiStochEmaTrend(ohlcv);
   } else if (strategy === 'CMF_BREAKOUT') {
-    return analyzeCmfBreakout(ohlcv);
+    result = analyzeCmfBreakout(ohlcv);
   } else if (strategy === 'HULL_MA_CROSSOVER') {
-    return analyzeHullMaCrossover(ohlcv);
+    result = analyzeHullMaCrossover(ohlcv);
   } else if (strategy === 'DONCHIAN_BREAKOUT') {
-    return analyzeDonchianBreakout(ohlcv);
+    result = analyzeDonchianBreakout(ohlcv);
   } else if (strategy === 'ADX_DI_MOMENTUM') {
-    return analyzeAdxDiMomentum(ohlcv);
+    result = analyzeAdxDiMomentum(ohlcv);
   } else if (strategy === 'REGIME_ENSEMBLE_PRO') {
-    return analyzeRegimeEnsemblePro(ohlcv, ohlcv1h);
+    result = analyzeRegimeEnsemblePro(ohlcv, ohlcv1h);
   } else {
-    return analyzeRsiMacd(closePrices);
+    result = analyzeRsiMacd(closePrices);
   }
+
+  // --- GLOBAL TREND FILTER (200 EMA) ---
+  if (closePrices.length >= 200) {
+    try {
+      const ema200Arr = calculateEMA(closePrices, 200);
+      if (ema200Arr && ema200Arr.length > 0) {
+        const currentEma200 = ema200Arr[ema200Arr.length - 1];
+        const currentPrice = closePrices[closePrices.length - 1];
+
+        if (result.direction === 'LONG' && currentPrice < currentEma200) {
+          console.log(`[Trend Filter] Blocking LONG signal for ${pair || 'unknown'} on strategy ${strategy} because price (${currentPrice.toFixed(4)}) is below EMA 200 (${currentEma200.toFixed(4)})`);
+          result.direction = 'NEUTRAL';
+        } else if (result.direction === 'SHORT' && currentPrice > currentEma200) {
+          console.log(`[Trend Filter] Blocking SHORT signal for ${pair || 'unknown'} on strategy ${strategy} because price (${currentPrice.toFixed(4)}) is above EMA 200 (${currentEma200.toFixed(4)})`);
+          result.direction = 'NEUTRAL';
+        }
+      }
+    } catch (err: any) {
+      console.error('Error applying EMA 200 Trend Filter:', err.message);
+    }
+  }
+
+  return result;
 }
 
 /**
