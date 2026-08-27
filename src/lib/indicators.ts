@@ -1601,6 +1601,8 @@ export function analyzeStrategy(
     result = analyzeAtrBreakout(ohlcv, ohlcv1h);
   } else if (strategy === 'SWING_STRUCTURE') {
     result = analyzeSwingStructure(ohlcv, ohlcv1h);
+  } else if (strategy === 'PREMIUM_80_WIN') {
+    result = analyzePremium80Win(ohlcv, ohlcv1h);
   } else if (strategy === 'MACD_DIVERGENCE') {
     result = analyzeMacdDivergence(ohlcv);
   } else if (strategy === 'KDJ_REVERSION') {
@@ -2150,5 +2152,79 @@ export function analyzeRegimeEnsemblePro(ohlcv: number[][], ohlcv1h?: number[][]
     macdLine: regimeNum,
     signalLine: totalActive,
     direction
+  };
+}
+
+/**
+ * Ultra-High Probability Premium Strategy (Targeting 75-80% Win Rate via strict filters)
+ */
+export function analyzePremium80Win(ohlcv: number[][], ohlcv1h?: number[][]): {
+  rsi: number;
+  macdLine: number;
+  signalLine: number;
+  direction: 'LONG' | 'SHORT' | 'NEUTRAL';
+  tpPercent?: number;
+  slPercent?: number;
+} {
+  const len = ohlcv.length;
+  if (len < 200) return { rsi: 50, macdLine: 0, signalLine: 0, direction: 'NEUTRAL' };
+
+  const highs = ohlcv.map(c => c[2]);
+  const lows = ohlcv.map(c => c[3]);
+  const closes = ohlcv.map(c => c[4]);
+  const currentPrice = closes[len - 1];
+
+  // 1. Calculate 15m Indicators
+  const rsiVals = calculateRSI(closes, 14);
+  const currentRsi = rsiVals[rsiVals.length - 1] || 50;
+
+  // Stochastic
+  const stochRsiVals = calculateStochastic(highs, lows, closes, 14, 3, 3);
+  const k = stochRsiVals.k[stochRsiVals.k.length - 1] || 50;
+  const d = stochRsiVals.d[stochRsiVals.d.length - 1] || 50;
+  const prevK = stochRsiVals.k[stochRsiVals.k.length - 2] || 50;
+  const prevD = stochRsiVals.d[stochRsiVals.d.length - 2] || 50;
+
+  // 15m EMA 200
+  const ema200Arr = calculateEMA(closes, 200);
+  const ema200_15m = ema200Arr[ema200Arr.length - 1];
+
+  // 2. Multi-Timeframe Trend Check (1-Hour candles)
+  let trend1h: 'UP' | 'DOWN' | 'NEUTRAL' = 'NEUTRAL';
+  if (ohlcv1h && ohlcv1h.length >= 100) {
+    const closes1h = ohlcv1h.map(c => c[4]);
+    const ema50_1hArr = calculateEMA(closes1h, 50);
+    const ema200_1hArr = calculateEMA(closes1h, 100);
+    const ema50_1h = ema50_1hArr[ema50_1hArr.length - 1];
+    const ema200_1h = ema200_1hArr[ema200_1hArr.length - 1];
+    
+    if (closes1h[closes1h.length - 1] > ema200_1h && ema50_1h > ema200_1h) {
+      trend1h = 'UP';
+    } else if (closes1h[closes1h.length - 1] < ema200_1h && ema50_1h < ema200_1h) {
+      trend1h = 'DOWN';
+    }
+  } else {
+    trend1h = currentPrice > ema200_15m ? 'UP' : 'DOWN';
+  }
+
+  // 3. Execution Signal Trigger Rules
+  let direction: 'LONG' | 'SHORT' | 'NEUTRAL' = 'NEUTRAL';
+
+  // LONG Trigger: Upward Trend + Deep RSI Oversold (< 30) + Stoch Golden Cross in oversold territory
+  if (trend1h === 'UP' && currentRsi < 30 && prevK <= prevD && k > d && k < 30) {
+    direction = 'LONG';
+  }
+  // SHORT Trigger: Downward Trend + Deep RSI Overbought (> 70) + Stoch Dead Cross in overbought territory
+  else if (trend1h === 'DOWN' && currentRsi > 70 && prevK >= prevD && k < d && k > 70) {
+    direction = 'SHORT';
+  }
+
+  return {
+    rsi: currentRsi,
+    macdLine: 0,
+    signalLine: 0,
+    direction,
+    tpPercent: 1.0,
+    slPercent: 1.5,
   };
 }

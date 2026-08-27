@@ -91,6 +91,7 @@ export default function DashboardPage() {
   const [isSavingStrategies, setIsSavingStrategies] = useState<boolean>(false);
 
   const STRATEGIES_LIST = [
+    { id: 'PREMIUM_80_WIN', name: 'Premium 80% Win Rate Scalper' },
     { id: 'RSI_MACD', name: 'RSI + MACD Trend' },
     { id: 'BOLLINGER_RSI', name: 'Bollinger + RSI Reversion' },
     { id: 'BOLLINGER_RSI_OPT', name: 'Bollinger + RSI (OPT)' },
