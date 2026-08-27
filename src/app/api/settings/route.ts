@@ -44,9 +44,15 @@ export async function GET() {
       binance_real_secret_key: '',
       pairs: [
         'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
-        'DOGEUSDT', 'ADAUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT',
-        'AVAXUSDT', 'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT',
-        'ATOMUSDT', 'XLMUSDT', 'BCHUSDT', 'OPUSDT', 'ARBUSDT'
+        'DOGEUSDT', 'TONUSDT', '1000SHIBUSDT', 'TRXUSDT', 'AVAXUSDT',
+        'DOTUSDT', 'POLUSDT', 'LTCUSDT', 'LINKUSDT', 'XLMUSDT',
+        'BCHUSDT', 'OPUSDT', 'ARBUSDT', '1000PEPEUSDT', 'SUIUSDT',
+        'NEARUSDT', 'APTUSDT', 'SEIUSDT', 'TIAUSDT', 'INJUSDT',
+        'RENDERUSDT', 'FTMUSDT', 'AAVEUSDT', 'ADAUSDT', 'WLDUSDT',
+        'FETUSDT', 'JUPUSDT', 'PYTHUSDT', 'RUNEUSDT', 'STXUSDT',
+        'LDOUSDT', 'UNIUSDT', 'GRTUSDT', 'FILUSDT', 'ATOMUSDT',
+        'IMXUSDT', 'THETAUSDT', 'GALAUSDT', 'SANDUSDT', 'DYDXUSDT',
+        'JTOUSDT', 'MKRUSDT', '1000FLOKIUSDT', '1000BONKUSDT', 'ENSUSDT'
       ],
       telegram_token: '',
       telegram_chat_id: '',
