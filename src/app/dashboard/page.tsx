@@ -66,7 +66,8 @@ export default function DashboardPage() {
   const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
   const [isClosingAll, setIsClosingAll] = useState(false);
   const [binancePositions, setBinancePositions] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'db' | 'binance' | 'chart'>('binance');
+  const [paperTrades, setPaperTrades] = useState<Trade[]>([]);
+  const [activeTab, setActiveTab] = useState<'db' | 'binance' | 'sandbox' | 'chart'>('binance');
   const [isClosingBinanceSymbol, setIsClosingBinanceSymbol] = useState<string | null>(null);
   const [positionsSearchQuery, setPositionsSearchQuery] = useState('');
   const [dashboardMaxTrades, setDashboardMaxTrades] = useState('10');
@@ -265,6 +266,7 @@ export default function DashboardPage() {
         const allOpen: Trade[] = tradesData.openTrades || [];
         
         setActiveTrades(allOpen.filter((t) => !t.is_paper));
+        setPaperTrades(allOpen.filter((t) => !!t.is_paper));
         setRecentTrades(liveTrades.filter((t) => t.status === 'CLOSED'));
 
         if (tradesData.binancePositions) {
@@ -396,6 +398,29 @@ export default function DashboardPage() {
       }
     } catch (err: any) {
       alert(`❌ EMERGENCY CLOSE ERROR: ${err.message}`);
+    } finally {
+      setIsClosingAll(false);
+    }
+  };
+
+  const handleCloseAllSandbox = async () => {
+    const confirmClose = window.confirm("Are you sure you want to CLOSE all active Sandbox Demo positions in the database?");
+    if (!confirmClose) return;
+
+    setIsClosingAll(true);
+    try {
+      const res = await fetch('/api/trades/close-all?mode=sandbox', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert("Sandbox Demo positions reset complete!");
+        fetchDashboardData();
+      } else {
+        alert(`Failed to reset: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
     } finally {
       setIsClosingAll(false);
     }
@@ -901,7 +926,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Tabs */}
-              <div className="flex bg-zinc-950/80 border border-zinc-800/80 p-1 rounded-xl">
+              <div className="flex flex-wrap bg-zinc-950/80 border border-zinc-800/80 p-1 rounded-xl gap-1">
                 <button
                   onClick={() => setActiveTab('binance')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -921,6 +946,16 @@ export default function DashboardPage() {
                   }`}
                 >
                   DB Managed ({displayedActiveTrades.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab('sandbox')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    activeTab === 'sandbox'
+                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-300'
+                  }`}
+                >
+                  Sandbox Demo ({paperTrades.length})
                 </button>
                 <button
                   onClick={() => setActiveTab('chart')}
@@ -957,6 +992,17 @@ export default function DashboardPage() {
                   >
                     <ShieldAlert className="w-4 h-4" />
                     <span>Close All ({binancePositions.length})</span>
+                  </button>
+                )}
+
+                {activeTab === 'sandbox' && paperTrades.length > 0 && (
+                  <button
+                    onClick={handleCloseAllSandbox}
+                    disabled={isClosingAll}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-red-950/40 hover:bg-red-900/50 border border-red-900/60 rounded-xl text-xs font-bold uppercase tracking-wider text-red-400 hover:text-red-300 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    <ShieldAlert className="w-4 h-4" />
+                    <span>Close All Sandbox ({paperTrades.length})</span>
                   </button>
                 )}
               </div>
@@ -1169,6 +1215,138 @@ export default function DashboardPage() {
                             </tr>
                           );
                         })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: SANDBOX DEMO TRADES */}
+            {activeTab === 'sandbox' && (
+              <div>
+                {paperTrades.length > 0 && (
+                  <div className="grid grid-cols-2 gap-4 mb-5 p-4 bg-zinc-950/20 border border-zinc-800/50 rounded-2xl">
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Simulated Margin</span>
+                      <div className="text-sm font-extrabold text-zinc-200 mt-1 font-mono">
+                        {paperTrades.reduce((sum, t) => sum + (t.margin || 10.0), 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Simulated P&L</span>
+                      <div className={`text-sm font-extrabold mt-1 font-mono ${
+                        paperTrades.reduce((sum, t) => {
+                          const currentPrice = livePrices[t.pair] || t.entry_price;
+                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                          return sum + pnl;
+                        }, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+                      }`}>
+                        {paperTrades.reduce((sum, t) => {
+                          const currentPrice = livePrices[t.pair] || t.entry_price;
+                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                          return sum + pnl;
+                        }, 0) >= 0 ? '+' : ''}
+                        {paperTrades.reduce((sum, t) => {
+                          const currentPrice = livePrices[t.pair] || t.entry_price;
+                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
+                          return sum + pnl;
+                        }, 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {paperTrades.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 border border-dashed border-zinc-800/80 rounded-2xl">
+                    <Layers className="w-8 h-8 text-zinc-600 mb-2" />
+                    <p className="text-sm text-zinc-500 font-medium">No sandbox demo trades registered in database</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                          <th className="pb-3">Pair</th>
+                          <th className="pb-3">Strategy</th>
+                          <th className="pb-3 text-center">Direction</th>
+                          <th className="pb-3 text-right">Entry Price</th>
+                          <th className="pb-3 text-right">Live Price</th>
+                          <th className="pb-3 text-right">Live P&L</th>
+                          <th className="pb-3 text-right">SL / TP</th>
+                          <th className="pb-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-800/50 text-sm">
+                        {paperTrades
+                          .filter((trade) => trade.pair.toUpperCase().includes(positionsSearchQuery.toUpperCase()))
+                          .map((trade) => {
+                            const currentPrice = livePrices[trade.pair] || trade.entry_price;
+                            const floatingPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
+                            const isProfit = floatingPnl >= 0;
+
+                            const flashClass =
+                              priceDirections[trade.pair] === 'up'
+                                ? 'text-emerald-400 bg-emerald-950/15'
+                                : priceDirections[trade.pair] === 'down'
+                                ? 'text-red-400 bg-red-950/15'
+                                : 'text-zinc-200';
+
+                            return (
+                              <tr key={trade.id} className="group">
+                                <td className="py-4 font-bold text-zinc-200">{trade.pair}</td>
+                                <td className="py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">
+                                  {STRATEGIES_LIST.find(s => s.id === trade.strategy)?.name || trade.strategy || 'RSI_MACD'}
+                                </td>
+                                <td className="py-4 text-center">
+                                  <span
+                                    className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
+                                      trade.direction === 'LONG'
+                                        ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+                                        : 'bg-red-950/20 border-red-900/50 text-red-400'
+                                    }`}
+                                  >
+                                    {trade.direction}
+                                  </span>
+                                </td>
+                                <td className="py-4 text-right font-mono">{trade.entry_price.toFixed(4)}</td>
+                                <td className="py-4 text-right font-mono font-bold">
+                                  <span className={`px-2 py-0.5 rounded transition-all duration-300 ${flashClass}`}>
+                                    {currentPrice.toFixed(4)}
+                                  </span>
+                                </td>
+                                <td className="py-4 text-right font-mono font-bold">
+                                  <span className={isProfit ? 'text-emerald-400' : 'text-red-400'}>
+                                    {isProfit ? '+' : ''}{floatingPnl.toFixed(2)} USDT
+                                  </span>
+                                </td>
+                                <td className="py-4 text-right text-xs space-y-0.5">
+                                  <div className="font-mono text-red-400/80 font-medium">SL: {trade.sl_price.toFixed(4)}</div>
+                                  <div className="font-mono text-emerald-400/80 font-medium">TP: {trade.tp_price.toFixed(4)}</div>
+                                </td>
+                                <td className="py-4 text-right flex items-center justify-end gap-1">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedChartSymbol(trade.pair);
+                                      setActiveTab('chart');
+                                    }}
+                                    className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-950/20 rounded-lg transition-colors cursor-pointer"
+                                    title="View Live Chart"
+                                  >
+                                    <Eye className="w-5 h-5" />
+                                  </button>
+                                  <button
+                                    onClick={() => closePosition(trade.id, isProfit)}
+                                    disabled={closingTradeId === trade.id}
+                                    className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
+                                    title="Force Manual Close"
+                                  >
+                                    <XCircle className="w-5 h-5" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
                       </tbody>
                     </table>
                   </div>

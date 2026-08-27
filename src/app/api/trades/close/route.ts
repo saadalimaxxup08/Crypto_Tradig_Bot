@@ -96,6 +96,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Trade is already closed' }, { status: 400 });
     }
 
+    // Isolate Sandbox Paper Trades from Binance API execution
+    if (trade.is_paper) {
+      let currentPrice = trade.entry_price;
+      try {
+        currentPrice = await fetchCurrentPrice(exchange, trade.pair);
+      } catch (priceErr) {
+        console.error('Failed to fetch price for paper trade closure:', priceErr);
+      }
+
+      const grossPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
+      const entryFee = trade.entry_price * trade.amount * 0.0005;
+      const exitFee = currentPrice * trade.amount * 0.0005;
+      const realizedPnl = grossPnl - (entryFee + exitFee);
+
+      const { error: updateErr } = await supabase
+        .from('trades')
+        .update({
+          status: 'CLOSED',
+          exit_price: currentPrice,
+          pnl: realizedPnl,
+          closed_at: new Date().toISOString(),
+        })
+        .eq('id', tradeId);
+
+      if (updateErr) {
+        return NextResponse.json({ error: `Database update error: ${updateErr.message}` }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, tradeId, isPaper: true });
+    }
+
     // Fetch current price for final calculations
     const currentPrice = await fetchCurrentPrice(exchange, trade.pair);
     

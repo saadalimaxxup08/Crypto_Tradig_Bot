@@ -5,13 +5,16 @@ import { getBinanceClient, cancelAllOpenOrders } from '@/lib/binance';
 
 export const dynamic = 'force-dynamic';
 
-export async function POST() {
+export async function POST(req: Request) {
   const user = getSessionUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
+    const { searchParams } = new URL(req.url);
+    const isSandboxOnly = searchParams.get('mode') === 'sandbox';
+
     // 1. Fetch settings to get API credentials and mode
     const { data: settings, error: settingsError } = await supabase
       .from('settings')
@@ -34,8 +37,8 @@ export async function POST() {
 
     const logs: string[] = [];
 
-    // 2. If API keys are set, close live positions on Binance USD-M Futures
-    if (apiKey && secretKey) {
+    // 2. If API keys are set and not sandbox-only, close live positions on Binance USD-M Futures
+    if (!isSandboxOnly && apiKey && secretKey) {
       try {
         const exchange = getBinanceClient(apiKey, secretKey, isDemo);
         
@@ -67,21 +70,31 @@ export async function POST() {
       } catch (binanceErr: any) {
         logs.push(`Binance connection/execution error: ${binanceErr.message}`);
       }
+    } else if (isSandboxOnly) {
+      logs.push('Sandbox Mode selected. Skipping live API position close.');
     } else {
       logs.push('No Binance API credentials configured. Skipping live positions close.');
     }
 
     // 3. Fetch all OPEN database trades and update them to CLOSED
-    const { data: dbOpenTrades, error: dbFetchErr } = await supabase
+    let query = supabase
       .from('trades')
       .select('*')
       .eq('status', 'OPEN');
+
+    if (isSandboxOnly) {
+      query = query.eq('is_paper', true);
+    } else {
+      query = query.eq('is_paper', false);
+    }
+
+    const { data: dbOpenTrades, error: dbFetchErr } = await query;
 
     if (dbFetchErr) {
       return NextResponse.json({ error: `Database fetch error: ${dbFetchErr.message}` }, { status: 500 });
     }
 
-    logs.push(`Found ${dbOpenTrades?.length || 0} open trades in database.`);
+    logs.push(`Found ${dbOpenTrades?.length || 0} open ${isSandboxOnly ? 'sandbox' : 'live'} trades in database.`);
 
     if (dbOpenTrades && dbOpenTrades.length > 0) {
       for (const trade of dbOpenTrades) {
