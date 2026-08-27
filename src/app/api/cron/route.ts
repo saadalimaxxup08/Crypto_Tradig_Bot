@@ -350,7 +350,7 @@ async function handleCron() {
           let timeframe = '1m';
           if (currentStrategy === 'DOUBLE_EMA_5M') {
             timeframe = '5m';
-          } else if (currentStrategy === 'DOUBLE_EMA_15M') {
+          } else if (currentStrategy === 'DOUBLE_EMA_15M' || currentStrategy === 'PREMIUM_80_WIN') {
             timeframe = '15m';
           }
 
@@ -431,12 +431,14 @@ async function handleCron() {
           const donchianBreakoutAnalysis = disabledStrats.includes('DONCHIAN_BREAKOUT') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'DONCHIAN_BREAKOUT', undefined, pair);
           const adxDiMomentumAnalysis = disabledStrats.includes('ADX_DI_MOMENTUM') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'ADX_DI_MOMENTUM', undefined, pair);
           const regimeEnsembleProAnalysis = disabledStrats.includes('REGIME_ENSEMBLE_PRO') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'REGIME_ENSEMBLE_PRO', ohlcv1h as any, pair);
+          const premium80WinAnalysis = disabledStrats.includes('PREMIUM_80_WIN') ? { signal: 'NEUTRAL' } : analyzeStrategy(ohlcv as any, 'PREMIUM_80_WIN', ohlcv1h as any, pair);
 
           return {
             pair,
             currentPrice,
             atrPercent,
             analyses: {
+              PREMIUM_80_WIN: premium80WinAnalysis,
               RSI_MACD: rsiMacdAnalysis,
               BOLLINGER_RSI: bbRsiAnalysis,
               BOLLINGER_RSI_OPT: bbRsiOptAnalysis,
@@ -768,7 +770,9 @@ async function handleCron() {
             }]);
 
             // Send Telegram alert
-            const finalStrategyName = strategyName === 'BOLLINGER_RSI'
+            const finalStrategyName = strategyName === 'PREMIUM_80_WIN'
+              ? 'Premium 80% Win Rate Scalper'
+              : strategyName === 'BOLLINGER_RSI'
               ? 'Bollinger Bands + RSI Reversion'
               : strategyName === 'BOLLINGER_RSI_OPT'
               ? 'Bollinger Bands + RSI Reversion (Optimized)'
