@@ -39,6 +39,39 @@ export default function SandboxPage() {
   const [localPairsConfig, setLocalPairsConfig] = useState<Record<string, boolean>>({});
   const [isSavingConfig, setIsSavingConfig] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+  const [isTogglingBot, setIsTogglingBot] = useState(false);
+
+  const handleToggleBot = async () => {
+    if (!dbSettings) return;
+    const newStatus = !dbSettings.bot_enabled;
+    setIsTogglingBot(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bot_enabled: newStatus })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setDbSettings((prev: any) => ({
+          ...prev,
+          bot_enabled: newStatus
+        }));
+        setStatusMsg({
+          type: 'success',
+          text: `Sandbox Trading Bot is now ${newStatus ? 'ENABLED (RUNNING)' : 'DISABLED (PAUSED)'}`
+        });
+        setTimeout(() => setStatusMsg({ type: '', text: '' }), 4000);
+      } else {
+        setStatusMsg({ type: 'error', text: data.error || 'Failed to update bot status.' });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setStatusMsg({ type: 'error', text: err.message });
+    } finally {
+      setIsTogglingBot(false);
+    }
+  };
 
   // Default date ranges setup (Last 7 days)
   useEffect(() => {
@@ -983,15 +1016,59 @@ export default function SandboxPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
+      {/* Bot Disabled Banner */}
+      {dbSettings && !dbSettings.bot_enabled && (
+        <div className="bg-rose-950/20 border border-rose-900/40 text-rose-400 rounded-3xl p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-lg">⚠️</span>
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-wide">Sandbox Engine Paused</h4>
+              <p className="text-[10px] text-zinc-400 mt-0.5">Automated strategy simulation and paper trades scanning are stopped. Start the bot above to resume.</p>
+            </div>
+          </div>
+          <button
+            onClick={handleToggleBot}
+            disabled={isTogglingBot}
+            className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-400 text-black text-[10px] font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+          >
+            Start Bot
+          </button>
+        </div>
+      )}
+
       {/* Top Section Grid: Header/Tabs and Leaderboard */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
         {/* Left Side: Header & Strategy Tabs (2/3 width) */}
         <div className="lg:col-span-2 flex flex-col justify-between bg-[#0c0c0f]/40 backdrop-blur-md border border-zinc-800/80 p-6 rounded-3xl space-y-6">
-          <div>
-            <h2 className="text-2xl font-extrabold tracking-tight">Strategy Testing Sandbox</h2>
-            <p className="text-sm text-zinc-400 mt-1">
-              Compare win-rates and simulated balances across independent trading strategies.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-extrabold tracking-tight">Strategy Testing Sandbox</h2>
+              <p className="text-sm text-zinc-400 mt-1">
+                Compare win-rates and simulated balances across independent trading strategies.
+              </p>
+            </div>
+            
+            {/* Bot Active Switch */}
+            <div className="flex items-center gap-3 bg-zinc-950/60 border border-zinc-850 px-4 py-2.5 rounded-2xl">
+              <div className="flex flex-col">
+                <span className="text-[9px] font-black text-zinc-550 uppercase tracking-widest leading-none">Sandbox Bot Status</span>
+                <span className={`text-[10px] font-extrabold mt-1 leading-none ${dbSettings?.bot_enabled ? 'text-emerald-400' : 'text-rose-500'}`}>
+                  {dbSettings?.bot_enabled ? '● RUNNING' : '○ PAUSED'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleBot}
+                disabled={isTogglingBot || !dbSettings}
+                className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all duration-300 shadow-md cursor-pointer ${
+                  dbSettings?.bot_enabled
+                    ? 'bg-rose-950/20 text-rose-400 border border-rose-900/40 hover:bg-rose-900/20'
+                    : 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/50 hover:bg-emerald-900/20'
+                }`}
+              >
+                {isTogglingBot ? 'Updating...' : dbSettings?.bot_enabled ? 'Stop Bot' : 'Start Bot'}
+              </button>
+            </div>
           </div>
           
           <div className="space-y-3">
