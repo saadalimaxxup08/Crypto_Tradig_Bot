@@ -265,9 +265,10 @@ export async function GET() {
       setTimeout(() => reject(new Error('Connection timed out.')), 6000);
     });
 
-    scanLogs.push(`✅ Authenticated. Running scans on pairs: ${PAIRS.join(', ')}`);
+    const pairsToTrade = existingOverrides.deriv_selected_pairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
+    scanLogs.push(`✅ Authenticated. Running scans on pairs: ${pairsToTrade.join(', ')}`);
 
-    for (const pair of PAIRS) {
+    for (const pair of pairsToTrade) {
       scanLogs.push(`Scanning ${pair}...`);
 
       // A. Check if trade already open for this symbol (Max 1 active trade per pair)

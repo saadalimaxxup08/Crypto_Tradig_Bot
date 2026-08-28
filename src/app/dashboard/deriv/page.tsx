@@ -45,6 +45,38 @@ const STRATEGIES_LIST = [
   { id: 'FOREX_15M_MTF', name: 'Forex 15m MTF Crossover', desc: 'H1 Trend Filter + 15m EMA/ADX + 5m Stochastic crossover entry trigger.' }
 ];
 
+const GLOBAL_PAIRS_LIST = [
+  { id: 'frxEURUSD', name: 'EUR/USD', desc: 'Euro / US Dollar' },
+  { id: 'frxGBPUSD', name: 'GBP/USD', desc: 'Great British Pound / US Dollar' },
+  { id: 'frxUSDJPY', name: 'USD/JPY', desc: 'US Dollar / Japanese Yen' },
+  { id: 'frxAUDUSD', name: 'AUD/USD', desc: 'Australian Dollar / US Dollar' },
+  { id: 'frxUSDCAD', name: 'USD/CAD', desc: 'US Dollar / Canadian Dollar' },
+  { id: 'frxUSDCHF', name: 'USD/CHF', desc: 'US Dollar / Swiss Franc' },
+  { id: 'frxAUDJPY', name: 'AUD/JPY', desc: 'Australian Dollar / Japanese Yen' },
+  { id: 'frxEURJPY', name: 'EUR/JPY', desc: 'Euro / Japanese Yen' },
+  { id: 'frxGBPJPY', name: 'GBP/JPY', desc: 'Great British Pound / Japanese Yen' },
+  { id: 'frxXAUUSD', name: 'Gold / USD', desc: 'Spot Gold' },
+  { id: 'cryBTCUSD', name: 'BTC/USD', desc: 'Bitcoin' },
+  { id: 'cryETHUSD', name: 'ETH/USD', desc: 'Ethereum' }
+];
+
+const SYNTHETIC_PAIRS_LIST = [
+  { id: 'R_10', name: 'Volatility 10 Index', desc: 'Constant volatility 10%' },
+  { id: 'R_25', name: 'Volatility 25 Index', desc: 'Constant volatility 25%' },
+  { id: 'R_50', name: 'Volatility 50 Index', desc: 'Constant volatility 50%' },
+  { id: 'R_75', name: 'Volatility 75 Index', desc: 'Constant volatility 75%' },
+  { id: 'R_100', name: 'Volatility 100 Index', desc: 'Constant volatility 100%' },
+  { id: '1HZ10V', name: 'Volatility 10 (1s) Index', desc: 'Volatility 10% (1-sec tick)' },
+  { id: '1HZ75V', name: 'Volatility 75 (1s) Index', desc: 'Volatility 75% (1-sec tick)' },
+  { id: '1HZ100V', name: 'Volatility 100 (1s) Index', desc: 'Volatility 100% (1-sec tick)' },
+  { id: 'BOOM500', name: 'Boom 500 Index', desc: 'Spike average every 500 ticks' },
+  { id: 'BOOM1000', name: 'Boom 1000 Index', desc: 'Spike average every 1000 ticks' },
+  { id: 'CRASH500', name: 'Crash 500 Index', desc: 'Drop average every 500 ticks' },
+  { id: 'CRASH1000', name: 'Crash 1000 Index', desc: 'Drop average every 1000 ticks' },
+  { id: 'JD50', name: 'Jump 50 Index', desc: 'Jump volatility 50%' },
+  { id: 'stpRNG', name: 'Step Index 100', desc: 'Step sizing 0.1 average' }
+];
+
 export default function DerivDashboard() {
   // Credentials
   const [appId, setAppId] = useState('');
@@ -73,6 +105,10 @@ export default function DerivDashboard() {
   const [isTogglingBot, setIsTogglingBot] = useState(false);
   const [dashboardStakeAmount, setDashboardStakeAmount] = useState('1.00');
   const [isSavingStake, setIsSavingStake] = useState(false);
+
+  // Selected pairs list state
+  const [selectedPairs, setSelectedPairs] = useState<string[]>(['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']);
+  const [draftPairs, setDraftPairs] = useState<string[]>(['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']);
 
   // Strategy list selectors
   const [activeStrategies, setActiveStrategies] = useState<string[]>(['FOREX_15M_MTF']);
@@ -128,6 +164,9 @@ export default function DerivDashboard() {
         setDraftStrategies(activeStrats);
         setDashboardMaxTrades(String(data.derivMaxTrades || 10));
         setDashboardStakeAmount(String(data.derivStakeAmount || '1.00'));
+        const savedPairs = data.derivSelectedPairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
+        setSelectedPairs(savedPairs);
+        setDraftPairs(savedPairs);
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -247,6 +286,14 @@ export default function DerivDashboard() {
     }
   };
 
+  const handleTogglePairDraft = (id: string) => {
+    if (draftPairs.includes(id)) {
+      setDraftPairs(draftPairs.filter(x => x !== id));
+    } else {
+      setDraftPairs([...draftPairs, id]);
+    }
+  };
+
   const handleSaveActiveStrategies = async () => {
     setIsSavingStrategies(true);
     try {
@@ -262,12 +309,14 @@ export default function DerivDashboard() {
           botEnabled: derivBotEnabled,
           activeStrategies: draftStrategies,
           derivMaxTrades: parseInt(dashboardMaxTrades),
-          derivStakeAmount: parseFloat(dashboardStakeAmount)
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: draftPairs
         }),
       });
 
       if (res.ok) {
         setActiveStrategies(draftStrategies);
+        setSelectedPairs(draftPairs);
         confetti({ particleCount: 60, spread: 50, origin: { y: 0.8 } });
       }
     } catch (err) {
@@ -292,7 +341,8 @@ export default function DerivDashboard() {
           botEnabled: derivBotEnabled,
           activeStrategies,
           derivMaxTrades: parseInt(dashboardMaxTrades),
-          derivStakeAmount: parseFloat(dashboardStakeAmount)
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs
         })
       });
       if (res.ok) {
@@ -321,7 +371,8 @@ export default function DerivDashboard() {
           botEnabled: derivBotEnabled,
           activeStrategies,
           derivMaxTrades: parseInt(dashboardMaxTrades),
-          derivStakeAmount: parseFloat(dashboardStakeAmount)
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs
         })
       });
       if (res.ok) {
@@ -398,7 +449,9 @@ export default function DerivDashboard() {
           tradingMode,
           botEnabled: newStatus,
           activeStrategies,
-          derivMaxTrades: parseInt(dashboardMaxTrades)
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs
         })
       });
       if (res.ok) {
@@ -493,7 +546,9 @@ export default function DerivDashboard() {
       ? (closedTrades.filter((t) => t.status === 'WON').length / closedTrades.length) * 100
       : 0;
 
-  const hasUnsavedStrategies = JSON.stringify(activeStrategies.sort()) !== JSON.stringify(draftStrategies.sort());
+  const hasUnsavedConfig =
+    JSON.stringify(activeStrategies.sort()) !== JSON.stringify(draftStrategies.sort()) ||
+    JSON.stringify(selectedPairs.sort()) !== JSON.stringify(draftPairs.sort());
   const filteredStrategies = STRATEGIES_LIST.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
@@ -639,57 +694,111 @@ export default function DerivDashboard() {
         {/* Left Column Sidebar */}
         <div className="lg:col-span-1 space-y-6">
           
-          {/* Strategy Checklist (Matches Binance layout) */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4">
-            <div>
-              <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Active Engines</h3>
-              <p className="text-[9px] text-zinc-500 mt-1 leading-relaxed">
-                Tick to run on Deriv, untick to pause.
-              </p>
-            </div>
-
-            <div>
-              <input
-                type="text"
-                placeholder="🔍 Search strategy..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
-              />
-            </div>
-
-            <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
-              {filteredStrategies.map((strat) => {
-                const isTicked = draftStrategies.includes(strat.id);
-                const isSelected = activeStrategies.includes(strat.id);
-                return (
-                  <div
-                    key={strat.id}
-                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all duration-200 text-[10px] font-bold ${
-                      isSelected
-                        ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
-                        : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
-                    }`}
-                  >
-                    <span className="flex-1 uppercase tracking-wider font-mono truncate mr-2">
-                      {strat.name}
-                    </span>
-                    <label className="flex items-center justify-center cursor-pointer">
+          {/* Active Configuration Sidebar Checklist */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-5">
+            {/* 1. Strategy Engines */}
+            <div className="space-y-2">
+              <div>
+                <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Active Engines</h3>
+                <p className="text-[8px] text-zinc-500 leading-tight">Select active engines to run.</p>
+              </div>
+              <div className="space-y-1">
+                {filteredStrategies.map((strat) => {
+                  const isTicked = draftStrategies.includes(strat.id);
+                  const isSelected = activeStrategies.includes(strat.id);
+                  return (
+                    <div
+                      key={strat.id}
+                      className={`flex items-center justify-between px-2 py-1.5 rounded-lg text-[9px] font-bold ${
+                        isSelected
+                          ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
+                          : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                      }`}
+                    >
+                      <span className="truncate mr-2 uppercase tracking-wide">{strat.name}</span>
                       <input
                         type="checkbox"
                         checked={isTicked}
                         onChange={() => handleToggleStrategyDraft(strat.id)}
-                        className="w-3.5 h-3.5 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none transition-all cursor-pointer accent-emerald-500"
+                        className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
                       />
-                    </label>
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            {hasUnsavedStrategies && (
-              <div className="pt-2 border-t border-zinc-800/60">
+            {/* 2. Global Markets Checklist */}
+            <div className="space-y-2 pt-3 border-t border-zinc-800/60">
+              <div>
+                <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Global Markets</h3>
+                <p className="text-[8px] text-zinc-500 leading-tight">Forex, Gold & Cryptocurrencies</p>
+              </div>
+              <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
+                {GLOBAL_PAIRS_LIST.map((pair) => {
+                  const isTicked = draftPairs.includes(pair.id);
+                  const isSelected = selectedPairs.includes(pair.id);
+                  return (
+                    <div
+                      key={pair.id}
+                      className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
+                        isSelected
+                          ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
+                          : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                      }`}
+                      title={pair.desc}
+                    >
+                      <span>{pair.name}</span>
+                      <input
+                        type="checkbox"
+                        checked={isTicked}
+                        onChange={() => handleTogglePairDraft(pair.id)}
+                        className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Deriv Synthetic Markets Checklist */}
+            <div className="space-y-2 pt-3 border-t border-zinc-800/60">
+              <div>
+                <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Synthetic Markets</h3>
+                <p className="text-[8px] text-zinc-500 leading-tight">Volatility, Boom & Crash indices</p>
+              </div>
+              <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
+                {SYNTHETIC_PAIRS_LIST.map((pair) => {
+                  const isTicked = draftPairs.includes(pair.id);
+                  const isSelected = selectedPairs.includes(pair.id);
+                  return (
+                    <div
+                      key={pair.id}
+                      className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
+                        isSelected
+                          ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
+                          : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                      }`}
+                      title={pair.desc}
+                    >
+                      <span className="truncate max-w-[120px]">{pair.name}</span>
+                      <input
+                        type="checkbox"
+                        checked={isTicked}
+                        onChange={() => handleTogglePairDraft(pair.id)}
+                        className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 4. Save Button */}
+            {hasUnsavedConfig && (
+              <div className="pt-3 border-t border-zinc-800/60">
                 <button
+                  type="button"
                   onClick={handleSaveActiveStrategies}
                   disabled={isSavingStrategies}
                   className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-xl transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer"
@@ -929,7 +1038,7 @@ export default function DerivDashboard() {
                     await fetch('/api/deriv/settings', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: true, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount) })
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: true, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs })
                     });
                     fetchSettings();
                   }}
@@ -946,7 +1055,7 @@ export default function DerivDashboard() {
                     await fetch('/api/deriv/settings', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: false, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount) })
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: false, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs })
                     });
                     fetchSettings();
                   }}
@@ -967,7 +1076,7 @@ export default function DerivDashboard() {
                     await fetch('/api/deriv/settings', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'DEMO', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount) })
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'DEMO', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs })
                     });
                     fetchSettings();
                   }}
@@ -984,7 +1093,7 @@ export default function DerivDashboard() {
                     await fetch('/api/deriv/settings', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'REAL', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount) })
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'REAL', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs })
                     });
                     fetchSettings();
                   }}
