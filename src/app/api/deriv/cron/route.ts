@@ -263,14 +263,36 @@ export async function GET() {
       return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
     }
 
-    // 4. Connect WebSocket
+    // 4. Connect WebSocket with robust retry logic
     const wsUrl = await fetchOTP(appId, token, activeAccount);
-    const socket = await new Promise<WebSocket>((resolve, reject) => {
-      const ws = new WebSocket(wsUrl);
-      ws.onopen = () => resolve(ws);
-      ws.onerror = (e) => reject(new Error('WebSocket connection failed.'));
-      setTimeout(() => reject(new Error('Connection timed out.')), 6000);
-    });
+    
+    let socket: WebSocket | null = null;
+    const connectAttempts = 3;
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= connectAttempts; attempt++) {
+      try {
+        socket = await new Promise<WebSocket>((resolve, reject) => {
+          const ws = new WebSocket(wsUrl);
+          ws.onopen = () => resolve(ws);
+          ws.onerror = (e) => reject(new Error('WebSocket handshake failed.'));
+          // 15 seconds timeout for serverless environments
+          setTimeout(() => reject(new Error('Connection timed out.')), 15000);
+        });
+        break; // Successfully connected!
+      } catch (err: any) {
+        lastError = err;
+        scanLogs.push(`⚠️ WebSocket connection attempt ${attempt} failed: ${err.message}`);
+        if (attempt < connectAttempts) {
+          // Wait 1.5 seconds before retrying
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
+    }
+
+    if (!socket) {
+      throw new Error(`WebSocket connection failed after ${connectAttempts} attempts. Last error: ${lastError?.message}`);
+    }
 
     // Increase WebSocket MaxListeners to avoid warnings during parallel scans
     (socket as any).setMaxListeners?.(200);
