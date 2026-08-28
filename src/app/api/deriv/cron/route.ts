@@ -274,94 +274,103 @@ export async function GET() {
     const pairsToTrade = existingOverrides.deriv_selected_pairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
     scanLogs.push(`✅ Authenticated. Running scans on pairs: ${pairsToTrade.join(', ')}`);
 
-    for (const pair of pairsToTrade) {
-      scanLogs.push(`Scanning ${pair}...`);
+    const scanPromises = (pairsToTrade as string[]).map(async (pair: string) => {
+      const localLogs: string[] = [`Scanning ${pair}...`];
+      try {
+        // A. Check if trade already open for this symbol (Max 1 active trade per pair)
+        const { data: openTrades, error: checkErr } = await supabase
+          .from('deriv_trades')
+          .select('*')
+          .eq('symbol', pair)
+          .eq('status', 'OPEN');
 
-      // A. Check if trade already open for this symbol (Max 1 active trade per pair)
-      const { data: openTrades, error: checkErr } = await supabase
-        .from('deriv_trades')
-        .select('*')
-        .eq('symbol', pair)
-        .eq('status', 'OPEN');
-
-      if (!checkErr && openTrades && openTrades.length > 0) {
-        scanLogs.push(`- Skip: A contract is already open for ${pair}.`);
-        continue;
-      }
-
-      // B. Filter: Economic News Block
-      const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
-      if (newsBlocked) {
-        scanLogs.push(`- Skip: High Impact News block is active for currencies in ${pair}.`);
-        continue;
-      }
-
-      // C. Fetch Multi-Timeframe Candles
-      const candles5m = await fetchCandles(socket, pair, 300);
-      const candles15m = await fetchCandles(socket, pair, 900);
-      const candlesH1 = await fetchCandles(socket, pair, 3600);
-
-      const strategyResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
-      scanLogs.push(`- ADX on 15m: ${strategyResult.adxValue.toFixed(1)} | Signal: ${strategyResult.direction}`);
-
-      if (strategyResult.direction !== 'NEUTRAL') {
-        // D. Fetch tick to check spread before buying
-        const tick = await fetchTick(socket, pair);
-        if (tick) {
-          const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
-          if (spreadBlocked) {
-            scanLogs.push(`- Skip: Spread of ${pair} exceeds the limit of 2.0 pips.`);
-            continue;
-          }
-
-          // E. Execute Trade!
-          scanLogs.push(`🔥 Trigger: Placing $${derivStakeAmount.toFixed(2)} ${strategyResult.direction} contract on ${pair} with 15m expiry.`);
-          try {
-            const result = await buyContract(socket, pair, strategyResult.direction, derivStakeAmount);
-            
-            const newTrade = {
-              id: crypto.randomUUID(),
-              contract_id: result.contract_id,
-              symbol: pair,
-              contract_type: strategyResult.direction,
-              duration: 15,
-              duration_unit: 'm',
-              stake: derivStakeAmount,
-              payout: parseFloat(result.payout),
-              status: 'OPEN',
-              entry_price: parseFloat(result.buy_price),
-              exit_price: null,
-              barrier: null,
-              pnl: 0,
-              is_paper: tradingMode === 'DEMO',
-              created_at: new Date().toISOString(),
-              closed_at: null
-            };
-
-            await supabase.from('deriv_trades').insert([newTrade]);
-            scanLogs.push(`🎉 Trade executed successfully! Contract ID: ${result.contract_id}`);
-
-            // Send Telegram Signal Notification
-            const gmtTime = new Date().toUTCString();
-            const signalMsg = `🚀 <b>DERIV OP-BOT SIGNAL ALERT</b> 🚀\n` +
-              `-------------------------------------\n` +
-              `<b>Asset Pair:</b> ${pair.replace('frx', '')}\n` +
-              `<b>Option Direction:</b> ${strategyResult.direction === 'CALL' ? '🟢 RISE (CALL)' : '🔴 FALL (PUT)'}\n` +
-              `<b>Entry Price:</b> $${result.buy_price}\n` +
-              `<b>Contract Expiry:</b> 15 Minutes\n` +
-              `<b>Scan Time (GMT):</b> ${gmtTime}\n` +
-              `<b>Analysis Stats:</b> H1 Trend: ${strategyResult.direction === 'CALL' ? 'BULLISH' : 'BEARISH'} | ADX: ${strategyResult.adxValue.toFixed(1)}\n` +
-              `<b>Account Mode:</b> ${tradingMode} Sandbox`;
-            
-            await sendTelegramAlert(signalMsg);
-
-          } catch (execErr: any) {
-            scanLogs.push(`❌ Purchase execution error for ${pair}: ${execErr.message}`);
-          }
-        } else {
-          scanLogs.push(`❌ Error fetching ticks/spread for ${pair}. Skipping.`);
+        if (!checkErr && openTrades && openTrades.length > 0) {
+          localLogs.push(`- Skip: A contract is already open for ${pair}.`);
+          return localLogs;
         }
+
+        // B. Filter: Economic News Block
+        const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
+        if (newsBlocked) {
+          localLogs.push(`- Skip: High Impact News block is active for currencies in ${pair}.`);
+          return localLogs;
+        }
+
+        // C. Fetch Multi-Timeframe Candles
+        const candles5m = await fetchCandles(socket, pair, 300);
+        const candles15m = await fetchCandles(socket, pair, 900);
+        const candlesH1 = await fetchCandles(socket, pair, 3600);
+
+        const strategyResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
+        localLogs.push(`- ADX on 15m: ${strategyResult.adxValue.toFixed(1)} | Signal: ${strategyResult.direction}`);
+
+        if (strategyResult.direction !== 'NEUTRAL') {
+          // D. Fetch tick to check spread before buying
+          const tick = await fetchTick(socket, pair);
+          if (tick) {
+            const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
+            if (spreadBlocked) {
+              localLogs.push(`- Skip: Spread of ${pair} exceeds the limit of 2.0 pips.`);
+              return localLogs;
+            }
+
+            // E. Execute Trade!
+            localLogs.push(`🔥 Trigger: Placing $${derivStakeAmount.toFixed(2)} ${strategyResult.direction} contract on ${pair} with 15m expiry.`);
+            try {
+              const result = await buyContract(socket, pair, strategyResult.direction, derivStakeAmount);
+              
+              const newTrade = {
+                id: crypto.randomUUID(),
+                contract_id: result.contract_id,
+                symbol: pair,
+                contract_type: strategyResult.direction,
+                duration: 15,
+                duration_unit: 'm',
+                stake: derivStakeAmount,
+                payout: parseFloat(result.payout),
+                status: 'OPEN',
+                entry_price: parseFloat(result.buy_price),
+                exit_price: null,
+                barrier: null,
+                pnl: 0,
+                is_paper: tradingMode === 'DEMO',
+                created_at: new Date().toISOString(),
+                closed_at: null
+              };
+
+              await supabase.from('deriv_trades').insert([newTrade]);
+              localLogs.push(`🎉 Trade executed successfully! Contract ID: ${result.contract_id}`);
+
+              // Send Telegram Signal Notification
+              const gmtTime = new Date().toUTCString();
+              const signalMsg = `🚀 <b>DERIV OP-BOT SIGNAL ALERT</b> 🚀\n` +
+                `-------------------------------------\n` +
+                `<b>Asset Pair:</b> ${pair.replace('frx', '')}\n` +
+                `<b>Option Direction:</b> ${strategyResult.direction === 'CALL' ? '🟢 RISE (CALL)' : '🔴 FALL (PUT)'}\n` +
+                `<b>Entry Price:</b> $${result.buy_price}\n` +
+                `<b>Contract Expiry:</b> 15 Minutes\n` +
+                `<b>Scan Time (GMT):</b> ${gmtTime}\n` +
+                `<b>Analysis Stats:</b> H1 Trend: ${strategyResult.direction === 'CALL' ? 'BULLISH' : 'BEARISH'} | ADX: ${strategyResult.adxValue.toFixed(1)}\n` +
+                `<b>Account Mode:</b> ${tradingMode} Sandbox`;
+              
+              await sendTelegramAlert(signalMsg);
+
+            } catch (execErr: any) {
+              localLogs.push(`❌ Purchase execution error for ${pair}: ${execErr.message}`);
+            }
+          } else {
+            localLogs.push(`❌ Error fetching ticks/spread for ${pair}. Skipping.`);
+          }
+        }
+      } catch (err: any) {
+        localLogs.push(`❌ Error processing ${pair}: ${err.message}`);
       }
+      return localLogs;
+    });
+
+    const scanResults = await Promise.all(scanPromises);
+    for (const localLogs of scanResults) {
+      scanLogs.push(...localLogs);
     }
 
     socket.close();
