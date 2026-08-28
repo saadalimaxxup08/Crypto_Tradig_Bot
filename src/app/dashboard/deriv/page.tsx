@@ -46,6 +46,7 @@ const STRATEGIES_LIST = [
 ];
 
 const GLOBAL_PAIRS_LIST = [
+  // Major Forex
   { id: 'frxEURUSD', name: 'EUR/USD', desc: 'Euro / US Dollar' },
   { id: 'frxGBPUSD', name: 'GBP/USD', desc: 'Great British Pound / US Dollar' },
   { id: 'frxUSDJPY', name: 'USD/JPY', desc: 'US Dollar / Japanese Yen' },
@@ -55,26 +56,100 @@ const GLOBAL_PAIRS_LIST = [
   { id: 'frxAUDJPY', name: 'AUD/JPY', desc: 'Australian Dollar / Japanese Yen' },
   { id: 'frxEURJPY', name: 'EUR/JPY', desc: 'Euro / Japanese Yen' },
   { id: 'frxGBPJPY', name: 'GBP/JPY', desc: 'Great British Pound / Japanese Yen' },
-  { id: 'frxXAUUSD', name: 'Gold / USD', desc: 'Spot Gold' },
+  { id: 'frxEURGBP', name: 'EUR/GBP', desc: 'Euro / Great British Pound' },
+  { id: 'frxEURAUD', name: 'EUR/AUD', desc: 'Euro / Australian Dollar' },
+  { id: 'frxEURCAD', name: 'EUR/CAD', desc: 'Euro / Canadian Dollar' },
+  { id: 'frxEURCHF', name: 'EUR/CHF', desc: 'Euro / Swiss Franc' },
+  { id: 'frxGBPAUD', name: 'GBP/AUD', desc: 'Great British Pound / Australian Dollar' },
+  // Minor Forex
+  { id: 'frxAUDCAD', name: 'AUD/CAD', desc: 'Australian Dollar / Canadian Dollar' },
+  { id: 'frxAUDCHF', name: 'AUD/CHF', desc: 'Australian Dollar / Swiss Franc' },
+  { id: 'frxAUDNZD', name: 'AUD/NZD', desc: 'Australian Dollar / New Zealand Dollar' },
+  { id: 'frxEURNZD', name: 'EUR/NZD', desc: 'Euro / New Zealand Dollar' },
+  { id: 'frxGBPCAD', name: 'GBP/CAD', desc: 'Great British Pound / Canadian Dollar' },
+  { id: 'frxGBPCHF', name: 'GBP/CHF', desc: 'Great British Pound / Swiss Franc' },
+  { id: 'frxGBPNZD', name: 'GBP/NZD', desc: 'Great British Pound / New Zealand Dollar' },
+  { id: 'frxNZDJPY', name: 'NZD/JPY', desc: 'New Zealand Dollar / Japanese Yen' },
+  { id: 'frxNZDUSD', name: 'NZD/USD', desc: 'New Zealand Dollar / US Dollar' },
+  { id: 'frxUSDMXN', name: 'USD/MXN', desc: 'US Dollar / Mexican Peso' },
+  { id: 'frxUSDPLN', name: 'USD/PLN', desc: 'US Dollar / Polish Zloty' },
+  // Metals
+  { id: 'frxXAUUSD', name: 'Gold / USD', desc: 'Gold Spot' },
+  { id: 'frxXAGUSD', name: 'Silver / USD', desc: 'Silver Spot' },
+  { id: 'frxXPDUSD', name: 'Palladium / USD', desc: 'Palladium Spot' },
+  { id: 'frxXPTUSD', name: 'Platinum / USD', desc: 'Platinum Spot' },
+  // Cryptos
   { id: 'cryBTCUSD', name: 'BTC/USD', desc: 'Bitcoin' },
-  { id: 'cryETHUSD', name: 'ETH/USD', desc: 'Ethereum' }
+  { id: 'cryETHUSD', name: 'ETH/USD', desc: 'Ethereum' },
+  // Indices
+  { id: 'OTC_NDX', name: 'US Tech 100', desc: 'US Tech 100 OTC' },
+  { id: 'OTC_SPC', name: 'US 500', desc: 'US 500 OTC' },
+  { id: 'OTC_DJI', name: 'Wall Street 30', desc: 'Wall Street 30 OTC' },
+  { id: 'OTC_FTSE', name: 'UK 100', desc: 'UK 100 OTC' },
+  { id: 'OTC_GDAXI', name: 'Germany 40', desc: 'Germany 40 OTC' },
+  { id: 'OTC_FCHI', name: 'France 40', desc: 'France 40 OTC' },
+  { id: 'OTC_SX5E', name: 'Euro 50', desc: 'Euro 50 OTC' },
+  { id: 'OTC_N225', name: 'Japan 225', desc: 'Japan 225 OTC' },
+  { id: 'OTC_HSI', name: 'Hong Kong 50', desc: 'Hong Kong 50 OTC' },
+  { id: 'OTC_AS51', name: 'Australia 200', desc: 'Australia 200 OTC' },
+  { id: 'OTC_AEX', name: 'Netherlands 25', desc: 'Netherlands 25 OTC' },
+  { id: 'OTC_SSMI', name: 'Swiss 20', desc: 'Swiss 20 OTC' }
 ];
 
 const SYNTHETIC_PAIRS_LIST = [
+  // Volatility
   { id: 'R_10', name: 'Volatility 10 Index', desc: 'Constant volatility 10%' },
   { id: 'R_25', name: 'Volatility 25 Index', desc: 'Constant volatility 25%' },
   { id: 'R_50', name: 'Volatility 50 Index', desc: 'Constant volatility 50%' },
   { id: 'R_75', name: 'Volatility 75 Index', desc: 'Constant volatility 75%' },
   { id: 'R_100', name: 'Volatility 100 Index', desc: 'Constant volatility 100%' },
   { id: '1HZ10V', name: 'Volatility 10 (1s) Index', desc: 'Volatility 10% (1-sec tick)' },
+  { id: '1HZ15V', name: 'Volatility 15 (1s) Index', desc: 'Volatility 15% (1-sec tick)' },
+  { id: '1HZ25V', name: 'Volatility 25 (1s) Index', desc: 'Volatility 25% (1-sec tick)' },
+  { id: '1HZ30V', name: 'Volatility 30 (1s) Index', desc: 'Volatility 30% (1-sec tick)' },
+  { id: '1HZ50V', name: 'Volatility 50 (1s) Index', desc: 'Volatility 50% (1-sec tick)' },
   { id: '1HZ75V', name: 'Volatility 75 (1s) Index', desc: 'Volatility 75% (1-sec tick)' },
+  { id: '1HZ90V', name: 'Volatility 90 (1s) Index', desc: 'Volatility 90% (1-sec tick)' },
   { id: '1HZ100V', name: 'Volatility 100 (1s) Index', desc: 'Volatility 100% (1-sec tick)' },
+  // Boom/Crash
+  { id: 'BOOM50', name: 'Boom 50 Index', desc: 'Spike average every 50 ticks' },
+  { id: 'BOOM150N', name: 'Boom 150 Index', desc: 'Spike average every 150 ticks' },
+  { id: 'BOOM300N', name: 'Boom 300 Index', desc: 'Spike average every 300 ticks' },
   { id: 'BOOM500', name: 'Boom 500 Index', desc: 'Spike average every 500 ticks' },
+  { id: 'BOOM600', name: 'Boom 600 Index', desc: 'Spike average every 600 ticks' },
+  { id: 'BOOM900', name: 'Boom 900 Index', desc: 'Spike average every 900 ticks' },
   { id: 'BOOM1000', name: 'Boom 1000 Index', desc: 'Spike average every 1000 ticks' },
+  { id: 'CRASH50', name: 'Crash 50 Index', desc: 'Drop average every 50 ticks' },
+  { id: 'CRASH150N', name: 'Crash 150 Index', desc: 'Drop average every 150 ticks' },
+  { id: 'CRASH300N', name: 'Crash 300 Index', desc: 'Drop average every 300 ticks' },
   { id: 'CRASH500', name: 'Crash 500 Index', desc: 'Drop average every 500 ticks' },
+  { id: 'CRASH600', name: 'Crash 600 Index', desc: 'Drop average every 600 ticks' },
+  { id: 'CRASH900', name: 'Crash 900 Index', desc: 'Drop average every 900 ticks' },
   { id: 'CRASH1000', name: 'Crash 1000 Index', desc: 'Drop average every 1000 ticks' },
+  // Jump
+  { id: 'JD10', name: 'Jump 10 Index', desc: 'Jump volatility 10%' },
+  { id: 'JD25', name: 'Jump 25 Index', desc: 'Jump volatility 25%' },
   { id: 'JD50', name: 'Jump 50 Index', desc: 'Jump volatility 50%' },
-  { id: 'stpRNG', name: 'Step Index 100', desc: 'Step sizing 0.1 average' }
+  { id: 'JD75', name: 'Jump 75 Index', desc: 'Jump volatility 75%' },
+  { id: 'JD100', name: 'Jump 100 Index', desc: 'Jump volatility 100%' },
+  // Step
+  { id: 'stpRNG', name: 'Step Index 100', desc: 'Step average sizing 0.1' },
+  { id: 'stpRNG2', name: 'Step Index 200', desc: 'Step average sizing 0.2' },
+  { id: 'stpRNG3', name: 'Step Index 300', desc: 'Step average sizing 0.3' },
+  { id: 'stpRNG4', name: 'Step Index 400', desc: 'Step average sizing 0.4' },
+  { id: 'stpRNG5', name: 'Step Index 500', desc: 'Step average sizing 0.5' },
+  // Range Break
+  { id: 'RB100', name: 'Range Break 100', desc: 'Range Break 100 ticks' },
+  { id: 'RB200', name: 'Range Break 200', desc: 'Range Break 200 ticks' },
+  // Baskets
+  { id: 'WLDAUD', name: 'AUD Basket', desc: 'AUD index' },
+  { id: 'WLDEUR', name: 'EUR Basket', desc: 'EUR index' },
+  { id: 'WLDGBP', name: 'GBP Basket', desc: 'GBP index' },
+  { id: 'WLDUSD', name: 'USD Basket', desc: 'USD index' },
+  { id: 'WLDXAU', name: 'Gold Basket', desc: 'Gold index' },
+  // Daily
+  { id: 'RDBEAR', name: 'Bear Market Index', desc: 'Constant bear trend' },
+  { id: 'RDBULL', name: 'Bull Market Index', desc: 'Constant bull trend' }
 ];
 
 export default function DerivDashboard() {
