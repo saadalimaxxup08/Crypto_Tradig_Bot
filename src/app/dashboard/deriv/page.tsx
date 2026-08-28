@@ -42,6 +42,9 @@ export default function DerivDashboard() {
   const [apiToken, setApiToken] = useState('');
   const [demoAccount, setDemoAccount] = useState('');
   const [realAccount, setRealAccount] = useState('');
+  const [demoBalance, setDemoBalance] = useState(0.00);
+  const [realBalance, setRealBalance] = useState(0.00);
+  const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState({ type: '', text: '' });
 
@@ -81,6 +84,10 @@ export default function DerivDashboard() {
         setApiToken(data.apiToken);
         setDemoAccount(data.demoAccount);
         setRealAccount(data.realAccount);
+        setDemoBalance(data.demoBalance || 0);
+        setRealBalance(data.realBalance || 0);
+        setTradingMode(data.tradingMode || 'DEMO');
+        setTradeMode(data.tradingMode || 'DEMO');
         if (data.isFallback) {
           setSettingsMessage({
             type: 'warning',
@@ -153,8 +160,12 @@ export default function DerivDashboard() {
           apiToken,
           demoAccount,
           realAccount,
+          tradingMode,
         }),
       });
+
+      // Refresh settings to reload live balances for the selected mode
+      fetchSettings();
 
       const data = await res.json();
       if (res.ok && data.success) {
@@ -261,6 +272,57 @@ export default function DerivDashboard() {
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing || isLoadingTrades ? 'animate-spin' : ''}`} />
           </button>
+        </div>
+      </div>
+
+      {/* Account Balances Highlight Banner */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Demo Account */}
+        <div className={`p-6 rounded-3xl border transition-all duration-300 ${
+          tradingMode === 'DEMO'
+            ? 'bg-emerald-950/10 border-emerald-500/40 shadow-lg shadow-emerald-500/5'
+            : 'bg-[#0c0c0f]/60 border-zinc-800/85'
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Deriv Demo Wallet</span>
+            {tradingMode === 'DEMO' ? (
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold bg-emerald-500 text-emerald-950 uppercase tracking-wider animate-pulse">
+                Active Mode
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-zinc-900 border border-zinc-800 text-zinc-500 uppercase">
+                Inactive
+              </span>
+            )}
+          </div>
+          <div className="text-2xl font-black font-mono text-zinc-100 mt-2">
+            ${demoBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs text-zinc-500 font-bold">USD</span>
+          </div>
+          <div className="text-[10px] text-zinc-500 font-mono mt-1">ID: {demoAccount || 'N/A'}</div>
+        </div>
+
+        {/* Real Account */}
+        <div className={`p-6 rounded-3xl border transition-all duration-300 ${
+          tradingMode === 'REAL'
+            ? 'bg-emerald-950/10 border-emerald-500/40 shadow-lg shadow-emerald-500/5'
+            : 'bg-[#0c0c0f]/60 border-zinc-800/85'
+        }`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Deriv Real Wallet</span>
+            {tradingMode === 'REAL' ? (
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold bg-emerald-500 text-emerald-950 uppercase tracking-wider animate-pulse">
+                Active Mode
+              </span>
+            ) : (
+              <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-zinc-900 border border-zinc-800 text-zinc-500 uppercase">
+                Inactive
+              </span>
+            )}
+          </div>
+          <div className="text-2xl font-black font-mono text-zinc-100 mt-2">
+            ${realBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs text-zinc-500 font-bold">USD</span>
+          </div>
+          <div className="text-[10px] text-zinc-500 font-mono mt-1">ID: {realAccount || 'N/A'}</div>
         </div>
       </div>
 
@@ -474,6 +536,21 @@ export default function DerivDashboard() {
                     className="w-full px-3 py-2 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Trading Mode</label>
+                <select
+                  value={tradingMode}
+                  onChange={(e) => {
+                    setTradingMode(e.target.value as any);
+                    setTradeMode(e.target.value as any);
+                  }}
+                  className="w-full px-3 py-2 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
+                >
+                  <option value="DEMO">Demo Account (Practice)</option>
+                  <option value="REAL">Real Account (Live Money)</option>
+                </select>
               </div>
 
               {settingsMessage.text && (

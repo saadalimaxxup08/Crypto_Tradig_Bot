@@ -4,6 +4,34 @@ import { getSessionUser } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+async function getDerivBalances(appId: string, token: string) {
+  try {
+    const response = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
+      method: 'GET',
+      headers: {
+        'Deriv-App-ID': appId,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.status === 200) {
+      const resData = await response.json();
+      if (resData && resData.data) {
+        const demo = resData.data.find((a: any) => a.account_type === 'demo');
+        const real = resData.data.find((a: any) => a.account_type === 'real');
+        return {
+          demoBalance: demo ? parseFloat(demo.balance) : 0.00,
+          realBalance: real ? parseFloat(real.balance) : 0.00
+        };
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch Deriv balances:", e);
+  }
+  return { demoBalance: 0.00, realBalance: 0.00 };
+}
+
 export async function GET() {
   const user = getSessionUser();
   if (!user) {
@@ -17,23 +45,44 @@ export async function GET() {
       .eq('id', 1)
       .single();
 
+    const appId = settings?.deriv_app_id || process.env.DERIV_APP_ID || '';
+    const token = settings?.deriv_api_token || process.env.DERIV_API_TOKEN || '';
+    const demoAccount = settings?.deriv_demo_account || process.env.DERIV_DEMO_ACCOUNT || '';
+    const realAccount = settings?.deriv_real_account || process.env.DERIV_REAL_ACCOUNT || '';
+    const tradingMode = settings?.deriv_trading_mode || 'DEMO';
+
+    let demoBalance = 0.00;
+    let realBalance = 0.00;
+
+    if (appId && token) {
+      const balances = await getDerivBalances(appId, token);
+      demoBalance = balances.demoBalance;
+      realBalance = balances.realBalance;
+    }
+
     if (error) {
       return NextResponse.json({
         success: true,
-        appId: process.env.DERIV_APP_ID || '',
-        apiToken: process.env.DERIV_API_TOKEN || '',
-        demoAccount: process.env.DERIV_DEMO_ACCOUNT || '',
-        realAccount: process.env.DERIV_REAL_ACCOUNT || '',
+        appId,
+        apiToken: token,
+        demoAccount,
+        realAccount,
+        tradingMode,
+        demoBalance,
+        realBalance,
         isFallback: true
       });
     }
 
     return NextResponse.json({
       success: true,
-      appId: settings.deriv_app_id || process.env.DERIV_APP_ID || '',
-      apiToken: settings.deriv_api_token || process.env.DERIV_API_TOKEN || '',
-      demoAccount: settings.deriv_demo_account || process.env.DERIV_DEMO_ACCOUNT || '',
-      realAccount: settings.deriv_real_account || process.env.DERIV_REAL_ACCOUNT || '',
+      appId,
+      apiToken: token,
+      demoAccount,
+      realAccount,
+      tradingMode,
+      demoBalance,
+      realBalance,
       isFallback: false
     });
   } catch (err: any) {
@@ -48,24 +97,40 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { appId, apiToken, demoAccount, realAccount } = await request.json();
+    const { appId, apiToken, demoAccount, realAccount, tradingMode } = await request.json();
+
+    // Check if the settings table has deriv_trading_mode, try to update it.
+    const updatePayload: any = {
+      deriv_app_id: appId,
+      deriv_api_token: apiToken,
+      deriv_demo_account: demoAccount,
+      deriv_real_account: realAccount,
+      deriv_trading_mode: tradingMode
+    };
 
     const { error } = await supabase
       .from('settings')
-      .update({
-        deriv_app_id: appId,
-        deriv_api_token: apiToken,
-        deriv_demo_account: demoAccount,
-        deriv_real_account: realAccount
-      })
+      .update(updatePayload)
       .eq('id', 1);
 
     if (error) {
-      return NextResponse.json({
-        success: false,
-        error: 'Supabase settings columns missing. Please run the SQL migration query in your Supabase SQL editor to create the Deriv settings columns.',
-        details: error.message
-      }, { status: 400 });
+      // Fallback: update without deriv_trading_mode column in case the user hasn't run the SQL for trading_mode column yet.
+      console.warn('Failed to save with tradingMode column, trying fallback settings update...');
+      const fallbackPayload = { ...updatePayload };
+      delete fallbackPayload.deriv_trading_mode;
+
+      const { error: fallbackError } = await supabase
+        .from('settings')
+        .update(fallbackPayload)
+        .eq('id', 1);
+
+      if (fallbackError) {
+        return NextResponse.json({
+          success: false,
+          error: 'Supabase settings columns missing. Please run the SQL migration query in your Supabase SQL editor to create the Deriv settings columns.',
+          details: fallbackError.message
+        }, { status: 400 });
+      }
     }
 
     return NextResponse.json({ success: true });
