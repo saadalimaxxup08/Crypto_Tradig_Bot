@@ -30,25 +30,38 @@ export function isSpreadBlocked(symbol: string, ask: number, bid: number): boole
   return pips > 2.0;
 }
 
-// 3. Economic News Block Filter (ForexFactory economic calendar checker)
-// Block trades 30m before and 30m after High Impact News for EUR, USD, GBP
+let cachedXmlText: string | null = null;
+let cachedXmlTime = 0;
+
 export async function isEconomicNewsBlocked(symbol: string): Promise<boolean> {
   try {
-    const res = await fetch('https://nfs.forexfactory.com/ff_calendar_thisweek.xml', {
-      signal: AbortSignal.timeout(4000) // 4 second safety timeout
-    });
+    const nowMs = Date.now();
+    let xmlText = '';
 
-    if (res.status !== 200) {
-      return false; // Skip block if fetch fails
+    if (cachedXmlText && (nowMs - cachedXmlTime < 600000)) {
+      xmlText = cachedXmlText;
+    } else {
+      const res = await fetch('https://nfs.forexfactory.com/ff_calendar_thisweek.xml', {
+        signal: AbortSignal.timeout(4000) // 4 second safety timeout
+      });
+
+      if (res.status !== 200) {
+        if (cachedXmlText) {
+          xmlText = cachedXmlText; // Fallback to cache on network issue
+        } else {
+          return false; // Skip block if fetch fails and no cache
+        }
+      } else {
+        xmlText = await res.text();
+        cachedXmlText = xmlText;
+        cachedXmlTime = nowMs;
+      }
     }
-
-    const xmlText = await res.text();
     
     // Simple regex parser for XML entries
     const eventRegex = /<event>([\s\S]*?)<\/event>/g;
-    let match;
-    const nowMs = Date.now();
     const targetCurrencies = ['USD', 'EUR', 'GBP'];
+    let match: RegExpExecArray | null;
 
     while ((match = eventRegex.exec(xmlText)) !== null) {
       const entry = match[1];

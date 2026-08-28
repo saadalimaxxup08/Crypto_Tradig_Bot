@@ -271,6 +271,9 @@ export async function GET() {
       setTimeout(() => reject(new Error('Connection timed out.')), 6000);
     });
 
+    // Increase WebSocket MaxListeners to avoid warnings during parallel scans
+    (socket as any).setMaxListeners?.(200);
+
     const pairsToTrade = existingOverrides.deriv_selected_pairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
     scanLogs.push(`✅ Authenticated. Running scans on pairs: ${pairsToTrade.join(', ')}`);
 
