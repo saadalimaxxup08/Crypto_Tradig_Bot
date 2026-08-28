@@ -1316,7 +1316,6 @@ export default function SettingsPage() {
                   value={derivAppId}
                   onChange={(e) => setDerivAppId(e.target.value)}
                   className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-650 focus:outline-none transition-all duration-200 text-sm"
-                  required
                 />
               </div>
 
@@ -1332,7 +1331,6 @@ export default function SettingsPage() {
                     value={derivApiToken}
                     onChange={(e) => setDerivApiToken(e.target.value)}
                     className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 pl-4 pr-11 font-mono text-zinc-100 placeholder-zinc-650 focus:outline-none transition-all duration-200 text-sm"
-                    required
                   />
                   <button
                     type="button"
@@ -1355,7 +1353,6 @@ export default function SettingsPage() {
                   value={derivDemoAccount}
                   onChange={(e) => setDerivDemoAccount(e.target.value)}
                   className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
-                  required
                 />
               </div>
 
