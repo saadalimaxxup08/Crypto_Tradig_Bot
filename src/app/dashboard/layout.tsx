@@ -16,6 +16,7 @@ import {
   FileText,
   Beaker,
   Terminal,
+  LineChart,
 } from 'lucide-react';
 import React from 'react';
 
@@ -86,7 +87,15 @@ export default async function DashboardLayout({
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
             >
               <LayoutDashboard className="w-5 h-5 text-zinc-400" />
-              <span>Dashboard</span>
+              <span>Binance Dashboard</span>
+            </Link>
+
+            <Link
+              href="/dashboard/deriv"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
+            >
+              <LineChart className="w-5 h-5 text-zinc-400" />
+              <span>Deriv Dashboard</span>
             </Link>
 
             <Link
