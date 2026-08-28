@@ -49,9 +49,9 @@ export async function GET() {
     const token = settings?.deriv_api_token || process.env.DERIV_API_TOKEN || '';
     const demoAccount = settings?.deriv_demo_account || process.env.DERIV_DEMO_ACCOUNT || '';
     const realAccount = settings?.deriv_real_account || process.env.DERIV_REAL_ACCOUNT || '';
-    const tradingMode = settings?.deriv_trading_mode || 'DEMO';
-    const botEnabled = settings?.deriv_bot_enabled || false;
     const overrides = settings?.pair_overrides || {};
+    const tradingMode = overrides.deriv_trading_mode || settings?.deriv_trading_mode || 'DEMO';
+    const botEnabled = overrides.deriv_bot_enabled !== undefined ? overrides.deriv_bot_enabled : (settings?.deriv_bot_enabled || false);
     const lastScanAt = overrides.deriv_last_scan_at || '';
     const lastScanLogs = overrides.deriv_last_scan_logs || [];
     const activeStrategies = overrides.deriv_active_strategies || ['FOREX_15M_MTF'];
@@ -131,7 +131,9 @@ export async function POST(request: Request) {
       ...existingOverrides,
       deriv_active_strategies: activeStrategies || ['FOREX_15M_MTF'],
       deriv_max_trades: derivMaxTrades !== undefined ? parseInt(derivMaxTrades) : (existingOverrides.deriv_max_trades || 10),
-      deriv_stake_amount: derivStakeAmount !== undefined ? parseFloat(derivStakeAmount) : (existingOverrides.deriv_stake_amount || 1.00)
+      deriv_stake_amount: derivStakeAmount !== undefined ? parseFloat(derivStakeAmount) : (existingOverrides.deriv_stake_amount || 1.00),
+      deriv_bot_enabled: botEnabled !== undefined ? botEnabled : existingOverrides.deriv_bot_enabled,
+      deriv_trading_mode: tradingMode !== undefined ? tradingMode : existingOverrides.deriv_trading_mode
     };
 
     const updatePayload: any = {

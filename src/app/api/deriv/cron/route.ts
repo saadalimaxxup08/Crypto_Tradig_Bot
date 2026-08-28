@@ -197,8 +197,8 @@ export async function GET() {
   const derivStakeAmount = existingOverrides.deriv_stake_amount || 1.00;
 
   try {
-    const isBotEnabled = settings.deriv_bot_enabled || false;
-    const tradingMode = settings.deriv_trading_mode || 'DEMO';
+    const isBotEnabled = existingOverrides.deriv_bot_enabled !== undefined ? existingOverrides.deriv_bot_enabled : (settings.deriv_bot_enabled || false);
+    const tradingMode = existingOverrides.deriv_trading_mode || settings.deriv_trading_mode || 'DEMO';
     const appId = settings.deriv_app_id || process.env.DERIV_APP_ID || '';
     const token = settings.deriv_api_token || process.env.DERIV_API_TOKEN || '';
     const demoAccount = settings.deriv_demo_account || process.env.DERIV_DEMO_ACCOUNT || '';
