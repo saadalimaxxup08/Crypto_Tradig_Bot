@@ -1621,6 +1621,7 @@ export default function DerivDashboard() {
                     <th className="py-2.5 px-4">Asset Pair</th>
                     <th className="py-2.5 px-3">Direction</th>
                     <th className="py-2.5 px-3">Proximity Status</th>
+                    <th className="py-2.5 px-3 text-right">Confirmations (T A S)</th>
                     <th className="py-2.5 px-3 text-right">ADX</th>
                     <th className="py-2.5 px-4 text-right">Stoch %K / %D</th>
                   </tr>
@@ -1628,7 +1629,7 @@ export default function DerivDashboard() {
                 <tbody className="divide-y divide-zinc-900/60 font-medium">
                   {nearEntryPairs.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="py-8 text-center text-zinc-650 italic">
+                      <td colSpan={6} className="py-8 text-center text-zinc-650 italic">
                         No pairs currently near trade entry criteria. Running active scans...
                       </td>
                     </tr>
@@ -1649,6 +1650,43 @@ export default function DerivDashboard() {
                         </td>
                         <td className="py-2.5 px-3 text-zinc-400 font-mono text-[9px]">
                           {pair.reason}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Trend Indicator */}
+                            <span 
+                              title={pair.confirmations?.trend ? "Trend Aligned (H1 & 15m EMAs match)" : "Trend Disaligned"}
+                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
+                                pair.confirmations?.trend 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
+                                  : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                              }`}
+                            >
+                              T
+                            </span>
+                            {/* ADX Indicator */}
+                            <span 
+                              title={pair.confirmations?.adx ? "ADX > 22 (Strong Momentum)" : "ADX <= 22 (Weak Momentum)"}
+                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
+                                pair.confirmations?.adx 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
+                                  : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                              }`}
+                            >
+                              A
+                            </span>
+                            {/* Stochastic Zone Indicator */}
+                            <span 
+                              title={pair.confirmations?.stochZone ? "Stochastic in Oversold/Overbought Trigger Zone" : "Stochastic not in zone"}
+                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
+                                pair.confirmations?.stochZone 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
+                                  : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                              }`}
+                            >
+                              S
+                            </span>
+                          </div>
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono font-bold text-zinc-200">
                           {parseFloat(pair.adx).toFixed(1)}

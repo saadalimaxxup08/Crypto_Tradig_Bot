@@ -176,6 +176,11 @@ export function analyzeForex15mStrategy(
     reason: string;
     stochK: number;
     stochD: number;
+    confirmations: {
+      trend: boolean;
+      adx: boolean;
+      stochZone: boolean;
+    }
   }
 } {
   
@@ -183,7 +188,14 @@ export function analyzeForex15mStrategy(
     return { 
       direction: 'NEUTRAL', 
       adxValue: 0, 
-      nearEntry: { isNear: false, direction: 'NEUTRAL', reason: 'Insufficient data', stochK: 0, stochD: 0 } 
+      nearEntry: { 
+        isNear: false, 
+        direction: 'NEUTRAL', 
+        reason: 'Insufficient data', 
+        stochK: 0, 
+        stochD: 0,
+        confirmations: { trend: false, adx: false, stochZone: false }
+      } 
     };
   }
 
@@ -268,7 +280,12 @@ export function analyzeForex15mStrategy(
       direction: isH1Uptrend ? 'RISE' : isH1Downtrend ? 'FALL' : 'NEUTRAL',
       reason,
       stochK: currentK,
-      stochD: currentD
+      stochD: currentD,
+      confirmations: {
+        trend: (isH1Uptrend && is15mUptrend) || (isH1Downtrend && is15mDowntrend),
+        adx: isADXStrong,
+        stochZone: isH1Uptrend ? (currentK < 30) : (currentK > 70)
+      }
     }
   };
 }

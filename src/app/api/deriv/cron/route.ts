@@ -317,6 +317,7 @@ export async function GET() {
             adx: strategyResult.adxValue,
             stochK: strategyResult.nearEntry.stochK,
             stochD: strategyResult.nearEntry.stochD,
+            confirmations: strategyResult.nearEntry.confirmations,
             updatedAt: new Date().toISOString()
           };
         }
