@@ -62,6 +62,7 @@ export async function GET() {
     const derivSessionFilterEnabled = overrides.deriv_session_filter_enabled !== false;
     const derivCooldownFilterEnabled = overrides.deriv_cooldown_filter_enabled !== false;
     const derivDailyLimitEnabled = overrides.deriv_daily_limit_enabled !== false;
+    const derivNearEntryPairs = overrides.deriv_near_entry_pairs || [];
 
     let demoBalance = 0.00;
     let realBalance = 0.00;
@@ -89,6 +90,7 @@ export async function GET() {
         derivSessionFilterEnabled,
         derivCooldownFilterEnabled,
         derivDailyLimitEnabled,
+        derivNearEntryPairs,
         demoBalance,
         realBalance,
         lastScanAt,
@@ -113,6 +115,7 @@ export async function GET() {
       derivSessionFilterEnabled,
       derivCooldownFilterEnabled,
       derivDailyLimitEnabled,
+      derivNearEntryPairs,
       demoBalance,
       realBalance,
       lastScanAt,

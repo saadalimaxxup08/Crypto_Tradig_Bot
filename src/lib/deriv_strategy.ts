@@ -167,10 +167,24 @@ export function analyzeForex15mStrategy(
   candles5m: Candle[],
   candles15m: Candle[],
   candlesH1: Candle[]
-): { direction: 'CALL' | 'PUT' | 'NEUTRAL'; adxValue: number } {
+): { 
+  direction: 'CALL' | 'PUT' | 'NEUTRAL'; 
+  adxValue: number;
+  nearEntry: {
+    isNear: boolean;
+    direction: 'RISE' | 'FALL' | 'NEUTRAL';
+    reason: string;
+    stochK: number;
+    stochD: number;
+  }
+} {
   
   if (candles5m.length < 30 || candles15m.length < 40 || candlesH1.length < 210) {
-    return { direction: 'NEUTRAL', adxValue: 0 };
+    return { 
+      direction: 'NEUTRAL', 
+      adxValue: 0, 
+      nearEntry: { isNear: false, direction: 'NEUTRAL', reason: 'Insufficient data', stochK: 0, stochD: 0 } 
+    };
   }
 
   // A. H1 Trend (EMA 200)
@@ -231,5 +245,30 @@ export function analyzeForex15mStrategy(
     direction = 'PUT';
   }
 
-  return { direction, adxValue: current15mADX };
+  // D. Check if pair is near entry (Watchlist diagnostics)
+  let isNear = false;
+  let reason = '';
+  if (isH1Uptrend && is15mUptrend && current15mADX > 20) {
+    if (currentK < 35 && !isStochCallCrossover) {
+      isNear = true;
+      reason = `Uptrend (ADX ${current15mADX.toFixed(1)}) - Waiting for Stochastic gold cross (K: ${currentK.toFixed(0)}, D: ${currentD.toFixed(0)})`;
+    }
+  } else if (isH1Downtrend && is15mDowntrend && current15mADX > 20) {
+    if (currentK > 65 && !isStochPutCrossover) {
+      isNear = true;
+      reason = `Downtrend (ADX ${current15mADX.toFixed(1)}) - Waiting for Stochastic death cross (K: ${currentK.toFixed(0)}, D: ${currentD.toFixed(0)})`;
+    }
+  }
+
+  return { 
+    direction, 
+    adxValue: current15mADX,
+    nearEntry: {
+      isNear,
+      direction: isH1Uptrend ? 'RISE' : isH1Downtrend ? 'FALL' : 'NEUTRAL',
+      reason,
+      stochK: currentK,
+      stochD: currentD
+    }
+  };
 }

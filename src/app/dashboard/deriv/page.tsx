@@ -173,6 +173,7 @@ export default function DerivDashboard() {
   const [isTogglingBot, setIsTogglingBot] = useState(false);
   const [dashboardStakeAmount, setDashboardStakeAmount] = useState('1.00');
   const [isSavingStake, setIsSavingStake] = useState(false);
+  const [nearEntryPairs, setNearEntryPairs] = useState<any[]>([]);
 
   // Selected pairs list state
   const [selectedPairs, setSelectedPairs] = useState<string[]>(['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']);
@@ -249,6 +250,7 @@ export default function DerivDashboard() {
         setSessionFilterEnabled(data.derivSessionFilterEnabled !== false);
         setCooldownFilterEnabled(data.derivCooldownFilterEnabled !== false);
         setDailyLimitEnabled(data.derivDailyLimitEnabled !== false);
+        setNearEntryPairs(data.derivNearEntryPairs || []);
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -1597,6 +1599,68 @@ export default function DerivDashboard() {
                   {openTrades.length}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Pairs Near Entry Watchlist */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-5 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between border-b border-zinc-850 pb-2">
+              <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                Pairs Near Entry Watchlist
+              </span>
+              <span className="text-[9px] text-zinc-500 font-medium">
+                Real-time monitoring ({nearEntryPairs.length} active)
+              </span>
+            </div>
+            
+            <div className="overflow-x-auto rounded-2xl border border-zinc-900 bg-[#050507]/40">
+              <table className="w-full text-left border-collapse text-[10px]">
+                <thead>
+                  <tr className="border-b border-zinc-900 bg-zinc-950/80 text-zinc-500 font-bold uppercase tracking-wider font-mono text-[8px]">
+                    <th className="py-2.5 px-4">Asset Pair</th>
+                    <th className="py-2.5 px-3">Direction</th>
+                    <th className="py-2.5 px-3">Proximity Status</th>
+                    <th className="py-2.5 px-3 text-right">ADX</th>
+                    <th className="py-2.5 px-4 text-right">Stoch %K / %D</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900/60 font-medium">
+                  {nearEntryPairs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="py-8 text-center text-zinc-650 italic">
+                        No pairs currently near trade entry criteria. Running active scans...
+                      </td>
+                    </tr>
+                  ) : (
+                    nearEntryPairs.map((pair, idx) => (
+                      <tr key={idx} className="hover:bg-zinc-900/20 transition-colors text-zinc-300">
+                        <td className="py-2.5 px-4 font-bold text-zinc-200">
+                          {pair.symbol.replace('frx', '')}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                            pair.direction === 'RISE' 
+                              ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/40' 
+                              : 'bg-rose-950/40 text-rose-400 border border-rose-900/40'
+                          }`}>
+                            {pair.direction === 'RISE' ? '🟢 RISE (CALL)' : '🔴 FALL (PUT)'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-zinc-400 font-mono text-[9px]">
+                          {pair.reason}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-zinc-200">
+                          {parseFloat(pair.adx).toFixed(1)}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-mono font-bold text-zinc-400">
+                          {parseFloat(pair.stochK).toFixed(0)} / {parseFloat(pair.stochD).toFixed(0)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
 

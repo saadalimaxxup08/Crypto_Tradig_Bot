@@ -163,12 +163,13 @@ async function sendTelegramAlert(message: string) {
 }
 
 // Save Deriv specific scan logs to settings pair_overrides JSON object
-async function saveDerivScanLogs(existingOverrides: any, scanLogs: string[]) {
+async function saveDerivScanLogs(existingOverrides: any, scanLogs: string[], nearEntryPairs?: any[]) {
   try {
     const updatedOverrides = {
       ...existingOverrides,
       deriv_last_scan_at: new Date().toISOString(),
-      deriv_last_scan_logs: scanLogs.slice(-15) // Keep last 15 log statements
+      deriv_last_scan_logs: scanLogs.slice(-15), // Keep last 15 log statements
+      deriv_near_entry_pairs: nearEntryPairs !== undefined ? nearEntryPairs : (existingOverrides.deriv_near_entry_pairs || [])
     };
     await supabase.from('settings').update({
       pair_overrides: updatedOverrides
@@ -279,6 +280,7 @@ export async function GET() {
 
     const scanPromises = (pairsToTrade as string[]).map(async (pair: string) => {
       const localLogs: string[] = [`Scanning ${pair}...`];
+      let nearEntryObj: any = null;
       try {
         // A. Check if trade already open for this symbol (Max 1 active trade per pair)
         const { data: openTrades, error: checkErr } = await supabase
@@ -289,14 +291,14 @@ export async function GET() {
 
         if (!checkErr && openTrades && openTrades.length > 0) {
           localLogs.push(`- Skip: A contract is already open for ${pair}.`);
-          return localLogs;
+          return { logs: localLogs, nearEntry: null };
         }
 
         // B. Filter: Economic News Block
         const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
         if (newsBlocked) {
           localLogs.push(`- Skip: High Impact News block is active for currencies in ${pair}.`);
-          return localLogs;
+          return { logs: localLogs, nearEntry: null };
         }
 
         // C. Fetch Multi-Timeframe Candles
@@ -307,6 +309,18 @@ export async function GET() {
         const strategyResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
         localLogs.push(`- ADX on 15m: ${strategyResult.adxValue.toFixed(1)} | Signal: ${strategyResult.direction}`);
 
+        if (strategyResult.nearEntry.isNear) {
+          nearEntryObj = {
+            symbol: pair,
+            direction: strategyResult.nearEntry.direction,
+            reason: strategyResult.nearEntry.reason,
+            adx: strategyResult.adxValue,
+            stochK: strategyResult.nearEntry.stochK,
+            stochD: strategyResult.nearEntry.stochD,
+            updatedAt: new Date().toISOString()
+          };
+        }
+
         if (strategyResult.direction !== 'NEUTRAL') {
           // D. Fetch tick to check spread before buying
           const tick = await fetchTick(socket, pair);
@@ -314,7 +328,7 @@ export async function GET() {
             const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
             if (spreadBlocked) {
               localLogs.push(`- Skip: Spread of ${pair} exceeds the limit of 2.0 pips.`);
-              return localLogs;
+              return { logs: localLogs, nearEntry: nearEntryObj };
             }
 
             // E. Execute Trade!
@@ -368,17 +382,21 @@ export async function GET() {
       } catch (err: any) {
         localLogs.push(`❌ Error processing ${pair}: ${err.message}`);
       }
-      return localLogs;
+      return { logs: localLogs, nearEntry: nearEntryObj };
     });
 
     const scanResults = await Promise.all(scanPromises);
-    for (const localLogs of scanResults) {
-      scanLogs.push(...localLogs);
+    const nearEntryPairs: any[] = [];
+    for (const r of scanResults) {
+      scanLogs.push(...r.logs);
+      if (r.nearEntry) {
+        nearEntryPairs.push(r.nearEntry);
+      }
     }
 
     socket.close();
     scanLogs.push('Scan loop execution complete.');
-    await saveDerivScanLogs(existingOverrides, scanLogs);
+    await saveDerivScanLogs(existingOverrides, scanLogs, nearEntryPairs);
     return NextResponse.json({ success: true, logs: scanLogs });
 
   } catch (err: any) {

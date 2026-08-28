@@ -24,6 +24,8 @@ try {
     console.log('--- SCANNER VERIFICATION RESULTS ---');
     console.log('BOT ENABLED:', data.pair_overrides.deriv_bot_enabled);
     console.log('ACTIVE TRADING MODE:', data.pair_overrides.deriv_trading_mode || 'DEMO');
+    console.log('LAST SCAN HEARTBEAT:', data.pair_overrides.deriv_last_scan_at);
+    console.log('CURRENT TIME ON SERVER:', new Date().toISOString());
     console.log('SELECTED PAIRS TO SCAN:', data.pair_overrides.deriv_selected_pairs);
     console.log('\n--- LATEST SCANS HEARTBEAT LOGS ---');
     if (data.pair_overrides.deriv_last_scan_logs) {
