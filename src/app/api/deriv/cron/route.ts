@@ -231,6 +231,18 @@ export async function GET() {
     }
 
     // 3. Filter: Risk Controls Check
+    const derivMaxTrades = existingOverrides.deriv_max_trades || 10;
+    const { count: openTradesCount, error: countErr } = await supabase
+      .from('deriv_trades')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'OPEN');
+
+    if (!countErr && openTradesCount !== null && openTradesCount >= derivMaxTrades) {
+      scanLogs.push(`⚠️ Halted execution: Open trades count (${openTradesCount}) reached the maximum limit of ${derivMaxTrades}. Skipping.`);
+      await saveDerivScanLogs(existingOverrides, scanLogs);
+      return NextResponse.json({ success: true, message: 'Max trades limit reached', logs: scanLogs });
+    }
+
     const riskControls = await getRiskControlsStatus();
     if (riskControls.isDailyLimitBlocked) {
       scanLogs.push(`🚨 Risk Control: Daily limit of 10 trades reached (${riskControls.dailyTradesCount} trades today). Skipping.`);

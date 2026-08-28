@@ -55,6 +55,7 @@ export async function GET() {
     const lastScanAt = overrides.deriv_last_scan_at || '';
     const lastScanLogs = overrides.deriv_last_scan_logs || [];
     const activeStrategies = overrides.deriv_active_strategies || ['FOREX_15M_MTF'];
+    const derivMaxTrades = overrides.deriv_max_trades || 10;
 
     let demoBalance = 0.00;
     let realBalance = 0.00;
@@ -75,6 +76,7 @@ export async function GET() {
         tradingMode,
         botEnabled,
         activeStrategies,
+        derivMaxTrades,
         demoBalance,
         realBalance,
         lastScanAt,
@@ -92,6 +94,7 @@ export async function GET() {
       tradingMode,
       botEnabled,
       activeStrategies,
+      derivMaxTrades,
       demoBalance,
       realBalance,
       lastScanAt,
@@ -110,7 +113,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled, activeStrategies } = await request.json();
+    const body = await request.json();
+    const { appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled, activeStrategies, derivMaxTrades } = body;
 
     // Fetch existing overrides to merge them
     const { data: settings } = await supabase
@@ -122,7 +126,8 @@ export async function POST(request: Request) {
     const existingOverrides = settings?.pair_overrides || {};
     const updatedOverrides = {
       ...existingOverrides,
-      deriv_active_strategies: activeStrategies || ['FOREX_15M_MTF']
+      deriv_active_strategies: activeStrategies || ['FOREX_15M_MTF'],
+      deriv_max_trades: derivMaxTrades !== undefined ? parseInt(derivMaxTrades) : (existingOverrides.deriv_max_trades || 10)
     };
 
     const updatePayload: any = {
