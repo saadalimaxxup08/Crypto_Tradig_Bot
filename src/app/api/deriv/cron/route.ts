@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import WebSocket from 'ws';
 import { supabase } from '@/lib/supabase';
 import {
   analyzeForex15mStrategy,
@@ -34,7 +35,7 @@ async function fetchOTP(appId: string, token: string, accountId: string) {
 // Fetch historical candles over WebSocket
 function fetchCandles(socket: WebSocket, symbol: string, granularity: number): Promise<any[]> {
   return new Promise((resolve) => {
-    const handleMsg = (event: MessageEvent) => {
+    const handleMsg = (event: any) => {
       try {
         const data = JSON.parse(event.data);
         if (data.msg_type === 'candles' && data.echo_req.ticks_history === symbol && data.echo_req.granularity === granularity) {
@@ -66,7 +67,7 @@ function fetchCandles(socket: WebSocket, symbol: string, granularity: number): P
 // Fetch bid/ask tick over WebSocket
 function fetchTick(socket: WebSocket, symbol: string): Promise<{ ask: number; bid: number } | null> {
   return new Promise((resolve) => {
-    const handleMsg = (event: MessageEvent) => {
+    const handleMsg = (event: any) => {
       try {
         const data = JSON.parse(event.data);
         if (data.msg_type === 'tick' && data.echo_req.ticks === symbol) {
@@ -96,7 +97,7 @@ function fetchTick(socket: WebSocket, symbol: string): Promise<{ ask: number; bi
 // Buy contract over WebSocket
 function buyContract(socket: WebSocket, symbol: string, direction: 'CALL' | 'PUT', amount: number): Promise<any> {
   return new Promise((resolve, reject) => {
-    const handleMsg = (event: MessageEvent) => {
+    const handleMsg = (event: any) => {
       try {
         const msg = JSON.parse(event.data);
         if (msg.error) {
