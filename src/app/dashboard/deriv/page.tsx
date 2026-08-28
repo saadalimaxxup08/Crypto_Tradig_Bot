@@ -71,6 +71,8 @@ export default function DerivDashboard() {
   const [isClosingAll, setIsClosingAll] = useState(false);
   const [selectedChartSymbol, setSelectedChartSymbol] = useState('frxEURUSD');
   const [isTogglingBot, setIsTogglingBot] = useState(false);
+  const [dashboardStakeAmount, setDashboardStakeAmount] = useState('1.00');
+  const [isSavingStake, setIsSavingStake] = useState(false);
 
   // Strategy list selectors
   const [activeStrategies, setActiveStrategies] = useState<string[]>(['FOREX_15M_MTF']);
@@ -125,6 +127,7 @@ export default function DerivDashboard() {
         setActiveStrategies(activeStrats);
         setDraftStrategies(activeStrats);
         setDashboardMaxTrades(String(data.derivMaxTrades || 10));
+        setDashboardStakeAmount(String(data.derivStakeAmount || '1.00'));
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -202,7 +205,9 @@ export default function DerivDashboard() {
           realAccount,
           tradingMode,
           botEnabled: derivBotEnabled,
-          activeStrategies
+          activeStrategies,
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount)
         }),
       });
 
@@ -256,7 +261,8 @@ export default function DerivDashboard() {
           tradingMode,
           botEnabled: derivBotEnabled,
           activeStrategies: draftStrategies,
-          derivMaxTrades: parseInt(dashboardMaxTrades)
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount)
         }),
       });
 
@@ -285,7 +291,8 @@ export default function DerivDashboard() {
           tradingMode,
           botEnabled: derivBotEnabled,
           activeStrategies,
-          derivMaxTrades: parseInt(dashboardMaxTrades)
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount)
         })
       });
       if (res.ok) {
@@ -296,6 +303,35 @@ export default function DerivDashboard() {
       console.error(err);
     } finally {
       setIsSavingMaxTrades(false);
+    }
+  };
+
+  const handleSaveStakeAmount = async () => {
+    setIsSavingStake(true);
+    try {
+      const res = await fetch('/api/deriv/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          apiToken,
+          demoAccount,
+          realAccount,
+          tradingMode,
+          botEnabled: derivBotEnabled,
+          activeStrategies,
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount)
+        })
+      });
+      if (res.ok) {
+        confetti({ particleCount: 45, spread: 30, origin: { y: 0.8 } });
+        alert('Trade Price (Stake) updated successfully!');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingStake(false);
     }
   };
 
@@ -531,6 +567,26 @@ export default function DerivDashboard() {
               className="px-2.5 py-1 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-900/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer disabled:opacity-50"
             >
               {isSavingMaxTrades ? 'Saving...' : 'Set'}
+            </button>
+          </div>
+
+          {/* Stake / Trade Price Inline Controller */}
+          <div className="flex items-center gap-2 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 px-4 py-2.5 rounded-2xl shadow-md transition-all duration-300">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block whitespace-nowrap">Stake:</span>
+            <input
+              type="number"
+              step="0.1"
+              min="0.35"
+              value={dashboardStakeAmount}
+              onChange={(e) => setDashboardStakeAmount(e.target.value)}
+              className="w-16 bg-zinc-950 border border-zinc-800 rounded-xl py-1 px-1.5 font-mono text-center font-bold text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/85 focus:ring-1 focus:ring-emerald-500/20"
+            />
+            <button
+              onClick={handleSaveStakeAmount}
+              disabled={isSavingStake}
+              className="px-2.5 py-1 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-900/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isSavingStake ? 'Saving...' : 'Set'}
             </button>
           </div>
 
@@ -873,7 +929,7 @@ export default function DerivDashboard() {
                     await fetch('/api/deriv/settings', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: true, activeStrategies })
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: true, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount) })
                     });
                     fetchSettings();
                   }}
@@ -890,7 +946,7 @@ export default function DerivDashboard() {
                     await fetch('/api/deriv/settings', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: false, activeStrategies })
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: false, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount) })
                     });
                     fetchSettings();
                   }}
@@ -911,7 +967,7 @@ export default function DerivDashboard() {
                     await fetch('/api/deriv/settings', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'DEMO', botEnabled: derivBotEnabled, activeStrategies })
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'DEMO', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount) })
                     });
                     fetchSettings();
                   }}
@@ -928,7 +984,7 @@ export default function DerivDashboard() {
                     await fetch('/api/deriv/settings', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'REAL', botEnabled: derivBotEnabled, activeStrategies })
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'REAL', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount) })
                     });
                     fetchSettings();
                   }}

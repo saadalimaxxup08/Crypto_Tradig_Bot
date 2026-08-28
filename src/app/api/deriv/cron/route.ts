@@ -194,6 +194,7 @@ export async function GET() {
   }
 
   const existingOverrides = settings.pair_overrides || {};
+  const derivStakeAmount = existingOverrides.deriv_stake_amount || 1.00;
 
   try {
     const isBotEnabled = settings.deriv_bot_enabled || false;
@@ -307,9 +308,9 @@ export async function GET() {
           }
 
           // E. Execute Trade!
-          scanLogs.push(`🔥 Trigger: Placing $1 ${strategyResult.direction} contract on ${pair} with 15m expiry.`);
+          scanLogs.push(`🔥 Trigger: Placing $${derivStakeAmount.toFixed(2)} ${strategyResult.direction} contract on ${pair} with 15m expiry.`);
           try {
-            const result = await buyContract(socket, pair, strategyResult.direction, 1);
+            const result = await buyContract(socket, pair, strategyResult.direction, derivStakeAmount);
             
             const newTrade = {
               id: crypto.randomUUID(),
@@ -318,7 +319,7 @@ export async function GET() {
               contract_type: strategyResult.direction,
               duration: 15,
               duration_unit: 'm',
-              stake: 1.00,
+              stake: derivStakeAmount,
               payout: parseFloat(result.payout),
               status: 'OPEN',
               entry_price: parseFloat(result.buy_price),
