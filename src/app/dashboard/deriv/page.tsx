@@ -216,6 +216,7 @@ export default function DerivDashboard() {
 
     const interval = setInterval(() => {
       syncTradesSilently();
+      fetchSettings(); // Auto-refresh scan logs, settings, and watchlist
     }, 10000);
 
     return () => clearInterval(interval);
