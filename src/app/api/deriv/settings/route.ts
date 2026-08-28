@@ -58,6 +58,10 @@ export async function GET() {
     const derivMaxTrades = overrides.deriv_max_trades || 10;
     const derivStakeAmount = overrides.deriv_stake_amount || 1.00;
     const derivSelectedPairs = overrides.deriv_selected_pairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
+    const derivNewsFilterEnabled = overrides.deriv_news_filter_enabled !== false;
+    const derivSessionFilterEnabled = overrides.deriv_session_filter_enabled !== false;
+    const derivCooldownFilterEnabled = overrides.deriv_cooldown_filter_enabled !== false;
+    const derivDailyLimitEnabled = overrides.deriv_daily_limit_enabled !== false;
 
     let demoBalance = 0.00;
     let realBalance = 0.00;
@@ -81,6 +85,10 @@ export async function GET() {
         derivMaxTrades,
         derivStakeAmount,
         derivSelectedPairs,
+        derivNewsFilterEnabled,
+        derivSessionFilterEnabled,
+        derivCooldownFilterEnabled,
+        derivDailyLimitEnabled,
         demoBalance,
         realBalance,
         lastScanAt,
@@ -101,6 +109,10 @@ export async function GET() {
       derivMaxTrades,
       derivStakeAmount,
       derivSelectedPairs,
+      derivNewsFilterEnabled,
+      derivSessionFilterEnabled,
+      derivCooldownFilterEnabled,
+      derivDailyLimitEnabled,
       demoBalance,
       realBalance,
       lastScanAt,
@@ -120,7 +132,22 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled, activeStrategies, derivMaxTrades, derivStakeAmount, derivSelectedPairs } = body;
+    const {
+      appId,
+      apiToken,
+      demoAccount,
+      realAccount,
+      tradingMode,
+      botEnabled,
+      activeStrategies,
+      derivMaxTrades,
+      derivStakeAmount,
+      derivSelectedPairs,
+      derivNewsFilterEnabled,
+      derivSessionFilterEnabled,
+      derivCooldownFilterEnabled,
+      derivDailyLimitEnabled
+    } = body;
 
     // Fetch existing overrides to merge them
     const { data: settings } = await supabase
@@ -137,7 +164,11 @@ export async function POST(request: Request) {
       deriv_stake_amount: derivStakeAmount !== undefined ? parseFloat(derivStakeAmount) : (existingOverrides.deriv_stake_amount || 1.00),
       deriv_bot_enabled: botEnabled !== undefined ? botEnabled : existingOverrides.deriv_bot_enabled,
       deriv_trading_mode: tradingMode !== undefined ? tradingMode : existingOverrides.deriv_trading_mode,
-      deriv_selected_pairs: derivSelectedPairs !== undefined ? derivSelectedPairs : (existingOverrides.deriv_selected_pairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'])
+      deriv_selected_pairs: derivSelectedPairs !== undefined ? derivSelectedPairs : (existingOverrides.deriv_selected_pairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']),
+      deriv_news_filter_enabled: derivNewsFilterEnabled !== undefined ? derivNewsFilterEnabled : existingOverrides.deriv_news_filter_enabled,
+      deriv_session_filter_enabled: derivSessionFilterEnabled !== undefined ? derivSessionFilterEnabled : existingOverrides.deriv_session_filter_enabled,
+      deriv_cooldown_filter_enabled: derivCooldownFilterEnabled !== undefined ? derivCooldownFilterEnabled : existingOverrides.deriv_cooldown_filter_enabled,
+      deriv_daily_limit_enabled: derivDailyLimitEnabled !== undefined ? derivDailyLimitEnabled : existingOverrides.deriv_daily_limit_enabled
     };
 
     const updatePayload: any = {

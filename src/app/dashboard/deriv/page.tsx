@@ -185,6 +185,13 @@ export default function DerivDashboard() {
   const [selectedPairs, setSelectedPairs] = useState<string[]>(['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']);
   const [draftPairs, setDraftPairs] = useState<string[]>(['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']);
 
+  // Risk filter toggles states
+  const [newsFilterEnabled, setNewsFilterEnabled] = useState(true);
+  const [sessionFilterEnabled, setSessionFilterEnabled] = useState(true);
+  const [cooldownFilterEnabled, setCooldownFilterEnabled] = useState(true);
+  const [dailyLimitEnabled, setDailyLimitEnabled] = useState(true);
+  const [isSavingRiskToggles, setIsSavingRiskToggles] = useState(false);
+
   // Strategy list selectors
   const [activeStrategies, setActiveStrategies] = useState<string[]>(['FOREX_15M_MTF']);
   const [draftStrategies, setDraftStrategies] = useState<string[]>(['FOREX_15M_MTF']);
@@ -242,6 +249,10 @@ export default function DerivDashboard() {
         const savedPairs = data.derivSelectedPairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
         setSelectedPairs(savedPairs);
         setDraftPairs(savedPairs);
+        setNewsFilterEnabled(data.derivNewsFilterEnabled !== false);
+        setSessionFilterEnabled(data.derivSessionFilterEnabled !== false);
+        setCooldownFilterEnabled(data.derivCooldownFilterEnabled !== false);
+        setDailyLimitEnabled(data.derivDailyLimitEnabled !== false);
       }
     } catch (err) {
       console.error('Error fetching settings:', err);
@@ -321,7 +332,12 @@ export default function DerivDashboard() {
           botEnabled: derivBotEnabled,
           activeStrategies,
           derivMaxTrades: parseInt(dashboardMaxTrades),
-          derivStakeAmount: parseFloat(dashboardStakeAmount)
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
         }),
       });
 
@@ -369,6 +385,45 @@ export default function DerivDashboard() {
     }
   };
 
+  const handleToggleRiskFilter = async (filterType: string, currentValue: boolean) => {
+    setIsSavingRiskToggles(true);
+    const newValue = !currentValue;
+    
+    // Set UI state immediately
+    if (filterType === 'news') setNewsFilterEnabled(newValue);
+    if (filterType === 'session') setSessionFilterEnabled(newValue);
+    if (filterType === 'cooldown') setCooldownFilterEnabled(newValue);
+    if (filterType === 'daily') setDailyLimitEnabled(newValue);
+
+    try {
+      await fetch('/api/deriv/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          apiToken,
+          demoAccount,
+          realAccount,
+          tradingMode,
+          botEnabled: derivBotEnabled,
+          activeStrategies,
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: filterType === 'news' ? newValue : newsFilterEnabled,
+          derivSessionFilterEnabled: filterType === 'session' ? newValue : sessionFilterEnabled,
+          derivCooldownFilterEnabled: filterType === 'cooldown' ? newValue : cooldownFilterEnabled,
+          derivDailyLimitEnabled: filterType === 'daily' ? newValue : dailyLimitEnabled
+        })
+      });
+      confetti({ particleCount: 25, spread: 25, origin: { y: 0.85 } });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingRiskToggles(false);
+    }
+  };
+
   const handleSaveActiveStrategies = async () => {
     setIsSavingStrategies(true);
     try {
@@ -385,7 +440,11 @@ export default function DerivDashboard() {
           activeStrategies: draftStrategies,
           derivMaxTrades: parseInt(dashboardMaxTrades),
           derivStakeAmount: parseFloat(dashboardStakeAmount),
-          derivSelectedPairs: draftPairs
+          derivSelectedPairs: draftPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
         }),
       });
 
@@ -417,7 +476,11 @@ export default function DerivDashboard() {
           activeStrategies,
           derivMaxTrades: parseInt(dashboardMaxTrades),
           derivStakeAmount: parseFloat(dashboardStakeAmount),
-          derivSelectedPairs: selectedPairs
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
         })
       });
       if (res.ok) {
@@ -447,7 +510,11 @@ export default function DerivDashboard() {
           activeStrategies,
           derivMaxTrades: parseInt(dashboardMaxTrades),
           derivStakeAmount: parseFloat(dashboardStakeAmount),
-          derivSelectedPairs: selectedPairs
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
         })
       });
       if (res.ok) {
@@ -526,7 +593,11 @@ export default function DerivDashboard() {
           activeStrategies,
           derivMaxTrades: parseInt(dashboardMaxTrades),
           derivStakeAmount: parseFloat(dashboardStakeAmount),
-          derivSelectedPairs: selectedPairs
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
         })
       });
       if (res.ok) {
@@ -1080,103 +1151,185 @@ export default function DerivDashboard() {
         <div className="lg:col-span-4 space-y-8">
           
           {/* Active Engine Toggle Banner (Matches Binance Dashboard Header perfectly) */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-md">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <span className="flex h-4 w-4 relative">
-                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${derivBotEnabled ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-                  <span className={`relative inline-flex rounded-full h-4 w-4 ${derivBotEnabled ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                </span>
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6 shadow-md">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <span className="flex h-4 w-4 relative">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${derivBotEnabled ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-4 w-4 ${derivBotEnabled ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-md font-extrabold text-zinc-100 flex items-center gap-2">
+                    <span>Deriv Active Options Engine</span>
+                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-extrabold ${derivBotEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-red-950 text-red-400 border border-red-500/20'}`}>
+                      {derivBotEnabled ? 'ENGINE ACTIVE' : 'ENGINE PAUSED'}
+                    </span>
+                  </h3>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Active Account Mode: <span className="font-extrabold text-zinc-300">{tradingMode} Sandbox</span> | Pulse interval: <span className="font-mono">30s</span>
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <h3 className="text-md font-extrabold text-zinc-100 flex items-center gap-2">
-                  <span>Deriv Active Options Engine</span>
-                  <span className={`px-2 py-0.5 rounded-lg text-[9px] font-extrabold ${derivBotEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-red-950 text-red-400 border border-red-500/20'}`}>
-                    {derivBotEnabled ? 'ENGINE ACTIVE' : 'ENGINE PAUSED'}
-                  </span>
-                </h3>
-                <p className="text-[10px] text-zinc-500 mt-1">
-                  Active Account Mode: <span className="font-extrabold text-zinc-300">{tradingMode} Sandbox</span> | Pulse interval: <span className="font-mono">30s</span>
-                </p>
+              {/* Switchers */}
+              <div className="flex flex-wrap gap-3 items-center">
+                {/* Bot Work Status */}
+                <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setDerivBotEnabled(true);
+                      await fetch('/api/deriv/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: true, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs, derivNewsFilterEnabled: newsFilterEnabled, derivSessionFilterEnabled: sessionFilterEnabled, derivCooldownFilterEnabled: cooldownFilterEnabled, derivDailyLimitEnabled: dailyLimitEnabled })
+                      });
+                      fetchSettings();
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      derivBotEnabled ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    }`}
+                  >
+                    WORK ON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setDerivBotEnabled(false);
+                      await fetch('/api/deriv/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: false, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs, derivNewsFilterEnabled: newsFilterEnabled, derivSessionFilterEnabled: sessionFilterEnabled, derivCooldownFilterEnabled: cooldownFilterEnabled, derivDailyLimitEnabled: dailyLimitEnabled })
+                      });
+                      fetchSettings();
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      !derivBotEnabled ? 'bg-red-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    }`}
+                  >
+                    WORK OFF
+                  </button>
+                </div>
+
+                {/* Segmented Switcher */}
+                <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTradingMode('DEMO');
+                      await fetch('/api/deriv/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'DEMO', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs, derivNewsFilterEnabled: newsFilterEnabled, derivSessionFilterEnabled: sessionFilterEnabled, derivCooldownFilterEnabled: cooldownFilterEnabled, derivDailyLimitEnabled: dailyLimitEnabled })
+                      });
+                      fetchSettings();
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      tradingMode === 'DEMO' ? 'bg-amber-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    }`}
+                  >
+                    DEMO SANDBOX
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTradingMode('REAL');
+                      await fetch('/api/deriv/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'REAL', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs, derivNewsFilterEnabled: newsFilterEnabled, derivSessionFilterEnabled: sessionFilterEnabled, derivCooldownFilterEnabled: cooldownFilterEnabled, derivDailyLimitEnabled: dailyLimitEnabled })
+                      });
+                      fetchSettings();
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      tradingMode === 'REAL' ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    }`}
+                  >
+                    REAL LIVE
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Switchers */}
-            <div className="flex flex-wrap gap-3 items-center">
-              {/* Bot Work Status */}
-              <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setDerivBotEnabled(true);
-                    await fetch('/api/deriv/settings', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: true, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs })
-                    });
-                    fetchSettings();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                    derivBotEnabled ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
-                  }`}
-                >
-                  WORK ON
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setDerivBotEnabled(false);
-                    await fetch('/api/deriv/settings', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: false, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs })
-                    });
-                    fetchSettings();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                    !derivBotEnabled ? 'bg-red-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
-                  }`}
-                >
-                  WORK OFF
-                </button>
-              </div>
+            {/* Divider */}
+            <div className="h-[1px] bg-zinc-800/50 w-full" />
 
-              {/* Segmented Switcher */}
-              <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+            {/* Safety toggles buttons tabs */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Active Safety & News Filters</h4>
+                {isSavingRiskToggles && <span className="text-[9px] text-emerald-400 animate-pulse font-bold">Saving settings...</span>}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* News Filter Toggle */}
                 <button
                   type="button"
-                  onClick={async () => {
-                    setTradingMode('DEMO');
-                    await fetch('/api/deriv/settings', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'DEMO', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs })
-                    });
-                    fetchSettings();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                    tradingMode === 'DEMO' ? 'bg-amber-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                  onClick={() => handleToggleRiskFilter('news', newsFilterEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    newsFilterEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
                   }`}
                 >
-                  DEMO SANDBOX
+                  <span className="text-[9px] font-bold uppercase tracking-wider">News Blocker</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">USD/EUR/GBP High Impact</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${newsFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {newsFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
                 </button>
+
+                {/* Session Filter Toggle */}
                 <button
                   type="button"
-                  onClick={async () => {
-                    setTradingMode('REAL');
-                    await fetch('/api/deriv/settings', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'REAL', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs })
-                    });
-                    fetchSettings();
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                    tradingMode === 'REAL' ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                  onClick={() => handleToggleRiskFilter('session', sessionFilterEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    sessionFilterEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
                   }`}
                 >
-                  REAL LIVE
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Asian Session</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">21:00 - 23:59 GMT Block</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${sessionFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {sessionFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
+                </button>
+
+                {/* Loss Cooldown Guard Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleRiskFilter('cooldown', cooldownFilterEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    cooldownFilterEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Loss Cooldown</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">2 Losses = 60m Cooldown</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${cooldownFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {cooldownFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
+                </button>
+
+                {/* Daily Trades Limit Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleRiskFilter('daily', dailyLimitEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    dailyLimitEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Daily Trade Limit</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">Max 10 Trades Limit</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${dailyLimitEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {dailyLimitEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
                 </button>
               </div>
             </div>

@@ -224,8 +224,14 @@ export async function GET() {
       return NextResponse.json({ success: true, message: 'Missing credentials', logs: scanLogs });
     }
 
+    // Load risk toggles (defaults to true)
+    const newsFilterEnabled = existingOverrides.deriv_news_filter_enabled !== false;
+    const sessionFilterEnabled = existingOverrides.deriv_session_filter_enabled !== false;
+    const cooldownFilterEnabled = existingOverrides.deriv_cooldown_filter_enabled !== false;
+    const dailyLimitEnabled = existingOverrides.deriv_daily_limit_enabled !== false;
+
     // 2. Filter: Session Check
-    if (isAsianSessionBlocked()) {
+    if (sessionFilterEnabled && isAsianSessionBlocked()) {
       scanLogs.push('⏳ Session Filter: Asian session block active (21:00 - 23:59 GMT). Skipping trade scans.');
       await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Asian session block', logs: scanLogs });
@@ -245,12 +251,12 @@ export async function GET() {
     }
 
     const riskControls = await getRiskControlsStatus();
-    if (riskControls.isDailyLimitBlocked) {
+    if (dailyLimitEnabled && riskControls.isDailyLimitBlocked) {
       scanLogs.push(`🚨 Risk Control: Daily limit of 10 trades reached (${riskControls.dailyTradesCount} trades today). Skipping.`);
       await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Daily limit reached', logs: scanLogs });
     }
-    if (riskControls.isCooldownBlocked) {
+    if (cooldownFilterEnabled && riskControls.isCooldownBlocked) {
       scanLogs.push('🚨 Risk Control: 2 consecutive losses detected. Cooldown period (60m) active. Skipping.');
       await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
@@ -284,7 +290,7 @@ export async function GET() {
       }
 
       // B. Filter: Economic News Block
-      const newsBlocked = await isEconomicNewsBlocked(pair);
+      const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
       if (newsBlocked) {
         scanLogs.push(`- Skip: High Impact News block is active for currencies in ${pair}.`);
         continue;
