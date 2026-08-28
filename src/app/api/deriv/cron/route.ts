@@ -49,7 +49,7 @@ function fetchCandles(socket: WebSocket, symbol: string, granularity: number): P
     socket.send(JSON.stringify({
       ticks_history: symbol,
       adjust_start_time: 1,
-      count: 220, // Fetch 220 to satisfy H1 EMA 200 calculation
+      count: 220,
       end: 'latest',
       granularity,
       style: 'candles'
@@ -162,22 +162,40 @@ async function sendTelegramAlert(message: string) {
   }
 }
 
+// Save Deriv specific scan logs to settings pair_overrides JSON object
+async function saveDerivScanLogs(existingOverrides: any, scanLogs: string[]) {
+  try {
+    const updatedOverrides = {
+      ...existingOverrides,
+      deriv_last_scan_at: new Date().toISOString(),
+      deriv_last_scan_logs: scanLogs.slice(-15) // Keep last 15 log statements
+    };
+    await supabase.from('settings').update({
+      pair_overrides: updatedOverrides
+    }).eq('id', 1);
+  } catch (err) {
+    console.error('Failed to save Deriv scan logs:', err);
+  }
+}
+
 export async function GET() {
   const scanLogs: string[] = [];
   scanLogs.push(`[${new Date().toISOString()}] Starting Deriv MTF Options Scanner...`);
 
+  // Fetch settings to merge overrides
+  const { data: settings, error: settingsErr } = await supabase
+    .from('settings')
+    .select('*')
+    .eq('id', 1)
+    .single();
+
+  if (settingsErr) {
+    return NextResponse.json({ error: 'Failed to load settings' }, { status: 500 });
+  }
+
+  const existingOverrides = settings.pair_overrides || {};
+
   try {
-    // 1. Fetch Deriv Settings
-    const { data: settings, error: settingsErr } = await supabase
-      .from('settings')
-      .select('*')
-      .eq('id', 1)
-      .single();
-
-    if (settingsErr) {
-      return NextResponse.json({ error: 'Failed to load settings' }, { status: 500 });
-    }
-
     const isBotEnabled = settings.deriv_bot_enabled || false;
     const tradingMode = settings.deriv_trading_mode || 'DEMO';
     const appId = settings.deriv_app_id || process.env.DERIV_APP_ID || '';
@@ -187,43 +205,41 @@ export async function GET() {
 
     if (!isBotEnabled) {
       scanLogs.push('⚠️ Scanner inactive: Deriv Bot is set to WORK OFF in settings.');
-      // Save logs in DB
-      await supabase.from('settings').update({ last_scan_at: new Date().toISOString(), last_scan_logs: scanLogs.slice(-10) }).eq('id', 1);
+      await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Bot disabled', logs: scanLogs });
     }
 
-    const activeStrategies = settings.pair_overrides?.deriv_active_strategies || ['FOREX_15M_MTF'];
+    const activeStrategies = existingOverrides.deriv_active_strategies || ['FOREX_15M_MTF'];
     if (!activeStrategies.includes('FOREX_15M_MTF')) {
       scanLogs.push('⚠️ Scanner inactive: Forex 15m MTF Strategy is unticked (disabled) on the Deriv dashboard.');
-      // Save logs in DB
-      await supabase.from('settings').update({ last_scan_at: new Date().toISOString(), last_scan_logs: scanLogs.slice(-10) }).eq('id', 1);
+      await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Forex 15m MTF Strategy disabled', logs: scanLogs });
     }
 
     const activeAccount = tradingMode === 'DEMO' ? demoAccount : realAccount;
     if (!appId || !token || !activeAccount) {
       scanLogs.push('❌ Error: Missing Deriv credentials or active account configuration.');
-      await supabase.from('settings').update({ last_scan_at: new Date().toISOString(), last_scan_logs: scanLogs.slice(-10) }).eq('id', 1);
+      await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Missing credentials', logs: scanLogs });
     }
 
     // 2. Filter: Session Check
     if (isAsianSessionBlocked()) {
       scanLogs.push('⏳ Session Filter: Asian session block active (21:00 - 23:59 GMT). Skipping trade scans.');
-      await supabase.from('settings').update({ last_scan_at: new Date().toISOString(), last_scan_logs: scanLogs.slice(-10) }).eq('id', 1);
+      await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Asian session block', logs: scanLogs });
     }
 
     // 3. Filter: Risk Controls Check
     const riskControls = await getRiskControlsStatus();
     if (riskControls.isDailyLimitBlocked) {
-      scanLogs.push(`🚨 Risk Control: Daily limit of 10 trades reached (${riskControls.dailyTradesCount} trades executed today). Skipping.`);
-      await supabase.from('settings').update({ last_scan_at: new Date().toISOString(), last_scan_logs: scanLogs.slice(-10) }).eq('id', 1);
+      scanLogs.push(`🚨 Risk Control: Daily limit of 10 trades reached (${riskControls.dailyTradesCount} trades today). Skipping.`);
+      await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Daily limit reached', logs: scanLogs });
     }
     if (riskControls.isCooldownBlocked) {
-      scanLogs.push('🚨 Risk Control: 2 consecutive losses detected. 60-minute cooling down period active. Skipping.');
-      await supabase.from('settings').update({ last_scan_at: new Date().toISOString(), last_scan_logs: scanLogs.slice(-10) }).eq('id', 1);
+      scanLogs.push('🚨 Risk Control: 2 consecutive losses detected. Cooldown period (60m) active. Skipping.');
+      await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
     }
 
@@ -236,7 +252,7 @@ export async function GET() {
       setTimeout(() => reject(new Error('Connection timed out.')), 6000);
     });
 
-    scanLogs.push(`✅ Authenticated with Deriv accounts. Running scans on pairs: ${PAIRS.join(', ')}`);
+    scanLogs.push(`✅ Authenticated. Running scans on pairs: ${PAIRS.join(', ')}`);
 
     for (const pair of PAIRS) {
       scanLogs.push(`Scanning ${pair}...`);
@@ -330,23 +346,12 @@ export async function GET() {
 
     socket.close();
     scanLogs.push('Scan loop execution complete.');
-
-    // Save logs in DB
-    await supabase.from('settings').update({
-      last_scan_at: new Date().toISOString(),
-      last_scan_logs: scanLogs.slice(-10)
-    }).eq('id', 1);
-
+    await saveDerivScanLogs(existingOverrides, scanLogs);
     return NextResponse.json({ success: true, logs: scanLogs });
 
   } catch (err: any) {
     scanLogs.push(`❌ System Error occurred: ${err.message}`);
-    // Save logs
-    await supabase.from('settings').update({
-      last_scan_at: new Date().toISOString(),
-      last_scan_logs: scanLogs.slice(-10)
-    }).eq('id', 1);
-    
+    await saveDerivScanLogs(existingOverrides, scanLogs);
     return NextResponse.json({ error: err.message, logs: scanLogs }, { status: 500 });
   }
 }

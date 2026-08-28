@@ -51,10 +51,9 @@ export async function GET() {
     const realAccount = settings?.deriv_real_account || process.env.DERIV_REAL_ACCOUNT || '';
     const tradingMode = settings?.deriv_trading_mode || 'DEMO';
     const botEnabled = settings?.deriv_bot_enabled || false;
-    const lastScanAt = settings?.last_scan_at || '';
-    const lastScanLogs = settings?.last_scan_logs || [];
-
     const overrides = settings?.pair_overrides || {};
+    const lastScanAt = overrides.deriv_last_scan_at || '';
+    const lastScanLogs = overrides.deriv_last_scan_logs || [];
     const activeStrategies = overrides.deriv_active_strategies || ['FOREX_15M_MTF'];
 
     let demoBalance = 0.00;
