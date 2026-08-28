@@ -51,6 +51,11 @@ export async function GET() {
     const realAccount = settings?.deriv_real_account || process.env.DERIV_REAL_ACCOUNT || '';
     const tradingMode = settings?.deriv_trading_mode || 'DEMO';
     const botEnabled = settings?.deriv_bot_enabled || false;
+    const lastScanAt = settings?.last_scan_at || '';
+    const lastScanLogs = settings?.last_scan_logs || [];
+
+    const overrides = settings?.pair_overrides || {};
+    const activeStrategies = overrides.deriv_active_strategies || ['FOREX_15M_MTF'];
 
     let demoBalance = 0.00;
     let realBalance = 0.00;
@@ -70,8 +75,11 @@ export async function GET() {
         realAccount,
         tradingMode,
         botEnabled,
+        activeStrategies,
         demoBalance,
         realBalance,
+        lastScanAt,
+        lastScanLogs,
         isFallback: true
       });
     }
@@ -84,8 +92,11 @@ export async function GET() {
       realAccount,
       tradingMode,
       botEnabled,
+      activeStrategies,
       demoBalance,
       realBalance,
+      lastScanAt,
+      lastScanLogs,
       isFallback: false
     });
   } catch (err: any) {
@@ -100,7 +111,20 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled } = await request.json();
+    const { appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled, activeStrategies } = await request.json();
+
+    // Fetch existing overrides to merge them
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('pair_overrides')
+      .eq('id', 1)
+      .single();
+
+    const existingOverrides = settings?.pair_overrides || {};
+    const updatedOverrides = {
+      ...existingOverrides,
+      deriv_active_strategies: activeStrategies || ['FOREX_15M_MTF']
+    };
 
     const updatePayload: any = {
       deriv_app_id: appId,
@@ -108,7 +132,8 @@ export async function POST(request: Request) {
       deriv_demo_account: demoAccount,
       deriv_real_account: realAccount,
       deriv_trading_mode: tradingMode,
-      deriv_bot_enabled: botEnabled
+      deriv_bot_enabled: botEnabled,
+      pair_overrides: updatedOverrides
     };
 
     const { error } = await supabase
@@ -117,7 +142,7 @@ export async function POST(request: Request) {
       .eq('id', 1);
 
     if (error) {
-      console.warn('Failed to save with deriv_bot_enabled column, trying fallback settings update...');
+      console.warn('Failed to save settings, trying fallback settings update...');
       const fallbackPayload = { ...updatePayload };
       delete fallbackPayload.deriv_bot_enabled;
       delete fallbackPayload.deriv_trading_mode;
@@ -130,7 +155,7 @@ export async function POST(request: Request) {
       if (fallbackError) {
         return NextResponse.json({
           success: false,
-          error: 'Supabase settings columns missing. Please run the SQL migration query in your Supabase SQL editor to create the Deriv settings columns.',
+          error: 'Supabase settings update failed.',
           details: fallbackError.message
         }, { status: 400 });
       }

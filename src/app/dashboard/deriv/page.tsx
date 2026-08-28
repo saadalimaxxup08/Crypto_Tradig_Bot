@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LineChart,
   DollarSign,
   TrendingUp,
   Activity,
   ArrowUpRight,
-  ArrowDownRight,
   Layers,
   Settings,
   RefreshCw,
@@ -16,6 +15,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Play,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -37,7 +38,12 @@ interface DerivTrade {
   closed_at: string | null;
 }
 
+const STRATEGIES_LIST = [
+  { id: 'FOREX_15M_MTF', name: 'Forex 15m MTF Crossover', desc: 'H1 Trend Filter + 15m EMA/ADX + 5m Stochastic crossover entry trigger.' }
+];
+
 export default function DerivDashboard() {
+  // Credentials
   const [appId, setAppId] = useState('');
   const [apiToken, setApiToken] = useState('');
   const [demoAccount, setDemoAccount] = useState('');
@@ -45,29 +51,40 @@ export default function DerivDashboard() {
   const [demoBalance, setDemoBalance] = useState(0.00);
   const [realBalance, setRealBalance] = useState(0.00);
   const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
+  
+  // Toggles & logs
+  const [derivBotEnabled, setDerivBotEnabled] = useState(false);
+  const [lastScanAt, setLastScanAt] = useState('');
+  const [lastScanLogs, setLastScanLogs] = useState<string[]>([]);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState({ type: '', text: '' });
+  const [showToken, setShowToken] = useState(false);
 
-  // Trades state
+  // Strategy list selectors
+  const [activeStrategies, setActiveStrategies] = useState<string[]>(['FOREX_15M_MTF']);
+  const [draftStrategies, setDraftStrategies] = useState<string[]>(['FOREX_15M_MTF']);
+  const [isSavingStrategies, setIsSavingStrategies] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Trades states
   const [trades, setTrades] = useState<DerivTrade[]>([]);
   const [isLoadingTrades, setIsLoadingTrades] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
 
   // Manual trade form state
-  const [tradeSymbol, setTradeSymbol] = useState('1HZ100V'); // Volatility 100 (1s) Index
+  const [tradeSymbol, setTradeSymbol] = useState('frxEURUSD');
   const [tradeType, setTradeType] = useState<'CALL' | 'PUT'>('CALL');
-  const [tradeAmount, setTradeAmount] = useState('8.00');
-  const [tradeDuration, setTradeDuration] = useState('60');
-  const [tradeDurationUnit, setTradeDurationUnit] = useState('s'); // s = seconds, m = minutes
+  const [tradeAmount, setTradeAmount] = useState('1.00');
+  const [tradeDuration, setTradeDuration] = useState('15');
+  const [tradeDurationUnit, setTradeDurationUnit] = useState('m');
   const [tradeMode, setTradeMode] = useState<'DEMO' | 'REAL'>('DEMO');
   const [isExecutingTrade, setIsExecutingTrade] = useState(false);
 
-  // Load settings and trades on mount
+  // Load everything on mount
   useEffect(() => {
     fetchSettings();
     fetchTrades();
 
-    // Auto-refresh trades every 10 seconds to keep live contracts synced
     const interval = setInterval(() => {
       syncTradesSilently();
     }, 10000);
@@ -80,23 +97,24 @@ export default function DerivDashboard() {
       const res = await fetch('/api/deriv/settings');
       const data = await res.json();
       if (res.ok && data.success) {
-        setAppId(data.appId);
-        setApiToken(data.apiToken);
-        setDemoAccount(data.demoAccount);
-        setRealAccount(data.realAccount);
+        setAppId(data.appId || '');
+        setApiToken(data.apiToken || '');
+        setDemoAccount(data.demoAccount || '');
+        setRealAccount(data.realAccount || '');
         setDemoBalance(data.demoBalance || 0);
         setRealBalance(data.realBalance || 0);
         setTradingMode(data.tradingMode || 'DEMO');
         setTradeMode(data.tradingMode || 'DEMO');
-        if (data.isFallback) {
-          setSettingsMessage({
-            type: 'warning',
-            text: 'Settings loaded from env.local file defaults.',
-          });
-        }
+        setDerivBotEnabled(data.botEnabled || false);
+        setLastScanAt(data.lastScanAt || '');
+        setLastScanLogs(data.lastScanLogs || []);
+        
+        const activeStrats = data.activeStrategies || ['FOREX_15M_MTF'];
+        setActiveStrategies(activeStrats);
+        setDraftStrategies(activeStrats);
       }
     } catch (err) {
-      console.error('Error fetching Deriv settings:', err);
+      console.error('Error fetching settings:', err);
     }
   };
 
@@ -109,7 +127,7 @@ export default function DerivDashboard() {
         setTrades(data.trades || []);
       }
     } catch (err) {
-      console.error('Error fetching Deriv trades:', err);
+      console.error('Error fetching trades:', err);
     } finally {
       setIsLoadingTrades(false);
     }
@@ -122,14 +140,13 @@ export default function DerivDashboard() {
       const res = await fetch('/api/deriv/trade');
       const data = await res.json();
       if (res.ok && data.success) {
-        // Find if any previously OPEN trade just got WON
         const previousOpenIds = trades.filter(t => t.status === 'OPEN').map(t => t.id);
         const newTrades: DerivTrade[] = data.trades || [];
         
         newTrades.forEach(nt => {
           if (previousOpenIds.includes(nt.id) && nt.status === 'WON') {
             confetti({
-              particleCount: 100,
+              particleCount: 80,
               spread: 60,
               origin: { y: 0.8 },
               colors: ['#10b981', '#34d399', '#6ee7b7']
@@ -139,8 +156,18 @@ export default function DerivDashboard() {
 
         setTrades(newTrades);
       }
+      
+      // Also fetch logs to update scanner box
+      const settingsRes = await fetch('/api/deriv/settings');
+      const settingsData = await settingsRes.json();
+      if (settingsRes.ok && settingsData.success) {
+        setLastScanAt(settingsData.lastScanAt || '');
+        setLastScanLogs(settingsData.lastScanLogs || []);
+        setDemoBalance(settingsData.demoBalance || 0);
+        setRealBalance(settingsData.realBalance || 0);
+      }
     } catch (err) {
-      console.error('Error syncing trades:', err);
+      console.error('Error syncing:', err);
     } finally {
       setIsSyncing(false);
     }
@@ -161,17 +188,22 @@ export default function DerivDashboard() {
           demoAccount,
           realAccount,
           tradingMode,
+          botEnabled: derivBotEnabled,
+          activeStrategies
         }),
       });
 
-      // Refresh settings to reload live balances for the selected mode
       fetchSettings();
-
       const data = await res.json();
       if (res.ok && data.success) {
         setSettingsMessage({
           type: 'success',
-          text: 'Deriv credentials saved to Supabase settings successfully!',
+          text: 'Deriv settings saved successfully!',
+        });
+        confetti({
+          particleCount: 50,
+          spread: 40,
+          origin: { y: 0.8 }
         });
       } else {
         setSettingsMessage({
@@ -182,10 +214,46 @@ export default function DerivDashboard() {
     } catch (err: any) {
       setSettingsMessage({
         type: 'error',
-        text: err.message || 'Error occurred while saving.',
+        text: err.message || 'Error saving settings.',
       });
     } finally {
       setIsSavingSettings(false);
+    }
+  };
+
+  const handleToggleStrategyDraft = (id: string) => {
+    if (draftStrategies.includes(id)) {
+      setDraftStrategies(draftStrategies.filter(x => x !== id));
+    } else {
+      setDraftStrategies([...draftStrategies, id]);
+    }
+  };
+
+  const handleSaveActiveStrategies = async () => {
+    setIsSavingStrategies(true);
+    try {
+      const res = await fetch('/api/deriv/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          apiToken,
+          demoAccount,
+          realAccount,
+          tradingMode,
+          botEnabled: derivBotEnabled,
+          activeStrategies: draftStrategies
+        }),
+      });
+
+      if (res.ok) {
+        setActiveStrategies(draftStrategies);
+        confetti({ particleCount: 60, spread: 50, origin: { y: 0.8 } });
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingStrategies(false);
     }
   };
 
@@ -209,7 +277,7 @@ export default function DerivDashboard() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        alert(`🎉 Contract purchased successfully!\nContract ID: ${data.trade.contract_id}`);
+        alert(`🎉 Options contract purchased successfully!\nContract ID: ${data.trade.contract_id}`);
         fetchTrades();
       } else {
         alert(`❌ Trade execution failed: ${data.error || 'Unknown error'}`);
@@ -222,7 +290,7 @@ export default function DerivDashboard() {
   };
 
   const handleCloseAllTrades = async () => {
-    const confirm = window.confirm("Are you sure you want to CLOSE and archive all simulated Deriv trades in the database?");
+    const confirm = window.confirm("Are you sure you want to CLOSE and archive all Deriv trades in the database?");
     if (!confirm) return;
 
     setIsSyncing(true);
@@ -249,6 +317,9 @@ export default function DerivDashboard() {
       ? (closedTrades.filter((t) => t.status === 'WON').length / closedTrades.length) * 100
       : 0;
 
+  const hasUnsavedStrategies = JSON.stringify(activeStrategies.sort()) !== JSON.stringify(draftStrategies.sort());
+  const filteredStrategies = STRATEGIES_LIST.filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -268,197 +339,171 @@ export default function DerivDashboard() {
             onClick={fetchTrades}
             disabled={isLoadingTrades || isSyncing}
             className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl hover:bg-zinc-850 hover:text-emerald-400 text-zinc-400 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
-            title="Refresh Account Data"
+            title="Refresh Dashboard Data"
           >
             <RefreshCw className={`w-4 h-4 ${isSyncing || isLoadingTrades ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* Account Balances Highlight Banner */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Demo Account */}
-        <div className={`p-6 rounded-3xl border transition-all duration-300 ${
-          tradingMode === 'DEMO'
-            ? 'bg-emerald-950/10 border-emerald-500/40 shadow-lg shadow-emerald-500/5'
-            : 'bg-[#0c0c0f]/60 border-zinc-800/85'
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Deriv Demo Wallet</span>
-            {tradingMode === 'DEMO' ? (
-              <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold bg-emerald-500 text-emerald-950 uppercase tracking-wider animate-pulse">
-                Active Mode
-              </span>
-            ) : (
-              <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-zinc-900 border border-zinc-800 text-zinc-500 uppercase">
-                Inactive
-              </span>
-            )}
-          </div>
-          <div className="text-2xl font-black font-mono text-zinc-100 mt-2">
-            ${demoBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs text-zinc-500 font-bold">USD</span>
-          </div>
-          <div className="text-[10px] text-zinc-500 font-mono mt-1">ID: {demoAccount || 'N/A'}</div>
-        </div>
-
-        {/* Real Account */}
-        <div className={`p-6 rounded-3xl border transition-all duration-300 ${
-          tradingMode === 'REAL'
-            ? 'bg-emerald-950/10 border-emerald-500/40 shadow-lg shadow-emerald-500/5'
-            : 'bg-[#0c0c0f]/60 border-zinc-800/85'
-        }`}>
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Deriv Real Wallet</span>
-            {tradingMode === 'REAL' ? (
-              <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold bg-emerald-500 text-emerald-950 uppercase tracking-wider animate-pulse">
-                Active Mode
-              </span>
-            ) : (
-              <span className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-zinc-900 border border-zinc-800 text-zinc-500 uppercase">
-                Inactive
-              </span>
-            )}
-          </div>
-          <div className="text-2xl font-black font-mono text-zinc-100 mt-2">
-            ${realBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs text-zinc-500 font-bold">USD</span>
-          </div>
-          <div className="text-[10px] text-zinc-500 font-mono mt-1">ID: {realAccount || 'N/A'}</div>
-        </div>
-      </div>
-
-      {/* Account PnL & Balance Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-emerald-400 border border-zinc-850">
-            <DollarSign className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Simulation P&L</span>
-            <span className={`text-xl font-black font-mono mt-1 block ${totalSimulatedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {totalSimulatedPnl >= 0 ? '+' : ''}{totalSimulatedPnl.toFixed(2)} USD
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-blue-400 border border-zinc-850">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Simulated Win Rate</span>
-            <span className="text-xl font-black font-mono mt-1 text-zinc-200 block">
-              {winRate.toFixed(1)}%
-            </span>
-          </div>
-        </div>
-
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 sm:col-span-2 lg:col-span-1">
-          <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-purple-400 border border-zinc-850">
-            <Activity className="w-6 h-6" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Active Positions</span>
-            <span className="text-xl font-black font-mono mt-1 text-zinc-200 block">
-              {openTrades.length} Contract(s)
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Side: Manual trade execution and credentials configuration */}
+      {/* Main Grid: Left sidebar strategy list, Right main dashboard panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        
+        {/* Left Column Sidebar */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Card 1: Trade execution widget */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
-            <h3 className="text-sm font-bold text-zinc-200 flex items-center gap-2 uppercase tracking-wider">
-              <Play className="w-4 h-4 text-emerald-400" />
-              <span>Buy Options Proposal</span>
+          
+          {/* Strategy Checklist (Matches Binance layout) */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4">
+            <div>
+              <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Active Engines</h3>
+              <p className="text-[9px] text-zinc-500 mt-1 leading-relaxed">
+                Tick to run on Deriv, untick to pause.
+              </p>
+            </div>
+
+            <div>
+              <input
+                type="text"
+                placeholder="🔍 Search strategy..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-3 py-2 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
+              />
+            </div>
+
+            <div className="space-y-1.5 max-h-[300px] overflow-y-auto pr-1">
+              {filteredStrategies.map((strat) => {
+                const isTicked = draftStrategies.includes(strat.id);
+                const isSelected = activeStrategies.includes(strat.id);
+                return (
+                  <div
+                    key={strat.id}
+                    className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all duration-200 text-[10px] font-bold ${
+                      isSelected
+                        ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
+                        : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                    }`}
+                  >
+                    <span className="flex-1 uppercase tracking-wider font-mono truncate mr-2">
+                      {strat.name}
+                    </span>
+                    <label className="flex items-center justify-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isTicked}
+                        onChange={() => handleToggleStrategyDraft(strat.id)}
+                        className="w-3.5 h-3.5 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none transition-all cursor-pointer accent-emerald-500"
+                      />
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+
+            {hasUnsavedStrategies && (
+              <div className="pt-2 border-t border-zinc-800/60">
+                <button
+                  onClick={handleSaveActiveStrategies}
+                  disabled={isSavingStrategies}
+                  className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-xl transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer"
+                >
+                  {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Manual Trade proposal widget */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4">
+            <h3 className="text-xs font-bold text-zinc-200 flex items-center gap-2 uppercase tracking-wider">
+              <Play className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Manual Execution</span>
             </h3>
 
             <form onSubmit={handleExecuteTrade} className="space-y-4">
               <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1.5">Asset Symbol</label>
+                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Asset Symbol</label>
                 <select
                   value={tradeSymbol}
                   onChange={(e) => setTradeSymbol(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
+                  className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
                 >
-                  <option value="1HZ100V">Volatility 100 (1s) Index (Continuous)</option>
+                  <option value="frxEURUSD">EUR/USD (Forex - 15m Expiry)</option>
+                  <option value="frxGBPUSD">GBP/USD (Forex - 15m Expiry)</option>
+                  <option value="frxUSDJPY">USD/JPY (Forex - 15m Expiry)</option>
+                  <option value="1HZ100V">Volatility 100 (1s) Index</option>
                   <option value="1HZ50V">Volatility 50 (1s) Index</option>
-                  <option value="frxEURUSD">EUR/USD (Forex - Min 15m)</option>
-                  <option value="cryBTCUSD">Bitcoin Index (Crypto)</option>
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1.5">Direction</label>
-                  <div className="flex bg-zinc-950 border border-zinc-800 p-1 rounded-xl">
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Direction</label>
+                  <div className="flex bg-zinc-950 border border-zinc-800 p-0.5 rounded-xl">
                     <button
                       type="button"
                       onClick={() => setTradeType('CALL')}
-                      className={`flex-1 py-1 rounded-lg text-xs font-black transition-all ${
-                        tradeType === 'CALL' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-zinc-500'
+                      className={`flex-1 py-1 rounded-lg text-[9px] font-black transition-all ${
+                        tradeType === 'CALL' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/25' : 'text-zinc-650'
                       }`}
                     >
-                      Rise (CALL)
+                      Rise
                     </button>
                     <button
                       type="button"
                       onClick={() => setTradeType('PUT')}
-                      className={`flex-1 py-1 rounded-lg text-xs font-black transition-all ${
-                        tradeType === 'PUT' ? 'bg-red-500/20 text-red-400 border border-red-500/30' : 'text-zinc-500'
+                      className={`flex-1 py-1 rounded-lg text-[9px] font-black transition-all ${
+                        tradeType === 'PUT' ? 'bg-red-500/20 text-red-400 border border-red-500/25' : 'text-zinc-650'
                       }`}
                     >
-                      Fall (PUT)
+                      Fall
                     </button>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1.5">Account Type</label>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Mode</label>
                   <select
                     value={tradeMode}
                     onChange={(e) => setTradeMode(e.target.value as any)}
-                    className="w-full px-3 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
                   >
-                    <option value="DEMO">Demo account</option>
-                    <option value="REAL">Real account</option>
+                    <option value="DEMO">Demo Sandbox</option>
+                    <option value="REAL">Real Account</option>
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-1">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1.5">Stake ($)</label>
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Stake</label>
                   <input
                     type="number"
-                    step="0.01"
                     value={tradeAmount}
                     onChange={(e) => setTradeAmount(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
                   />
                 </div>
 
-                <div className="col-span-1">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1.5">Duration</label>
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Duration</label>
                   <input
                     type="number"
                     value={tradeDuration}
                     onChange={(e) => setTradeDuration(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
                   />
                 </div>
 
-                <div className="col-span-1">
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1.5">Unit</label>
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Unit</label>
                   <select
                     value={tradeDurationUnit}
                     onChange={(e) => setTradeDurationUnit(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
                   >
-                    <option value="s">Seconds</option>
                     <option value="m">Minutes</option>
+                    <option value="s">Seconds</option>
                     <option value="t">Ticks</option>
                   </select>
                 </div>
@@ -467,13 +512,10 @@ export default function DerivDashboard() {
               <button
                 type="submit"
                 disabled={isExecutingTrade}
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 font-extrabold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
               >
                 {isExecutingTrade ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Executing...</span>
-                  </>
+                  <Loader2 className="w-3 h-3 animate-spin" />
                 ) : (
                   <span>Purchase Contract</span>
                 )}
@@ -481,87 +523,73 @@ export default function DerivDashboard() {
             </form>
           </div>
 
-          {/* Card 2: Credentials Settings Configuration */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
-            <h3 className="text-sm font-bold text-zinc-200 flex items-center gap-2 uppercase tracking-wider">
-              <Settings className="w-4 h-4 text-emerald-400" />
-              <span>Deriv Authentication</span>
+          {/* Credentials Settings Toggle widget */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4">
+            <h3 className="text-xs font-bold text-zinc-200 flex items-center gap-2 uppercase tracking-wider">
+              <Settings className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Deriv API Credentials</span>
             </h3>
 
             <form onSubmit={handleSaveSettings} className="space-y-3">
               <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">App ID</label>
+                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">App ID</label>
                 <input
                   type="text"
-                  placeholder="e.g. 34eMOq..."
                   value={appId}
                   onChange={(e) => setAppId(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
-                  required
+                  className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                  placeholder="App ID"
                 />
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">API Token (PAT)</label>
-                <input
-                  type="password"
-                  placeholder="pat_..."
-                  value={apiToken}
-                  onChange={(e) => setApiToken(e.target.value)}
-                  className="w-full px-3 py-2 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
-                  required
-                />
+                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">API Token (PAT)</label>
+                <div className="relative">
+                  <input
+                    type={showToken ? 'text' : 'password'}
+                    value={apiToken}
+                    onChange={(e) => setApiToken(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono pr-8"
+                    placeholder="pat_..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowToken(!showToken)}
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center text-zinc-500 hover:text-zinc-350"
+                  >
+                    {showToken ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Demo ID</label>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Demo ID</label>
                   <input
                     type="text"
-                    placeholder="DOT..."
                     value={demoAccount}
                     onChange={(e) => setDemoAccount(e.target.value)}
-                    className="w-full px-3 py-2 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
-                    required
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                    placeholder="DOT..."
                   />
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Real ID</label>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Real ID</label>
                   <input
                     type="text"
-                    placeholder="ROT..."
                     value={realAccount}
                     onChange={(e) => setRealAccount(e.target.value)}
-                    className="w-full px-3 py-2 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                    placeholder="ROT..."
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Trading Mode</label>
-                <select
-                  value={tradingMode}
-                  onChange={(e) => {
-                    setTradingMode(e.target.value as any);
-                    setTradeMode(e.target.value as any);
-                  }}
-                  className="w-full px-3 py-2 bg-zinc-950/60 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
-                >
-                  <option value="DEMO">Demo Account (Practice)</option>
-                  <option value="REAL">Real Account (Live Money)</option>
-                </select>
               </div>
 
               {settingsMessage.text && (
-                <div className={`p-2.5 rounded-xl text-[10px] font-semibold flex items-start gap-1.5 border ${
-                  settingsMessage.type === 'success'
-                    ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                    : settingsMessage.type === 'warning'
-                    ? 'bg-amber-950/20 border-amber-900/50 text-amber-500'
-                    : 'bg-red-950/20 border-red-900/50 text-red-400'
+                <div className={`p-2 rounded-xl text-[9px] font-semibold border flex gap-1 ${
+                  settingsMessage.type === 'success' ? 'bg-emerald-950/15 border-emerald-900/40 text-emerald-400' : 'bg-red-950/15 border-red-900/40 text-red-400'
                 }`}>
-                  {settingsMessage.type === 'warning' ? <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> : <CheckCircle className="w-3.5 h-3.5 shrink-0" />}
                   <span>{settingsMessage.text}</span>
                 </div>
               )}
@@ -569,21 +597,203 @@ export default function DerivDashboard() {
               <button
                 type="submit"
                 disabled={isSavingSettings}
-                className="w-full py-2.5 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border border-zinc-750 font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                className="w-full py-2 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border border-zinc-750 font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
               >
-                {isSavingSettings ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Save className="w-3.5 h-3.5" />
-                )}
-                <span>Save credentials</span>
+                {isSavingSettings ? 'Saving...' : 'Save Credentials'}
               </button>
             </form>
           </div>
         </div>
 
-        {/* Right Side: Active contracts list and past history */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* Right Column Panel */}
+        <div className="lg:col-span-4 space-y-8">
+          
+          {/* Active Engine Toggle Banner (Matches Binance Dashboard Header perfectly) */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-md">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <span className="flex h-4 w-4 relative">
+                  <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${derivBotEnabled ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                  <span className={`relative inline-flex rounded-full h-4 w-4 ${derivBotEnabled ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                </span>
+              </div>
+
+              <div>
+                <h3 className="text-md font-extrabold text-zinc-100 flex items-center gap-2">
+                  <span>Deriv Active Options Engine</span>
+                  <span className={`px-2 py-0.5 rounded-lg text-[9px] font-extrabold ${derivBotEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-red-950 text-red-400 border border-red-500/20'}`}>
+                    {derivBotEnabled ? 'ENGINE ACTIVE' : 'ENGINE PAUSED'}
+                  </span>
+                </h3>
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Active Account Mode: <span className="font-extrabold text-zinc-300">{tradingMode} Sandbox</span> | Pulse interval: <span className="font-mono">30s</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Switchers */}
+            <div className="flex flex-wrap gap-3 items-center">
+              {/* Bot Work Status */}
+              <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setDerivBotEnabled(true);
+                    await fetch('/api/deriv/settings', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: true, activeStrategies })
+                    });
+                    fetchSettings();
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    derivBotEnabled ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                  }`}
+                >
+                  WORK ON
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setDerivBotEnabled(false);
+                    await fetch('/api/deriv/settings', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: false, activeStrategies })
+                    });
+                    fetchSettings();
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    !derivBotEnabled ? 'bg-red-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                  }`}
+                >
+                  WORK OFF
+                </button>
+              </div>
+
+              {/* Segmented Switcher */}
+              <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setTradingMode('DEMO');
+                    await fetch('/api/deriv/settings', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'DEMO', botEnabled: derivBotEnabled, activeStrategies })
+                    });
+                    fetchSettings();
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    tradingMode === 'DEMO' ? 'bg-amber-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                  }`}
+                >
+                  DEMO SANDBOX
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setTradingMode('REAL');
+                    await fetch('/api/deriv/settings', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'REAL', botEnabled: derivBotEnabled, activeStrategies })
+                    });
+                    fetchSettings();
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    tradingMode === 'REAL' ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                  }`}
+                >
+                  REAL LIVE
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Statistics Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-emerald-400 border border-zinc-850">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Live Balance</span>
+                <span className="text-xl font-black font-mono mt-0.5 text-zinc-100 block">
+                  ${(tradingMode === 'DEMO' ? demoBalance : realBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-emerald-400 border border-zinc-850">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Today P&L</span>
+                <span className={`text-xl font-black font-mono mt-0.5 block ${totalSimulatedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {totalSimulatedPnl >= 0 ? '+' : ''}{totalSimulatedPnl.toFixed(2)} USD
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-blue-400 border border-zinc-850">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Win Rate %</span>
+                <span className="text-xl font-black font-mono mt-0.5 text-zinc-200 block">
+                  {winRate.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-purple-400 border border-zinc-850">
+                <Activity className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Active Positions</span>
+                <span className="text-xl font-black font-mono mt-0.5 text-zinc-200 block">
+                  {openTrades.length}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Terminal Scans Log */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-5 space-y-3">
+            <div className="flex items-center justify-between border-b border-zinc-850 pb-2">
+              <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Terminal Scans Log
+              </span>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                Last scan: {lastScanAt ? new Date(lastScanAt).toLocaleTimeString() : 'Never'}
+              </span>
+            </div>
+            <div className="bg-[#050507]/90 border border-zinc-900 rounded-2xl p-4 min-h-[160px] max-h-[220px] overflow-y-auto font-mono text-[10px] text-zinc-450 space-y-1.5 scrollbar-thin">
+              {lastScanLogs.length === 0 ? (
+                <div className="text-zinc-650 italic py-6 text-center">No terminal scan events captured yet. Check if Bot is WORK ON.</div>
+              ) : (
+                lastScanLogs.map((log, idx) => (
+                  <div key={idx} className="leading-relaxed hover:bg-zinc-900/30 py-0.5 px-1 rounded transition-colors">
+                    {log.includes('❌') || log.includes('🚨') ? (
+                      <span className="text-red-400">{log}</span>
+                    ) : log.includes('🔥') || log.includes('🎉') ? (
+                      <span className="text-emerald-400 font-bold">{log}</span>
+                    ) : log.includes('⏳') || log.includes('⚠️') ? (
+                      <span className="text-amber-500">{log}</span>
+                    ) : (
+                      <span>{log}</span>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Section: Open Active Contracts */}
           <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
@@ -662,7 +872,7 @@ export default function DerivDashboard() {
             {closedTrades.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 border border-dashed border-zinc-800/80 rounded-2xl">
                 <Layers className="w-8 h-8 text-zinc-600 mb-2" />
-                <p className="text-xs text-zinc-500 font-medium font-semibold">No recent contracts in history</p>
+                <p className="text-xs text-zinc-500 font-medium">No recent contracts in history</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
