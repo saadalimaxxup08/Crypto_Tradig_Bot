@@ -50,6 +50,7 @@ export async function GET() {
     const demoAccount = settings?.deriv_demo_account || process.env.DERIV_DEMO_ACCOUNT || '';
     const realAccount = settings?.deriv_real_account || process.env.DERIV_REAL_ACCOUNT || '';
     const tradingMode = settings?.deriv_trading_mode || 'DEMO';
+    const botEnabled = settings?.deriv_bot_enabled || false;
 
     let demoBalance = 0.00;
     let realBalance = 0.00;
@@ -68,6 +69,7 @@ export async function GET() {
         demoAccount,
         realAccount,
         tradingMode,
+        botEnabled,
         demoBalance,
         realBalance,
         isFallback: true
@@ -81,6 +83,7 @@ export async function GET() {
       demoAccount,
       realAccount,
       tradingMode,
+      botEnabled,
       demoBalance,
       realBalance,
       isFallback: false
@@ -97,15 +100,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { appId, apiToken, demoAccount, realAccount, tradingMode } = await request.json();
+    const { appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled } = await request.json();
 
-    // Check if the settings table has deriv_trading_mode, try to update it.
     const updatePayload: any = {
       deriv_app_id: appId,
       deriv_api_token: apiToken,
       deriv_demo_account: demoAccount,
       deriv_real_account: realAccount,
-      deriv_trading_mode: tradingMode
+      deriv_trading_mode: tradingMode,
+      deriv_bot_enabled: botEnabled
     };
 
     const { error } = await supabase
@@ -114,9 +117,9 @@ export async function POST(request: Request) {
       .eq('id', 1);
 
     if (error) {
-      // Fallback: update without deriv_trading_mode column in case the user hasn't run the SQL for trading_mode column yet.
-      console.warn('Failed to save with tradingMode column, trying fallback settings update...');
+      console.warn('Failed to save with deriv_bot_enabled column, trying fallback settings update...');
       const fallbackPayload = { ...updatePayload };
+      delete fallbackPayload.deriv_bot_enabled;
       delete fallbackPayload.deriv_trading_mode;
 
       const { error: fallbackError } = await supabase

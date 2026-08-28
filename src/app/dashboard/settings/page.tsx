@@ -28,6 +28,7 @@ export default function SettingsPage() {
   const [derivDemoAccount, setDerivDemoAccount] = useState('');
   const [derivRealAccount, setDerivRealAccount] = useState('');
   const [derivTradingMode, setDerivTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
+  const [derivBotEnabled, setDerivBotEnabled] = useState(false);
 
   // WhatsApp Bridge states
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
@@ -1055,30 +1056,59 @@ export default function SettingsPage() {
               <p className="text-xs text-zinc-400 mt-0.5">Toggle between Demo Sandbox and Real Account trading</p>
             </div>
             
-            {/* Segmented Switcher */}
-            <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setTradingMode('DEMO')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  tradingMode === 'DEMO'
-                    ? 'bg-amber-500 text-zinc-950 shadow-md'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                DEMO SANDBOX
-              </button>
-              <button
-                type="button"
-                onClick={() => setTradingMode('REAL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  tradingMode === 'REAL'
-                    ? 'bg-emerald-500 text-zinc-950 shadow-md animate-pulse'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                REAL LIVE
-              </button>
+            {/* Toggles Container */}
+            <div className="flex flex-wrap gap-3 items-center self-start sm:self-auto">
+              {/* Bot Work Status */}
+              <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setBotEnabled(true)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    botEnabled
+                      ? 'bg-emerald-500 text-zinc-950 shadow-md'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  WORK ON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBotEnabled(false)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    !botEnabled
+                      ? 'bg-red-500 text-zinc-950 shadow-md'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  WORK OFF
+                </button>
+              </div>
+
+              {/* Segmented Switcher */}
+              <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setTradingMode('DEMO')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    tradingMode === 'DEMO'
+                      ? 'bg-amber-500 text-zinc-950 shadow-md'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  DEMO SANDBOX
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTradingMode('REAL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    tradingMode === 'REAL'
+                      ? 'bg-emerald-500 text-zinc-950 shadow-md animate-pulse'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  REAL LIVE
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1217,30 +1247,59 @@ export default function SettingsPage() {
               <p className="text-xs text-zinc-400 mt-0.5">Toggle between Demo Sandbox and Real Account options trading</p>
             </div>
             
-            {/* Segmented Switcher */}
-            <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl self-start sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setDerivTradingMode('DEMO')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  derivTradingMode === 'DEMO'
-                    ? 'bg-amber-500 text-zinc-950 shadow-md'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                DEMO SANDBOX
-              </button>
-              <button
-                type="button"
-                onClick={() => setDerivTradingMode('REAL')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  derivTradingMode === 'REAL'
-                    ? 'bg-emerald-500 text-zinc-950 shadow-md animate-pulse'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                REAL LIVE
-              </button>
+            {/* Toggles Container */}
+            <div className="flex flex-wrap gap-3 items-center self-start sm:self-auto">
+              {/* Bot Work Status */}
+              <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setDerivBotEnabled(true)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    derivBotEnabled
+                      ? 'bg-emerald-500 text-zinc-950 shadow-md'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  WORK ON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDerivBotEnabled(false)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    !derivBotEnabled
+                      ? 'bg-red-500 text-zinc-950 shadow-md'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  WORK OFF
+                </button>
+              </div>
+
+              {/* Segmented Switcher */}
+              <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setDerivTradingMode('DEMO')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    derivTradingMode === 'DEMO'
+                      ? 'bg-amber-500 text-zinc-950 shadow-md'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  DEMO SANDBOX
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDerivTradingMode('REAL')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    derivTradingMode === 'REAL'
+                      ? 'bg-emerald-500 text-zinc-950 shadow-md animate-pulse'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  REAL LIVE
+                </button>
+              </div>
             </div>
           </div>
 
