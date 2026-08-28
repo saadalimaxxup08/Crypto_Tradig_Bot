@@ -22,6 +22,13 @@ export default function SettingsPage() {
   const [binanceRealSecretKey, setBinanceRealSecretKey] = useState('');
   const [cooldownHours, setCooldownHours] = useState('0.0');
 
+  // Deriv Settings States
+  const [derivAppId, setDerivAppId] = useState('');
+  const [derivApiToken, setDerivApiToken] = useState('');
+  const [derivDemoAccount, setDerivDemoAccount] = useState('');
+  const [derivRealAccount, setDerivRealAccount] = useState('');
+  const [derivTradingMode, setDerivTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
+
   // WhatsApp Bridge states
   const [whatsappEnabled, setWhatsappEnabled] = useState(false);
   const [whatsappRecipients, setWhatsappRecipients] = useState<string[]>([]);
@@ -221,6 +228,7 @@ export default function SettingsPage() {
   const [showBinanceDemoSecret, setShowBinanceDemoSecret] = useState(false);
   const [showBinanceRealKey, setShowBinanceRealKey] = useState(false);
   const [showBinanceRealSecret, setShowBinanceRealSecret] = useState(false);
+  const [showDerivToken, setShowDerivToken] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -229,8 +237,14 @@ export default function SettingsPage() {
   const fetchSettings = async () => {
     try {
       setIsLoading(true);
-      const res = await fetch('/api/settings');
+      const [res, resDeriv] = await Promise.all([
+        fetch('/api/settings'),
+        fetch('/api/deriv/settings')
+      ]);
+      
       const data = await res.json();
+      const derivData = await resDeriv.json();
+
       if (res.ok) {
         setBotEnabled(data.bot_enabled);
         setTpPercent(String(data.tp_percent));
@@ -250,6 +264,14 @@ export default function SettingsPage() {
         setCooldownHours(String(overrides.GLOBAL_COOLDOWN_HOURS || '0.0'));
         setPairOverrides(overrides);
         setActiveStrategy(data.active_strategy || 'RSI_MACD');
+      }
+
+      if (resDeriv.ok && derivData.success) {
+        setDerivAppId(derivData.appId || '');
+        setDerivApiToken(derivData.apiToken || '');
+        setDerivDemoAccount(derivData.demoAccount || '');
+        setDerivRealAccount(derivData.realAccount || '');
+        setDerivTradingMode(derivData.tradingMode || 'DEMO');
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -310,14 +332,29 @@ export default function SettingsPage() {
     };
 
     try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const [res, resDeriv] = await Promise.all([
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }),
+        fetch('/api/deriv/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            appId: derivAppId,
+            apiToken: derivApiToken,
+            demoAccount: derivDemoAccount,
+            realAccount: derivRealAccount,
+            tradingMode: derivTradingMode,
+          }),
+        })
+      ]);
 
       const data = await res.json();
-      if (res.ok && data.success) {
+      const derivData = await resDeriv.json();
+
+      if (res.ok && data.success && resDeriv.ok && derivData.success) {
         setStatusMsg({ type: 'success', text: 'Configuration saved successfully!' });
         confetti({
           particleCount: 80,
@@ -329,7 +366,10 @@ export default function SettingsPage() {
         // Refresh settings so masked versions reload if newly set
         fetchSettings();
       } else {
-        setStatusMsg({ type: 'error', text: data.error || 'Failed to save settings.' });
+        const errorText = (!res.ok || !data.success)
+          ? (data.error || 'Failed to save Binance settings.')
+          : (derivData.error || 'Failed to save Deriv settings. Please verify Supabase settings columns exist.');
+        setStatusMsg({ type: 'error', text: errorText });
       }
     } catch (err) {
       console.error(err);
@@ -1167,6 +1207,140 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Deriv API credentials */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
+          <div className="border-b border-zinc-800/50 pb-3 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-zinc-200">Deriv API Settings</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">Toggle between Demo Sandbox and Real Account options trading</p>
+            </div>
+            
+            {/* Segmented Switcher */}
+            <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setDerivTradingMode('DEMO')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  derivTradingMode === 'DEMO'
+                    ? 'bg-amber-500 text-zinc-950 shadow-md'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                DEMO SANDBOX
+              </button>
+              <button
+                type="button"
+                onClick={() => setDerivTradingMode('REAL')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  derivTradingMode === 'REAL'
+                    ? 'bg-emerald-500 text-zinc-950 shadow-md animate-pulse'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                REAL LIVE
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* Deriv App ID */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Deriv App ID
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 34eMOq..."
+                  value={derivAppId}
+                  onChange={(e) => setDerivAppId(e.target.value)}
+                  className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-650 focus:outline-none transition-all duration-200 text-sm"
+                  required
+                />
+              </div>
+
+              {/* Deriv API Token (PAT) */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Deriv API Token (PAT)
+                </label>
+                <div className="relative">
+                  <input
+                    type={showDerivToken ? 'text' : 'password'}
+                    placeholder="pat_..."
+                    value={derivApiToken}
+                    onChange={(e) => setDerivApiToken(e.target.value)}
+                    className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 pl-4 pr-11 font-mono text-zinc-100 placeholder-zinc-650 focus:outline-none transition-all duration-200 text-sm"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowDerivToken(!showDerivToken)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
+                  >
+                    {showDerivToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Demo Account ID */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Demo Account ID (Practice)
+                </label>
+                <input
+                  type="text"
+                  placeholder="DOT..."
+                  value={derivDemoAccount}
+                  onChange={(e) => setDerivDemoAccount(e.target.value)}
+                  className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none transition-all duration-200 text-sm"
+                  required
+                />
+              </div>
+
+              {/* Real Account ID */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  Real Account ID (Live)
+                </label>
+                <input
+                  type="text"
+                  placeholder="ROT..."
+                  value={derivRealAccount}
+                  onChange={(e) => setDerivRealAccount(e.target.value)}
+                  className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-650 focus:outline-none transition-all duration-200 text-sm"
+                />
+              </div>
+            </div>
+
+            {derivTradingMode === 'DEMO' ? (
+              <div className="p-4 bg-amber-950/15 border border-amber-900/30 rounded-2xl flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-amber-500 uppercase tracking-wide">
+                    Deriv Demo Sandbox Active
+                  </p>
+                  <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                    Options trading is running in <b>Demo Sandbox</b> mode. Trades will execute virtual balances on your Deriv Demo ID.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-red-950/20 border border-red-900/50 rounded-2xl flex items-start gap-3 animate-pulse">
+                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-red-400 uppercase tracking-wide">
+                    🚨 LIVE OPTIONS RISK WARNING
+                  </p>
+                  <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+                    You are enabling <b>Live Real Trading mode</b> for Deriv Options. Every signal triggered will execute positions on your real Deriv Account using <b>REAL CAPITAL</b>.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Status Msg & Save Trigger */}
