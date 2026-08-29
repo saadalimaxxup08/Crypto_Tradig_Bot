@@ -15,14 +15,11 @@ try {
   });
 
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-  
-  const newAppId = '34fFIOVmSAJ8XDonm0V4Z';
-  
-  supabase.from('settings').update({ deriv_app_id: newAppId }).eq('id', 1).then(({ error }) => {
+  supabase.from('settings').select('deriv_app_id').eq('id', 1).single().then(({ data, error }) => {
     if (error) {
-      console.error('🔴 Error updating App ID:', error.message);
+      console.error('Error:', error.message);
     } else {
-      console.log('🟢 App ID successfully updated to:', newAppId);
+      console.log('CURRENT APP ID IN SUPABASE:', data.deriv_app_id);
     }
   });
 } catch (err) {
