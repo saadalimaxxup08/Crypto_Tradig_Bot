@@ -1,0 +1,169 @@
+import WebSocket from 'ws';
+import { supabase } from './supabase';
+
+export async function fetchOTP(appId: string, token: string, accountId: string): Promise<string> {
+  const otpUrl = `https://api.derivws.com/trading/v1/options/accounts/${accountId}/otp`;
+  const response = await fetch(otpUrl, {
+    method: 'POST',
+    headers: {
+      'Deriv-App-ID': appId,
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  });
+
+  if (response.status !== 200) {
+    throw new Error(`Failed to generate OTP: ${await response.text()}`);
+  }
+
+  const otpData = await response.json();
+  return otpData.data.url;
+}
+
+// Fetch historical candles over WebSocket
+export function fetchCandles(socket: WebSocket, symbol: string, granularity: number): Promise<any[]> {
+  return new Promise((resolve) => {
+    const handleMsg = (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.msg_type === 'candles' && data.echo_req.ticks_history === symbol && data.echo_req.granularity === granularity) {
+          socket.removeEventListener('message', handleMsg);
+          resolve(data.candles || []);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    socket.addEventListener('message', handleMsg);
+    socket.send(JSON.stringify({
+      ticks_history: symbol,
+      adjust_start_time: 1,
+      count: 220,
+      end: 'latest',
+      granularity,
+      style: 'candles'
+    }));
+
+    // Safety timeout
+    setTimeout(() => {
+      socket.removeEventListener('message', handleMsg);
+      resolve([]);
+    }, 5000);
+  });
+}
+
+// Fetch bid/ask tick over WebSocket
+export function fetchTick(socket: WebSocket, symbol: string): Promise<{ ask: number; bid: number } | null> {
+  return new Promise((resolve) => {
+    const handleMsg = (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.msg_type === 'tick' && data.echo_req.ticks === symbol) {
+          socket.removeEventListener('message', handleMsg);
+          resolve({
+            ask: parseFloat(data.tick.ask),
+            bid: parseFloat(data.tick.bid)
+          });
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    socket.addEventListener('message', handleMsg);
+    socket.send(JSON.stringify({
+      ticks: symbol
+    }));
+
+    // Safety timeout
+    setTimeout(() => {
+      socket.removeEventListener('message', handleMsg);
+      resolve(null);
+    }, 4000);
+  });
+}
+
+// Buy contract over WebSocket
+export function buyContract(socket: WebSocket, symbol: string, direction: 'CALL' | 'PUT', amount: number): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const handleMsg = (event: any) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.error) {
+          socket.removeEventListener('message', handleMsg);
+          reject(new Error(msg.error.message));
+          return;
+        }
+
+        if (msg.msg_type === 'proposal' && msg.echo_req.underlying_symbol === symbol && msg.echo_req.contract_type === direction) {
+          // Send Buy Request
+          socket.send(JSON.stringify({
+            buy: msg.proposal.id,
+            price: msg.proposal.ask_price
+          }));
+        } else if (msg.msg_type === 'buy' && msg.buy) {
+          socket.removeEventListener('message', handleMsg);
+          resolve(msg.buy);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    socket.addEventListener('message', handleMsg);
+
+    // Send Proposal Request (15 Minutes Expiry)
+    socket.send(JSON.stringify({
+      proposal: 1,
+      amount,
+      basis: 'stake',
+      contract_type: direction,
+      currency: 'USD',
+      duration: 15,
+      duration_unit: 'm',
+      underlying_symbol: symbol
+    }));
+
+    // Safety timeout
+    setTimeout(() => {
+      socket.removeEventListener('message', handleMsg);
+      reject(new Error('Buy contract timed out.'));
+    }, 8000);
+  });
+}
+
+// Send telegram alert helper
+export async function sendTelegramAlert(message: string) {
+  try {
+    const { data: settings } = await supabase.from('settings').select('telegram_token, telegram_chat_id').eq('id', 1).single();
+    const token = settings?.telegram_token || process.env.TELEGRAM_TOKEN;
+    const chatId = settings?.telegram_chat_id || process.env.TELEGRAM_CHAT_ID;
+
+    if (token && chatId) {
+      const url = `https://api.telegram.org/bot${token}/sendMessage`;
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' })
+      });
+    }
+  } catch (err) {
+    console.error('Error sending Telegram message:', err);
+  }
+}
+
+// Save Deriv specific scan logs to settings pair_overrides JSON object
+export async function saveDerivScanLogs(existingOverrides: any, scanLogs: string[], nearEntryPairs?: any[]) {
+  try {
+    const updatedOverrides = {
+      ...existingOverrides,
+      deriv_last_scan_at: new Date().toISOString(),
+      deriv_last_scan_logs: scanLogs.slice(-15), // Keep last 15 log statements
+      deriv_near_entry_pairs: nearEntryPairs !== undefined ? nearEntryPairs : (existingOverrides.deriv_near_entry_pairs || [])
+    };
+    await supabase.from('settings').update({
+      pair_overrides: updatedOverrides
+    }).eq('id', 1);
+  } catch (err) {
+    console.error('Failed to save Deriv scan logs:', err);
+  }
+}
