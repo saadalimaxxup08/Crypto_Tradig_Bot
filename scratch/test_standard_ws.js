@@ -1,4 +1,5 @@
 const fs = require('fs');
+const WebSocket = require('ws');
 const { createClient } = require('@supabase/supabase-js');
 
 try {
@@ -27,7 +28,9 @@ try {
     const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
     console.log('Connecting directly to standard endpoint:', wsUrl);
 
-    const ws = new WebSocket(wsUrl);
+    const ws = new WebSocket(wsUrl, {
+      origin: 'https://crypto08-tradig-bot.vercel.app'
+    });
 
     const handleAuth = (event) => {
       try {

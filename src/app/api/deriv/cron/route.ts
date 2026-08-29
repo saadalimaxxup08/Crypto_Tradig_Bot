@@ -274,7 +274,12 @@ export async function GET() {
     for (let attempt = 1; attempt <= connectAttempts; attempt++) {
       try {
         socket = await new Promise<WebSocket>((resolve, reject) => {
-          const ws = new WebSocket(wsUrl);
+          const ws = new WebSocket(wsUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            origin: 'https://smarttrader.deriv.com'
+          });
           ws.onopen = () => resolve(ws);
           ws.onerror = (e) => reject(new Error('WebSocket handshake failed.'));
           // 15 seconds timeout for serverless environments
