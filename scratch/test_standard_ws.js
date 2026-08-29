@@ -29,7 +29,7 @@ try {
     console.log('Connecting directly to standard endpoint:', wsUrl);
 
     const ws = new WebSocket(wsUrl, {
-      origin: 'https://crypto08-tradig-bot.vercel.app'
+      origin: 'https://cryptotradigbot-production.up.railway.app'
     });
 
     const handleAuth = (event) => {

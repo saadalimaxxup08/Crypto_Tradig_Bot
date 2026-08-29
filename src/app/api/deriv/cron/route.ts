@@ -280,6 +280,11 @@ export async function GET() {
             },
             origin: 'https://smarttrader.deriv.com'
           });
+          
+          ws.on('unexpected-response', (req: any, res: any) => {
+            reject(new Error(`Handshake rejected: HTTP ${res.statusCode} | CF-Ray: ${res.headers['cf-ray'] || 'None'}`));
+          });
+
           ws.onopen = () => resolve(ws);
           ws.onerror = (e) => reject(new Error('WebSocket handshake failed.'));
           // 15 seconds timeout for serverless environments
