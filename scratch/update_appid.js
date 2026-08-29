@@ -16,7 +16,7 @@ try {
 
   const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
   
-  const newAppId = '34eMOqShuCNvd5v0qOP5F';
+  const newAppId = '34fFIOVmSAJ8XDonm0V4Z';
   
   supabase.from('settings').update({ deriv_app_id: newAppId }).eq('id', 1).then(({ error }) => {
     if (error) {
