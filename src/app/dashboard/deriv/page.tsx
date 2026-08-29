@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   LineChart,
   DollarSign,
@@ -174,6 +174,21 @@ export default function DerivDashboard() {
   const [dashboardStakeAmount, setDashboardStakeAmount] = useState('1.00');
   const [isSavingStake, setIsSavingStake] = useState(false);
   const [nearEntryPairs, setNearEntryPairs] = useState<any[]>([]);
+
+  // Sort nearEntryPairs descending by number of active confirmations (T A S) and then by ADX value
+  const sortedNearEntryPairs = useMemo(() => {
+    if (!nearEntryPairs) return [];
+    return [...nearEntryPairs].sort((a, b) => {
+      const scoreA = (a.confirmations?.trend ? 1 : 0) + (a.confirmations?.adx ? 1 : 0) + (a.confirmations?.stochZone ? 1 : 0);
+      const scoreB = (b.confirmations?.trend ? 1 : 0) + (b.confirmations?.adx ? 1 : 0) + (b.confirmations?.stochZone ? 1 : 0);
+      
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+      
+      return parseFloat(b.adx || 0) - parseFloat(a.adx || 0);
+    });
+  }, [nearEntryPairs]);
 
   // Selected pairs list state
   const [selectedPairs, setSelectedPairs] = useState<string[]>(['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']);
@@ -1628,14 +1643,14 @@ export default function DerivDashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900/60 font-medium">
-                  {nearEntryPairs.length === 0 ? (
+                  {sortedNearEntryPairs.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-8 text-center text-zinc-650 italic">
                         No pairs currently near trade entry criteria. Running active scans...
                       </td>
                     </tr>
                   ) : (
-                    nearEntryPairs.map((pair, idx) => (
+                    sortedNearEntryPairs.map((pair: any, idx: number) => (
                       <tr key={idx} className="hover:bg-zinc-900/20 transition-colors text-zinc-300">
                         <td className="py-2.5 px-4 font-bold text-zinc-200">
                           {pair.symbol.replace('frx', '')}

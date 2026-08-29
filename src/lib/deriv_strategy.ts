@@ -260,13 +260,13 @@ export function analyzeForex15mStrategy(
   // D. Check if pair is near entry (Watchlist diagnostics)
   let isNear = false;
   let reason = '';
-  if (isH1Uptrend && is15mUptrend && current15mADX > 20) {
-    if (currentK < 35 && !isStochCallCrossover) {
+  if (isH1Uptrend && is15mUptrend && current15mADX > 15) {
+    if (currentK < 45 && !isStochCallCrossover) {
       isNear = true;
       reason = `Uptrend (ADX ${current15mADX.toFixed(1)}) - Waiting for Stochastic gold cross (K: ${currentK.toFixed(0)}, D: ${currentD.toFixed(0)})`;
     }
-  } else if (isH1Downtrend && is15mDowntrend && current15mADX > 20) {
-    if (currentK > 65 && !isStochPutCrossover) {
+  } else if (isH1Downtrend && is15mDowntrend && current15mADX > 15) {
+    if (currentK > 55 && !isStochPutCrossover) {
       isNear = true;
       reason = `Downtrend (ADX ${current15mADX.toFixed(1)}) - Waiting for Stochastic death cross (K: ${currentK.toFixed(0)}, D: ${currentD.toFixed(0)})`;
     }
