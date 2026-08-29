@@ -227,18 +227,18 @@ export default function DerivDashboard() {
 
   // Load everything on mount
   useEffect(() => {
-    fetchSettings();
+    fetchSettings(true);
     fetchTrades();
 
     const interval = setInterval(() => {
       syncTradesSilently();
-      fetchSettings(); // Auto-refresh scan logs, settings, and watchlist
+      fetchSettings(false); // Auto-refresh scan logs, settings, and watchlist without overwriting user drafts
     }, 10000);
 
     return () => clearInterval(interval);
   }, []);
 
-  const fetchSettings = async () => {
+  const fetchSettings = async (isInitial: boolean = false) => {
     try {
       const res = await fetch('/api/deriv/settings');
       const data = await res.json();
@@ -257,16 +257,22 @@ export default function DerivDashboard() {
         
         const activeStrats = data.activeStrategies || ['FOREX_15M_MTF'];
         setActiveStrategies(activeStrats);
-        setDraftStrategies(activeStrats);
-        setDashboardMaxTrades(String(data.derivMaxTrades || 10));
-        setDashboardStakeAmount(String(data.derivStakeAmount || '1.00'));
+        
         const savedPairs = data.derivSelectedPairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
         setSelectedPairs(savedPairs);
-        setDraftPairs(savedPairs);
-        setNewsFilterEnabled(data.derivNewsFilterEnabled !== false);
-        setSessionFilterEnabled(data.derivSessionFilterEnabled !== false);
-        setCooldownFilterEnabled(data.derivCooldownFilterEnabled !== false);
-        setDailyLimitEnabled(data.derivDailyLimitEnabled !== false);
+
+        // Only overwrite draft user-facing checkboxes on initial load
+        if (isInitial) {
+          setDraftStrategies(activeStrats);
+          setDashboardMaxTrades(String(data.derivMaxTrades || 10));
+          setDashboardStakeAmount(String(data.derivStakeAmount || '1.00'));
+          setDraftPairs(savedPairs);
+          setNewsFilterEnabled(data.derivNewsFilterEnabled !== false);
+          setSessionFilterEnabled(data.derivSessionFilterEnabled !== false);
+          setCooldownFilterEnabled(data.derivCooldownFilterEnabled !== false);
+          setDailyLimitEnabled(data.derivDailyLimitEnabled !== false);
+        }
+        
         setNearEntryPairs(data.derivNearEntryPairs || []);
       }
     } catch (err) {
@@ -379,7 +385,7 @@ export default function DerivDashboard() {
         }),
       });
 
-      fetchSettings();
+      fetchSettings(true);
       const data = await res.json();
       if (res.ok && data.success) {
         setSettingsMessage({
