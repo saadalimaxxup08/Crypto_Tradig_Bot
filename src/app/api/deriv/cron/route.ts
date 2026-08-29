@@ -265,8 +265,8 @@ export async function GET() {
       return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
     }
 
-    // 4. Connect WebSocket with robust retry logic
-    const wsUrl = await fetchOTP(appId, token, activeAccount);
+    // 4. Connect standard WebSocket directly with robust retry logic and authorize payload
+    const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
     
     const connectAttempts = 3;
     let lastError: any = null;
@@ -285,12 +285,31 @@ export async function GET() {
             reject(new Error(`Handshake rejected: HTTP ${res.statusCode} | CF-Ray: ${res.headers['cf-ray'] || 'None'}`));
           });
 
-          ws.onopen = () => resolve(ws);
-          ws.onerror = (e) => reject(new Error('WebSocket handshake failed.'));
+          ws.on('open', () => {
+            const handleAuth = (data: any) => {
+              try {
+                const msg = JSON.parse(data.toString());
+                if (msg.msg_type === 'authorize') {
+                  ws.off('message', handleAuth);
+                  if (msg.error) {
+                    reject(new Error(`Authorization failed: ${msg.error.message}`));
+                  } else {
+                    resolve(ws);
+                  }
+                }
+              } catch (err: any) {
+                reject(new Error(`Auth parse error: ${err.message}`));
+              }
+            };
+            ws.on('message', handleAuth);
+            ws.send(JSON.stringify({ authorize: token }));
+          });
+
+          ws.on('error', (e: any) => reject(new Error(e.message || 'WebSocket handshake failed.')));
           // 15 seconds timeout for serverless environments
           setTimeout(() => reject(new Error('Connection timed out.')), 15000);
         });
-        break; // Successfully connected!
+        break; // Successfully connected and authorized!
       } catch (err: any) {
         lastError = err;
         scanLogs.push(`⚠️ WebSocket connection attempt ${attempt} failed: ${err.message}`);
