@@ -182,6 +182,7 @@ async function saveDerivScanLogs(existingOverrides: any, scanLogs: string[], nea
 
 export async function GET(req: Request) {
   const scanLogs: string[] = [];
+  let socket: WebSocket | null = null;
   scanLogs.push(`[${new Date().toISOString()}] Starting Deriv MTF Options Scanner...`);
 
   // Fetch settings to merge overrides
@@ -271,7 +272,6 @@ export async function GET(req: Request) {
     const protocol = host.includes('localhost') ? 'http:' : 'https:';
     const originUrl = `${protocol}//${host}`;
 
-    let socket: WebSocket | null = null;
     const connectAttempts = 3;
     let lastError: any = null;
 
@@ -339,9 +339,9 @@ export async function GET(req: Request) {
         }
 
         // C. Fetch Multi-Timeframe Candles
-        const candles5m = await fetchCandles(socket, pair, 300);
-        const candles15m = await fetchCandles(socket, pair, 900);
-        const candlesH1 = await fetchCandles(socket, pair, 3600);
+        const candles5m = await fetchCandles(socket!, pair, 300);
+        const candles15m = await fetchCandles(socket!, pair, 900);
+        const candlesH1 = await fetchCandles(socket!, pair, 3600);
 
         const strategyResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
         localLogs.push(`- ADX on 15m: ${strategyResult.adxValue.toFixed(1)} | Signal: ${strategyResult.direction}`);
@@ -361,7 +361,7 @@ export async function GET(req: Request) {
 
         if (strategyResult.direction !== 'NEUTRAL') {
           // D. Fetch tick to check spread before buying
-          const tick = await fetchTick(socket, pair);
+          const tick = await fetchTick(socket!, pair);
           if (tick) {
             const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
             if (spreadBlocked) {
@@ -372,7 +372,7 @@ export async function GET(req: Request) {
             // E. Execute Trade!
             localLogs.push(`🔥 Trigger: Placing $${derivStakeAmount.toFixed(2)} ${strategyResult.direction} contract on ${pair} with 15m expiry.`);
             try {
-              const result = await buyContract(socket, pair, strategyResult.direction, derivStakeAmount);
+              const result = await buyContract(socket!, pair, strategyResult.direction, derivStakeAmount);
               
               const newTrade = {
                 id: crypto.randomUUID(),
@@ -438,6 +438,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ success: true, logs: scanLogs });
 
   } catch (err: any) {
+    if (socket) {
+      try { socket.close(); } catch (e) {}
+    }
     scanLogs.push(`❌ System Error occurred: ${err.message}`);
     await saveDerivScanLogs(existingOverrides, scanLogs);
     return NextResponse.json({ error: err.message, logs: scanLogs }, { status: 500 });
