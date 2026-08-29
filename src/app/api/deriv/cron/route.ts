@@ -180,7 +180,7 @@ async function saveDerivScanLogs(existingOverrides: any, scanLogs: string[], nea
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const scanLogs: string[] = [];
   let socket: WebSocket | null = null;
   scanLogs.push(`[${new Date().toISOString()}] Starting Deriv MTF Options Scanner...`);
@@ -271,6 +271,10 @@ export async function GET() {
     // 4. Connect WebSocket using OTP endpoint with robust retry logic
     const wsUrl = await fetchOTP(appId, token, activeAccount);
     
+    const host = req.headers.get('host') || 'cryptotradigbot-production.up.railway.app';
+    const protocol = host.includes('localhost') ? 'http:' : 'https:';
+    const originUrl = `${protocol}//${host}`;
+
     const connectAttempts = 3;
     let lastError: any = null;
 
@@ -281,7 +285,7 @@ export async function GET() {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             },
-            origin: 'https://crypto08-tradig-bot.vercel.app'
+            origin: originUrl
           });
           
           ws.on('unexpected-response', (req: any, res: any) => {
