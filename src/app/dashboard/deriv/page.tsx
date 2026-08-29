@@ -202,6 +202,12 @@ export default function DerivDashboard() {
   const [dailyLimitEnabled, setDailyLimitEnabled] = useState(true);
   const [isSavingRiskToggles, setIsSavingRiskToggles] = useState(false);
 
+  const getPairDisplayName = (symbolId: string) => {
+    const allPairs = [...GLOBAL_PAIRS_LIST, ...SYNTHETIC_PAIRS_LIST, ...UNUSUAL_PAIRS_LIST];
+    const match = allPairs.find(p => p.id === symbolId);
+    return match ? match.name : symbolId.replace('frx', '').replace('cry', '');
+  };
+
   // Strategy list selectors
   const [activeStrategies, setActiveStrategies] = useState<string[]>(['FOREX_15M_MTF']);
   const [draftStrategies, setDraftStrategies] = useState<string[]>(['FOREX_15M_MTF']);
@@ -1707,7 +1713,7 @@ export default function DerivDashboard() {
                     sortedNearEntryPairs.map((pair: any, idx: number) => (
                       <tr key={idx} className="hover:bg-zinc-900/20 transition-colors text-zinc-300">
                         <td className="py-2.5 px-4 font-bold text-zinc-200">
-                          {pair.symbol.replace('frx', '')}
+                          {getPairDisplayName(pair.symbol)}
                         </td>
                         <td className="py-2.5 px-3">
                           <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
