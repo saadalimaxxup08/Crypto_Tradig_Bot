@@ -207,6 +207,9 @@ export async function GET() {
     const demoAccount = settings.deriv_demo_account || process.env.DERIV_DEMO_ACCOUNT || '';
     const realAccount = settings.deriv_real_account || process.env.DERIV_REAL_ACCOUNT || '';
 
+    scanLogs.push(`[Config Check] Active App ID: ${appId}`);
+    scanLogs.push(`[Config Check] Active Token: ${token ? (token.slice(0, 6) + '...' + token.slice(-4)) : 'None'}`);
+
     if (!isBotEnabled) {
       scanLogs.push('⚠️ Scanner inactive: Deriv Bot is set to WORK OFF in settings.');
       await saveDerivScanLogs(existingOverrides, scanLogs);
