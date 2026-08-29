@@ -10,6 +10,7 @@ import {
 } from '@/lib/deriv_strategy';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const PAIRS = ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
 
