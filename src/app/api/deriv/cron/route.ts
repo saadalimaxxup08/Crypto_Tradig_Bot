@@ -268,8 +268,8 @@ export async function GET() {
       return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
     }
 
-    // 4. Connect standard WebSocket directly using public App ID 1089 and authorize payload
-    const wsUrl = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
+    // 4. Connect WebSocket using OTP endpoint with robust retry logic
+    const wsUrl = await fetchOTP(appId, token, activeAccount);
     
     const connectAttempts = 3;
     let lastError: any = null;
@@ -280,38 +280,20 @@ export async function GET() {
           const ws = new WebSocket(wsUrl, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
+            },
+            origin: 'https://crypto08-tradig-bot.vercel.app'
           });
           
           ws.on('unexpected-response', (req: any, res: any) => {
             reject(new Error(`Handshake rejected: HTTP ${res.statusCode} | CF-Ray: ${res.headers['cf-ray'] || 'None'}`));
           });
 
-          ws.on('open', () => {
-            const handleAuth = (data: any) => {
-              try {
-                const msg = JSON.parse(data.toString());
-                if (msg.msg_type === 'authorize') {
-                  ws.off('message', handleAuth);
-                  if (msg.error) {
-                    reject(new Error(`Authorization failed: ${msg.error.message}`));
-                  } else {
-                    resolve(ws);
-                  }
-                }
-              } catch (err: any) {
-                reject(new Error(`Auth parse error: ${err.message}`));
-              }
-            };
-            ws.on('message', handleAuth);
-            ws.send(JSON.stringify({ authorize: token }));
-          });
-
+          ws.on('open', () => resolve(ws));
           ws.on('error', (e: any) => reject(new Error(e.message || 'WebSocket handshake failed.')));
           // 15 seconds timeout for serverless environments
           setTimeout(() => reject(new Error('Connection timed out.')), 15000);
         });
-        break; // Successfully connected and authorized!
+        break; // Successfully connected!
       } catch (err: any) {
         lastError = err;
         scanLogs.push(`⚠️ WebSocket connection attempt ${attempt} failed: ${err.message}`);
