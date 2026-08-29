@@ -174,6 +174,7 @@ export default function DerivDashboard() {
   const [dashboardStakeAmount, setDashboardStakeAmount] = useState('1.00');
   const [isSavingStake, setIsSavingStake] = useState(false);
   const [nearEntryPairs, setNearEntryPairs] = useState<any[]>([]);
+  const [isForceScanning, setIsForceScanning] = useState(false);
 
   // Sort nearEntryPairs descending by number of active confirmations (T A S) and then by ADX value
   const sortedNearEntryPairs = useMemo(() => {
@@ -325,6 +326,29 @@ export default function DerivDashboard() {
       console.error('Error syncing:', err);
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleForceScan = async () => {
+    setIsForceScanning(true);
+    try {
+      const response = await fetch('/api/deriv/cron', {
+        method: 'GET'
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Refresh settings to get new logs and watchlist immediately
+        await fetchSettings();
+        await fetchTrades();
+      } else {
+        alert(`Scan failed: ${data.error || 'Unknown error'}`);
+        // Still refresh to load the latest error logs in the terminal log
+        await fetchSettings();
+      }
+    } catch (err: any) {
+      alert(`Network error during scan: ${err.message}`);
+    } finally {
+      setIsForceScanning(false);
     }
   };
 
@@ -1483,6 +1507,30 @@ export default function DerivDashboard() {
                     REAL LIVE
                   </button>
                 </div>
+
+                {/* Force Scan Action */}
+                <button
+                  type="button"
+                  disabled={isForceScanning}
+                  onClick={handleForceScan}
+                  className={`px-3.5 py-1.5 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isForceScanning 
+                      ? 'bg-zinc-900/50 text-zinc-650 border-zinc-850/40 cursor-not-allowed' 
+                      : 'bg-zinc-950/60 text-zinc-300 border-zinc-800/80 hover:bg-zinc-900/40 hover:text-zinc-200 hover:border-zinc-700/80'
+                  }`}
+                >
+                  {isForceScanning ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin text-zinc-500" />
+                      Scanning...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3 h-3 text-zinc-400" />
+                      Run Scan Now
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
