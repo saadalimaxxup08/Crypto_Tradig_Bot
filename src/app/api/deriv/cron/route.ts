@@ -268,8 +268,8 @@ export async function GET() {
       return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
     }
 
-    // 4. Connect standard WebSocket directly with robust retry logic and authorize payload
-    const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
+    // 4. Connect standard WebSocket directly using public App ID 1089 and authorize payload
+    const wsUrl = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
     
     const connectAttempts = 3;
     let lastError: any = null;
@@ -280,8 +280,7 @@ export async function GET() {
           const ws = new WebSocket(wsUrl, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
-            origin: 'https://crypto08-tradig-bot.vercel.app'
+            }
           });
           
           ws.on('unexpected-response', (req: any, res: any) => {

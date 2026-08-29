@@ -22,7 +22,7 @@ try {
       return;
     }
 
-    const appId = '34eMOqShuCNvd5v0qOP5F'; // Original App ID
+    const appId = '1089'; // Public App ID
     const token = settings.deriv_api_token || '';
 
     const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
@@ -31,8 +31,7 @@ try {
     const ws = new WebSocket(wsUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      },
-      origin: 'https://crypto08-tradig-bot.vercel.app' // Whitelisted Vercel origin
+      }
     });
 
     const handleAuth = (event) => {
