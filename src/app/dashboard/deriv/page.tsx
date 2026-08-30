@@ -42,8 +42,8 @@ interface DerivTrade {
 }
 
 const STRATEGIES_LIST = [
-  { id: 'FOREX_15M_MTF', name: 'Forex 15m MTF Crossover', desc: 'H1 Trend Filter + 15m EMA/ADX + 5m Stochastic crossover entry trigger.' },
-  { id: 'FOREX_15M_MTF_V2', name: 'Forex 15m MTF Crossover v2', desc: 'v2: Adds Support/Resistance and Candlestick Filter validations for higher accuracy.' }
+  { id: 'FOREX_15M_MTF', name: 'v1 - Forex 15m MTF Crossover', desc: 'H1 Trend Filter + 15m EMA/ADX + 5m Stochastic crossover entry trigger.' },
+  { id: 'FOREX_15M_MTF_V2', name: 'v2 - Forex 15m MTF Crossover', desc: 'v2: Adds Support/Resistance and Candlestick Filter validations for higher accuracy.' }
 ];
 
 const GLOBAL_PAIRS_LIST = [

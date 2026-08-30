@@ -212,10 +212,10 @@ export async function GET(req: Request) {
           
           if (stratId === 'FOREX_15M_MTF_V2') {
             strategyResultObj = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
-            stratName = 'Forex 15m MTF Crossover v2';
+            stratName = 'v2 - Forex 15m MTF Crossover';
           } else {
             strategyResultObj = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
-            stratName = 'Forex 15m MTF Crossover v1';
+            stratName = 'v1 - Forex 15m MTF Crossover';
           }
 
           localLogs.push(`- [${stratName}] ADX: ${strategyResultObj.adxValue.toFixed(1)} | Signal: ${strategyResultObj.direction}`);
