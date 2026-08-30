@@ -82,6 +82,7 @@ export default function DerivSummaryPage() {
   const [rawTrades, setRawTrades] = useState<Trade[]>([]);
   const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
+  const [showPaperTrades, setShowPaperTrades] = useState(true);
 
   // Default date ranges setup
   useEffect(() => {
@@ -96,8 +97,8 @@ export default function DerivSummaryPage() {
   }, []);
 
   const applyFilters = (allTrades: Trade[]) => {
-    // 1. Filter only live trades (is_paper is false)
-    let filteredTrades = allTrades.filter((t) => !t.is_paper);
+    // 1. Filter only live trades unless showPaperTrades is enabled
+    let filteredTrades = allTrades.filter((t) => showPaperTrades ? true : !t.is_paper);
 
     // 2. Filter by selected Pairs (if any are selected)
     if (selectedPairs.length > 0) {
@@ -180,7 +181,7 @@ export default function DerivSummaryPage() {
 
   useEffect(() => {
     applyFilters(rawTrades);
-  }, [startDate, endDate, hourlyFilter, selectedPairs, selectedStrategies, rawTrades]);
+  }, [startDate, endDate, hourlyFilter, selectedPairs, selectedStrategies, showPaperTrades, rawTrades]);
 
   // Set quick ranges
   const setRangeQuick = (rangeType: 'today' | 'yesterday' | '2days' | '3days' | '5days' | 'week' | 'month') => {
@@ -708,6 +709,16 @@ export default function DerivSummaryPage() {
           <label className="flex items-center gap-2.5 text-xs font-bold text-zinc-400 hover:text-zinc-200 cursor-pointer select-none border border-zinc-800 bg-zinc-950/30 px-3.5 py-2.5 rounded-xl transition-all">
             <input
               type="checkbox"
+              checked={showPaperTrades}
+              onChange={(e) => setShowPaperTrades(e.target.checked)}
+              className="w-3.5 h-3.5 accent-emerald-500 rounded border-zinc-750 bg-zinc-900 focus:ring-0 focus:ring-offset-0 cursor-pointer"
+            />
+            <span>Show Demo (Paper) Trades</span>
+          </label>
+
+          <label className="flex items-center gap-2.5 text-xs font-bold text-zinc-400 hover:text-zinc-200 cursor-pointer select-none border border-zinc-800 bg-zinc-950/30 px-3.5 py-2.5 rounded-xl transition-all">
+            <input
+              type="checkbox"
               checked={includePairwise}
               onChange={(e) => setIncludePairwise(e.target.checked)}
               className="w-3.5 h-3.5 accent-emerald-500 rounded border-zinc-750 bg-zinc-900 focus:ring-0 focus:ring-offset-0 cursor-pointer"
@@ -926,7 +937,7 @@ export default function DerivSummaryPage() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setSelectedPairs(Array.from(new Set(rawTrades.filter(t => !t.is_paper).map(t => t.pair))).sort())}
+                  onClick={() => setSelectedPairs(Array.from(new Set(rawTrades.filter(t => showPaperTrades ? true : !t.is_paper).map(t => t.pair))).sort())}
                   className="text-[10px] text-zinc-400 hover:text-zinc-200 uppercase tracking-wider font-semibold border border-zinc-800 bg-zinc-950/20 px-2 py-1 rounded-lg transition-all cursor-pointer"
                 >
                   Select All
@@ -941,7 +952,7 @@ export default function DerivSummaryPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
-              {Array.from(new Set(rawTrades.filter(t => !t.is_paper).map((t) => t.pair))).sort().map((pair) => {
+              {Array.from(new Set(rawTrades.filter(t => showPaperTrades ? true : !t.is_paper).map((t) => t.pair))).sort().map((pair) => {
                 const isSelected = selectedPairs.includes(pair);
                 return (
                   <button
@@ -982,7 +993,7 @@ export default function DerivSummaryPage() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setSelectedStrategies(Array.from(new Set(rawTrades.filter(t => !t.is_paper).map(t => t.strategy).filter(Boolean))) as string[])}
+                  onClick={() => setSelectedStrategies(Array.from(new Set(rawTrades.filter(t => showPaperTrades ? true : !t.is_paper).map(t => t.strategy).filter(Boolean))) as string[])}
                   className="text-[10px] text-zinc-400 hover:text-zinc-200 uppercase tracking-wider font-semibold border border-zinc-800 bg-zinc-950/20 px-2 py-1 rounded-lg transition-all cursor-pointer"
                 >
                   Select All
@@ -997,7 +1008,7 @@ export default function DerivSummaryPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
-              {Array.from(new Set(rawTrades.filter(t => !t.is_paper).map((t) => t.strategy).filter(Boolean))).sort().map((strategy) => {
+              {Array.from(new Set(rawTrades.filter(t => showPaperTrades ? true : !t.is_paper).map((t) => t.strategy).filter(Boolean))).sort().map((strategy) => {
                 const isSelected = selectedStrategies.includes(strategy as string);
                 const displayName = STRATEGY_NAMES[strategy as string] || strategy;
                 return (
