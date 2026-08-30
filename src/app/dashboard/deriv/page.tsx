@@ -1691,17 +1691,17 @@ export default function DerivDashboard() {
               </span>
             </div>
             
-            <div className="overflow-x-auto rounded-2xl border border-zinc-900 bg-[#050507]/40">
+            <div className="overflow-x-auto overflow-y-auto max-h-[148px] rounded-2xl border border-zinc-900 bg-[#050507]/40 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
               <table className="w-full text-left border-collapse text-[10px]">
                 <thead>
-                  <tr className="border-b border-zinc-900 bg-zinc-950/80 text-zinc-500 font-bold uppercase tracking-wider font-mono text-[8px]">
-                    <th className="py-2.5 px-4">Asset Pair</th>
-                    <th className="py-2.5 px-3">Direction</th>
-                    <th className="py-2.5 px-3">Proximity Status</th>
-                    <th className="py-2.5 px-3 text-right">Confirmations (T A S)</th>
-                    <th className="py-2.5 px-3 text-right">ADX</th>
-                    <th className="py-2.5 px-4 text-right">Stoch %K / %D</th>
-                    <th className="py-2.5 px-4 text-center">Chart</th>
+                  <tr className="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/90 text-zinc-500 font-bold uppercase tracking-wider font-mono text-[8px]">
+                    <th className="py-2.5 px-4 bg-zinc-950/90">Asset Pair</th>
+                    <th className="py-2.5 px-3 bg-zinc-950/90">Direction</th>
+                    <th className="py-2.5 px-3 bg-zinc-950/90">Proximity Status</th>
+                    <th className="py-2.5 px-3 text-right bg-zinc-950/90">Confirmations (T A S)</th>
+                    <th className="py-2.5 px-3 text-right bg-zinc-950/90">ADX</th>
+                    <th className="py-2.5 px-4 text-right bg-zinc-950/90">Stoch %K / %D</th>
+                    <th className="py-2.5 px-4 text-center bg-zinc-950/90">Chart</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900/60 font-medium">
@@ -1774,13 +1774,7 @@ export default function DerivDashboard() {
                         </td>
                         <td className="py-2.5 px-4 text-center">
                           <a
-                            href={
-                              pair.symbol.startsWith('frx')
-                                ? `https://www.tradingview.com/chart/?symbol=OANDA:${pair.symbol.replace('frx', '')}`
-                                : pair.symbol.startsWith('cry')
-                                ? `https://www.tradingview.com/chart/?symbol=BINANCE:${pair.symbol.replace('cry', '')}`
-                                : `https://tradingview.deriv.com/`
-                            }
+                            href={`https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair.symbol}&trade_type=rise_fall`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-block px-2 py-0.5 text-[8px] font-black text-amber-400 bg-amber-950/30 hover:bg-amber-950/60 border border-amber-500/25 hover:border-amber-500/50 rounded-md transition-all uppercase tracking-wider font-mono"
