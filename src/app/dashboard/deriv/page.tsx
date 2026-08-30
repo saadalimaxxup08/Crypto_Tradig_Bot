@@ -1701,12 +1701,13 @@ export default function DerivDashboard() {
                     <th className="py-2.5 px-3 text-right">Confirmations (T A S)</th>
                     <th className="py-2.5 px-3 text-right">ADX</th>
                     <th className="py-2.5 px-4 text-right">Stoch %K / %D</th>
+                    <th className="py-2.5 px-4 text-center">Chart</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-900/60 font-medium">
                   {sortedNearEntryPairs.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-8 text-center text-zinc-650 italic">
+                      <td colSpan={7} className="py-8 text-center text-zinc-650 italic">
                         No pairs currently near trade entry criteria. Running active scans...
                       </td>
                     </tr>
@@ -1770,6 +1771,22 @@ export default function DerivDashboard() {
                         </td>
                         <td className="py-2.5 px-4 text-right font-mono font-bold text-zinc-400">
                           {parseFloat(pair.stochK).toFixed(0)} / {parseFloat(pair.stochD).toFixed(0)}
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          <a
+                            href={
+                              pair.symbol.startsWith('frx')
+                                ? `https://www.tradingview.com/chart/?symbol=OANDA:${pair.symbol.replace('frx', '')}`
+                                : pair.symbol.startsWith('cry')
+                                ? `https://www.tradingview.com/chart/?symbol=BINANCE:${pair.symbol.replace('cry', '')}`
+                                : `https://tradingview.deriv.com/`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block px-2 py-0.5 text-[8px] font-black text-amber-400 bg-amber-950/30 hover:bg-amber-950/60 border border-amber-500/25 hover:border-amber-500/50 rounded-md transition-all uppercase tracking-wider font-mono"
+                          >
+                            go live chart
+                          </a>
                         </td>
                       </tr>
                     ))
