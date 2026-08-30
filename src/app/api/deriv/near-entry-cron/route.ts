@@ -3,6 +3,7 @@ import WebSocket from 'ws';
 import { supabase } from '@/lib/supabase';
 import {
   analyzeForex15mStrategy,
+  analyzeForex15mStrategyV2,
   isAsianSessionBlocked,
   isSpreadBlocked,
   isEconomicNewsBlocked,
@@ -170,72 +171,86 @@ export async function GET() {
         const candles15m = await fetchCandles(socket!, pair, 900);
         const candlesH1 = await fetchCandles(socket!, pair, 3600);
 
-        const strategyResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
-        localLogs.push(`- Watchlist Check: ADX=${strategyResult.adxValue.toFixed(1)} | Direction=${strategyResult.direction}`);
+        const activeStrategies = (existingOverrides.deriv_active_strategies || ['FOREX_15M_MTF']) as string[];
 
-        if (strategyResult.direction !== 'NEUTRAL') {
-          // Trigger!
-          const tick = await fetchTick(socket!, pair);
-          if (tick) {
-            const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
-            if (spreadBlocked) {
-              localLogs.push(`- Skip: Spread of ${pair} exceeds limit.`);
-              scanResults.push({ logs: localLogs, stillNear: true, entryPair: watchlistPair });
-              continue;
-            }
-
-            localLogs.push(`🔥 Entry Triggered! Placing $${derivStakeAmount.toFixed(2)} ${strategyResult.direction} contract on ${pair}.`);
-            try {
-              const result = await buyContract(socket!, pair, strategyResult.direction, derivStakeAmount);
-              executionSuccess = true;
-              
-              const newTrade = {
-                id: crypto.randomUUID(),
-                contract_id: result.contract_id,
-                symbol: pair,
-                contract_type: strategyResult.direction,
-                duration: 15,
-                duration_unit: 'm',
-                stake: derivStakeAmount,
-                payout: parseFloat(result.payout),
-                status: 'OPEN',
-                entry_price: parseFloat(result.buy_price),
-                exit_price: null,
-                barrier: null,
-                pnl: 0,
-                is_paper: tradingMode === 'DEMO',
-                created_at: new Date(result.start_time * 1000).toISOString(),
-                closed_at: null
-              };
-
-              await supabase.from('deriv_trades').insert([newTrade]);
-              
-              const signalMsg = `🔔 <b>DERIV SIGNAL EXECUTED</b>\n\n` +
-                `Asset: <b>${getDisplaySymbolName(pair)}</b>\n` +
-                `Direction: ${strategyResult.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
-                `Timeframe: 15m\n` +
-                `Account: ${tradingMode}\n` +
-                `Stake: $${derivStakeAmount.toFixed(2)}`;
-              
-              await sendTelegramAlert(signalMsg);
-            } catch (buyErr: any) {
-              localLogs.push(`❌ Purchase execution error: ${buyErr.message}`);
-            }
+        for (const stratId of activeStrategies) {
+          let strategyResultObj;
+          let stratName = '';
+          
+          if (stratId === 'FOREX_15M_MTF_V2') {
+            strategyResultObj = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
+            stratName = 'Forex 15m MTF Crossover v2';
+          } else {
+            strategyResultObj = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
+            stratName = 'Forex 15m MTF Crossover v1';
           }
-        } else if (strategyResult.nearEntry.isNear) {
-          stillNear = true;
-          finalNearEntryObj = {
-            symbol: pair,
-            direction: strategyResult.nearEntry.direction,
-            reason: strategyResult.nearEntry.reason,
-            adx: strategyResult.adxValue,
-            stochK: strategyResult.nearEntry.stochK,
-            stochD: strategyResult.nearEntry.stochD,
-            confirmations: strategyResult.nearEntry.confirmations,
-            updatedAt: new Date().toISOString()
-          };
-        } else {
-          localLogs.push(`ℹ️ Watchlist: ${pair} is no longer near entry criteria. Removing.`);
+
+          localLogs.push(`- [${stratName}] Watchlist Check: ADX=${strategyResultObj.adxValue.toFixed(1)} | Direction=${strategyResultObj.direction}`);
+
+          if (strategyResultObj.direction !== 'NEUTRAL') {
+            // Trigger!
+            const tick = await fetchTick(socket!, pair);
+            if (tick) {
+              const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
+              if (spreadBlocked) {
+                localLogs.push(`- [${stratName}] Skip: Spread of ${pair} exceeds limit.`);
+                continue;
+              }
+
+              localLogs.push(`🔥 [${stratName}] Entry Triggered! Placing $${derivStakeAmount.toFixed(2)} ${strategyResultObj.direction} contract on ${pair}.`);
+              try {
+                const result = await buyContract(socket!, pair, strategyResultObj.direction, derivStakeAmount);
+                executionSuccess = true;
+                
+                const newTrade = {
+                  id: crypto.randomUUID(),
+                  contract_id: result.contract_id,
+                  symbol: pair,
+                  contract_type: strategyResultObj.direction,
+                  duration: 15,
+                  duration_unit: 'm',
+                  stake: derivStakeAmount,
+                  payout: parseFloat(result.payout),
+                  status: 'OPEN',
+                  entry_price: parseFloat(result.buy_price),
+                  exit_price: null,
+                  barrier: null,
+                  pnl: 0,
+                  is_paper: tradingMode === 'DEMO',
+                  created_at: new Date(result.start_time * 1000).toISOString(),
+                  closed_at: null
+                };
+
+                await supabase.from('deriv_trades').insert([newTrade]);
+                
+                const signalMsg = `🔔 <b>DERIV SIGNAL EXECUTED</b>\n\n` +
+                  `Asset: <b>${getDisplaySymbolName(pair)}</b>\n` +
+                  `Strategy: <b>${stratName}</b>\n` +
+                  `Direction: ${strategyResultObj.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
+                  `Timeframe: 15m\n` +
+                  `Account: ${tradingMode}\n` +
+                  `Stake: $${derivStakeAmount.toFixed(2)}`;
+                
+                await sendTelegramAlert(signalMsg);
+              } catch (buyErr: any) {
+                localLogs.push(`❌ [${stratName}] Purchase execution error: ${buyErr.message}`);
+              }
+            }
+          } else if (strategyResultObj.nearEntry.isNear) {
+            stillNear = true;
+            finalNearEntryObj = {
+              symbol: pair,
+              direction: strategyResultObj.nearEntry.direction,
+              reason: `[${stratName}] ${strategyResultObj.nearEntry.reason}`,
+              adx: strategyResultObj.adxValue,
+              stochK: strategyResultObj.nearEntry.stochK,
+              stochD: strategyResultObj.nearEntry.stochD,
+              confirmations: strategyResultObj.nearEntry.confirmations,
+              updatedAt: new Date().toISOString()
+            };
+          } else {
+            localLogs.push(`ℹ️ Watchlist: ${pair} is no longer near entry criteria for ${stratName}.`);
+          }
         }
 
       } catch (err: any) {

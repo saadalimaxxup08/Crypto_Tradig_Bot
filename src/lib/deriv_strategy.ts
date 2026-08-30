@@ -289,3 +289,124 @@ export function analyzeForex15mStrategy(
     }
   };
 }
+
+export function getPivotSR(candles: Candle[]): { supports: number[], resistances: number[] } {
+  const supports: number[] = [];
+  const resistances: number[] = [];
+  const n = 3; // pivot window range
+
+  for (let i = n; i < candles.length - n; i++) {
+    let isHigh = true;
+    let isLow = true;
+    for (let j = 1; j <= n; j++) {
+      if (candles[i].high <= candles[i - j].high || candles[i].high <= candles[i + j].high) {
+        isHigh = false;
+      }
+      if (candles[i].low >= candles[i - j].low || candles[i].low >= candles[i + j].low) {
+        isLow = false;
+      }
+    }
+    if (isHigh) resistances.push(candles[i].high);
+    if (isLow) supports.push(candles[i].low);
+  }
+  return { supports, resistances };
+}
+
+export function analyzeForex15mStrategyV2(
+  candles5m: Candle[],
+  candles15m: Candle[],
+  candlesH1: Candle[]
+): {
+  direction: 'CALL' | 'PUT' | 'NEUTRAL'; 
+  adxValue: number;
+  nearEntry: {
+    isNear: boolean;
+    direction: 'RISE' | 'FALL' | 'NEUTRAL';
+    reason: string;
+    stochK: number;
+    stochD: number;
+    confirmations: {
+      trend: boolean;
+      adx: boolean;
+      stochZone: boolean;
+      srSafe: boolean;
+      candleSafe: boolean;
+    }
+  }
+} {
+  const base = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
+  if (base.direction === 'NEUTRAL') {
+    return {
+      direction: 'NEUTRAL',
+      adxValue: base.adxValue,
+      nearEntry: {
+        ...base.nearEntry,
+        confirmations: {
+          ...base.nearEntry.confirmations,
+          srSafe: true,
+          candleSafe: true
+        }
+      }
+    };
+  }
+
+  const currentPrice = candles5m[candles5m.length - 1].close;
+  const lastCandle = candles5m[candles5m.length - 2] || candles5m[candles5m.length - 1];
+
+  // 1. Support & Resistance Filter
+  const { supports, resistances } = getPivotSR(candles5m);
+  let srSafe = true;
+  let blockReason = '';
+  const thresholdPercent = 0.001; // 0.1% near S/R level
+
+  if (base.direction === 'CALL') {
+    for (const r of resistances) {
+      if (currentPrice < r && (r - currentPrice) / currentPrice <= thresholdPercent) {
+        srSafe = false;
+        blockReason = `Resistance zone detected at $${r.toFixed(2)}. Blocking CALL.`;
+        break;
+      }
+    }
+  } else if (base.direction === 'PUT') {
+    for (const s of supports) {
+      if (currentPrice > s && (currentPrice - s) / currentPrice <= thresholdPercent) {
+        srSafe = false;
+        blockReason = `Support zone detected at $${s.toFixed(2)}. Blocking PUT.`;
+        break;
+      }
+    }
+  }
+
+  // 2. Candlestick Confirmation Filter (Trigger candle body direction)
+  let candleSafe = true;
+  if (base.direction === 'CALL') {
+    if (lastCandle.close <= lastCandle.open) {
+      candleSafe = false;
+      blockReason = 'Trigger candle is not bullish. Blocking CALL.';
+    }
+  } else if (base.direction === 'PUT') {
+    if (lastCandle.close >= lastCandle.open) {
+      candleSafe = false;
+      blockReason = 'Trigger candle is not bearish. Blocking PUT.';
+    }
+  }
+
+  let finalDirection: 'CALL' | 'PUT' | 'NEUTRAL' = 'NEUTRAL';
+  if (srSafe && candleSafe) {
+    finalDirection = base.direction;
+  }
+
+  return {
+    direction: finalDirection,
+    adxValue: base.adxValue,
+    nearEntry: {
+      ...base.nearEntry,
+      reason: finalDirection === 'NEUTRAL' && blockReason ? `[V2 Blocked] ${blockReason}` : base.nearEntry.reason,
+      confirmations: {
+        ...base.nearEntry.confirmations,
+        srSafe,
+        candleSafe
+      }
+    }
+  };
+}

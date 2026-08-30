@@ -3,6 +3,7 @@ import WebSocket from 'ws';
 import { supabase } from '@/lib/supabase';
 import {
   analyzeForex15mStrategy,
+  analyzeForex15mStrategyV2,
   isAsianSessionBlocked,
   isSpreadBlocked,
   isEconomicNewsBlocked,
@@ -61,11 +62,12 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, message: 'Bot disabled', logs: scanLogs });
     }
 
-    const activeStrategies = existingOverrides.deriv_active_strategies || ['FOREX_15M_MTF'];
-    if (!activeStrategies.includes('FOREX_15M_MTF')) {
-      scanLogs.push('⚠️ Scanner inactive: Forex 15m MTF Strategy is unticked (disabled) on the Deriv dashboard.');
+    const activeStrategies = (existingOverrides.deriv_active_strategies || ['FOREX_15M_MTF']) as string[];
+    const hasAnyActiveStrategy = activeStrategies.includes('FOREX_15M_MTF') || activeStrategies.includes('FOREX_15M_MTF_V2');
+    if (!hasAnyActiveStrategy) {
+      scanLogs.push('⚠️ Scanner inactive: No strategy engine (v1 or v2) is ticked (enabled) on the Deriv dashboard.');
       await saveDerivScanLogs(existingOverrides, scanLogs);
-      return NextResponse.json({ success: true, message: 'Forex 15m MTF Strategy disabled', logs: scanLogs });
+      return NextResponse.json({ success: true, message: 'No active strategy enabled', logs: scanLogs });
     }
 
     const activeAccount = tradingMode === 'DEMO' ? demoAccount : realAccount;
@@ -203,78 +205,92 @@ export async function GET(req: Request) {
         const candlesH1 = await fetchCandles(socket!, pair, 3600);
 
         const strategyResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
-        localLogs.push(`- ADX on 15m: ${strategyResult.adxValue.toFixed(1)} | Signal: ${strategyResult.direction}`);
-
-        if (strategyResult.nearEntry.isNear) {
-          nearEntryObj = {
-            symbol: pair,
-            direction: strategyResult.nearEntry.direction,
-            reason: strategyResult.nearEntry.reason,
-            adx: strategyResult.adxValue,
-            stochK: strategyResult.nearEntry.stochK,
-            stochD: strategyResult.nearEntry.stochD,
-            confirmations: strategyResult.nearEntry.confirmations,
-            updatedAt: new Date().toISOString()
-          };
-        }
-
-        if (strategyResult.direction !== 'NEUTRAL') {
-          // D. Fetch tick to check spread before buying
-          const tick = await fetchTick(socket!, pair);
-          if (tick) {
-            const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
-            if (spreadBlocked) {
-              localLogs.push(`- Skip: Spread of ${pair} exceeds the limit of 2.0 pips.`);
-              scanResults.push({ logs: localLogs, nearEntry: nearEntryObj });
-              continue;
-            }
-
-            // E. Execute Trade!
-            localLogs.push(`🔥 Trigger: Placing $${derivStakeAmount.toFixed(2)} ${strategyResult.direction} contract on ${pair} with 15m expiry.`);
-            try {
-              const result = await buyContract(socket!, pair, strategyResult.direction, derivStakeAmount);
-              
-              const newTrade = {
-                id: crypto.randomUUID(),
-                contract_id: result.contract_id,
-                symbol: pair,
-                contract_type: strategyResult.direction,
-                duration: 15,
-                duration_unit: 'm',
-                stake: derivStakeAmount,
-                payout: parseFloat(result.payout),
-                status: 'OPEN',
-                entry_price: parseFloat(result.buy_price),
-                exit_price: null,
-                barrier: null,
-                pnl: 0,
-                is_paper: tradingMode === 'DEMO',
-                created_at: new Date().toISOString(),
-                closed_at: null
-              };
-
-              await supabase.from('deriv_trades').insert([newTrade]);
-              localLogs.push(`🎉 Trade executed successfully! Contract ID: ${result.contract_id}`);
-
-              // Send Telegram Signal Notification
-              const gmtTime = new Date().toUTCString();
-              const signalMsg = `🚀 <b>DERIV OP-BOT SIGNAL ALERT</b> 🚀\n` +
-                `-------------------------------------\n` +
-                `<b>Asset Pair:</b> ${getDisplaySymbolName(pair)}\n` +
-                `<b>Option Direction:</b> ${strategyResult.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
-                `<b>Entry Price:</b> $${result.buy_price}\n` +
-                `<b>Contract Expiry:</b> 15 Minutes\n` +
-                `<b>Scan Time (GMT):</b> ${gmtTime}\n` +
-                `<b>Analysis Stats:</b> H1 Trend: ${strategyResult.direction === 'CALL' ? 'BULLISH' : 'BEARISH'} | ADX: ${strategyResult.adxValue.toFixed(1)}\n` +
-                `<b>Account Mode:</b> ${tradingMode} Sandbox`;
-              
-              await sendTelegramAlert(signalMsg);
-
-            } catch (execErr: any) {
-              localLogs.push(`❌ Purchase execution error for ${pair}: ${execErr.message}`);
-            }
+        
+        for (const stratId of activeStrategies) {
+          let strategyResultObj;
+          let stratName = '';
+          
+          if (stratId === 'FOREX_15M_MTF_V2') {
+            strategyResultObj = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
+            stratName = 'Forex 15m MTF Crossover v2';
           } else {
-            localLogs.push(`❌ Error fetching ticks/spread for ${pair}. Skipping.`);
+            strategyResultObj = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
+            stratName = 'Forex 15m MTF Crossover v1';
+          }
+
+          localLogs.push(`- [${stratName}] ADX: ${strategyResultObj.adxValue.toFixed(1)} | Signal: ${strategyResultObj.direction}`);
+
+          if (strategyResultObj.nearEntry.isNear) {
+            nearEntryObj = {
+              symbol: pair,
+              direction: strategyResultObj.nearEntry.direction,
+              reason: `[${stratName}] ${strategyResultObj.nearEntry.reason}`,
+              adx: strategyResultObj.adxValue,
+              stochK: strategyResultObj.nearEntry.stochK,
+              stochD: strategyResultObj.nearEntry.stochD,
+              confirmations: strategyResultObj.nearEntry.confirmations,
+              updatedAt: new Date().toISOString()
+            };
+          }
+
+          if (strategyResultObj.direction !== 'NEUTRAL') {
+            // D. Fetch tick to check spread before buying
+            const tick = await fetchTick(socket!, pair);
+            if (tick) {
+              const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
+              if (spreadBlocked) {
+                localLogs.push(`- [${stratName}] Skip: Spread of ${pair} exceeds 2.0 pips.`);
+                continue;
+              }
+
+              // E. Execute Trade!
+              localLogs.push(`🔥 [${stratName}] Trigger: Placing $${derivStakeAmount.toFixed(2)} ${strategyResultObj.direction} contract on ${pair} with 15m expiry.`);
+              try {
+                const result = await buyContract(socket!, pair, strategyResultObj.direction, derivStakeAmount);
+                
+                const newTrade = {
+                  id: crypto.randomUUID(),
+                  contract_id: result.contract_id,
+                  symbol: pair,
+                  contract_type: strategyResultObj.direction,
+                  duration: 15,
+                  duration_unit: 'm',
+                  stake: derivStakeAmount,
+                  payout: parseFloat(result.payout),
+                  status: 'OPEN',
+                  entry_price: parseFloat(result.buy_price),
+                  exit_price: null,
+                  barrier: null,
+                  pnl: 0,
+                  is_paper: tradingMode === 'DEMO',
+                  created_at: new Date().toISOString(),
+                  closed_at: null
+                };
+
+                await supabase.from('deriv_trades').insert([newTrade]);
+                localLogs.push(`🎉 [${stratName}] Trade executed successfully! Contract ID: ${result.contract_id}`);
+
+                // Send Telegram Signal Notification
+                const gmtTime = new Date().toUTCString();
+                const signalMsg = `🚀 <b>DERIV OP-BOT SIGNAL ALERT</b> 🚀\n` +
+                  `-------------------------------------\n` +
+                  `<b>Asset Pair:</b> ${getDisplaySymbolName(pair)}\n` +
+                  `<b>Strategy:</b> ${stratName}\n` +
+                  `<b>Option Direction:</b> ${strategyResultObj.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
+                  `<b>Entry Price:</b> $${result.buy_price}\n` +
+                  `<b>Contract Expiry:</b> 15 Minutes\n` +
+                  `<b>Scan Time (GMT):</b> ${gmtTime}\n` +
+                  `<b>Analysis Stats:</b> H1 Trend: ${strategyResultObj.direction === 'CALL' ? 'BULLISH' : 'BEARISH'} | ADX: ${strategyResultObj.adxValue.toFixed(1)}\n` +
+                  `<b>Account Mode:</b> ${tradingMode} Sandbox`;
+                
+                await sendTelegramAlert(signalMsg);
+
+              } catch (execErr: any) {
+                localLogs.push(`❌ [${stratName}] Purchase execution error for ${pair}: ${execErr.message}`);
+              }
+            } else {
+              localLogs.push(`❌ [${stratName}] Error fetching ticks/spread for ${pair}. Skipping.`);
+            }
           }
         }
       } catch (err: any) {
