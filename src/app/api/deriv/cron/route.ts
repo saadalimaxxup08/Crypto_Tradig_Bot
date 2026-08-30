@@ -161,7 +161,8 @@ export async function GET(req: Request) {
     const pairsToTrade = existingOverrides.deriv_selected_pairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
     scanLogs.push(`✅ Authenticated. Running scans on pairs: ${pairsToTrade.join(', ')}`);
 
-    const scanPromises = (pairsToTrade as string[]).map(async (pair: string) => {
+    const scanResults: any[] = [];
+    for (const pair of pairsToTrade) {
       const localLogs: string[] = [`Scanning ${pair}...`];
       let nearEntryObj: any = null;
       try {
@@ -174,14 +175,16 @@ export async function GET(req: Request) {
 
         if (!checkErr && openTrades && openTrades.length > 0) {
           localLogs.push(`- Skip: A contract is already open for ${pair}.`);
-          return { logs: localLogs, nearEntry: null };
+          scanResults.push({ logs: localLogs, nearEntry: null });
+          continue;
         }
 
         // B. Filter: Economic News Block
         const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
         if (newsBlocked) {
           localLogs.push(`- Skip: High Impact News block is active for currencies in ${pair}.`);
-          return { logs: localLogs, nearEntry: null };
+          scanResults.push({ logs: localLogs, nearEntry: null });
+          continue;
         }
 
         // C. Fetch Multi-Timeframe Candles
@@ -212,7 +215,8 @@ export async function GET(req: Request) {
             const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
             if (spreadBlocked) {
               localLogs.push(`- Skip: Spread of ${pair} exceeds the limit of 2.0 pips.`);
-              return { logs: localLogs, nearEntry: nearEntryObj };
+              scanResults.push({ logs: localLogs, nearEntry: nearEntryObj });
+              continue;
             }
 
             // E. Execute Trade!
@@ -266,10 +270,10 @@ export async function GET(req: Request) {
       } catch (err: any) {
         localLogs.push(`❌ Error processing ${pair}: ${err.message}`);
       }
-      return { logs: localLogs, nearEntry: nearEntryObj };
-    });
-
-    const scanResults = await Promise.all(scanPromises);
+      scanResults.push({ logs: localLogs, nearEntry: nearEntryObj });
+      // Add a small 40ms breather between pairs to protect Deriv rate limits
+      await new Promise(r => setTimeout(r, 40));
+    }
     const nearEntryPairs: any[] = [];
     for (const r of scanResults) {
       scanLogs.push(...r.logs);

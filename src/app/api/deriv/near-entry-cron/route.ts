@@ -122,7 +122,8 @@ export async function GET() {
 
     // 4. Scan watchlist pairs
     const updatedWatchlist: any[] = [];
-    const scanPromises = nearEntryPairs.map(async (watchlistPair) => {
+    const scanResults: any[] = [];
+    for (const watchlistPair of nearEntryPairs) {
       const pair = watchlistPair.symbol;
       const localLogs: string[] = [];
       let executionSuccess = false;
@@ -136,14 +137,16 @@ export async function GET() {
         const isSessionBlocked = sessionFilterEnabled ? isAsianSessionBlocked() : false;
         if (isSessionBlocked) {
           localLogs.push(`- Skip: Asian Session block is active for ${pair}.`);
-          return { logs: localLogs, stillNear: true, entryPair: watchlistPair };
+          scanResults.push({ logs: localLogs, stillNear: true, entryPair: watchlistPair });
+          continue;
         }
 
         // B. High Impact News Filter
         const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
         if (newsBlocked) {
           localLogs.push(`- Skip: High Impact News block is active for ${pair}.`);
-          return { logs: localLogs, stillNear: true, entryPair: watchlistPair };
+          scanResults.push({ logs: localLogs, stillNear: true, entryPair: watchlistPair });
+          continue;
         }
 
         // C. Fetch candles
@@ -161,7 +164,8 @@ export async function GET() {
             const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
             if (spreadBlocked) {
               localLogs.push(`- Skip: Spread of ${pair} exceeds limit.`);
-              return { logs: localLogs, stillNear: true, entryPair: watchlistPair };
+              scanResults.push({ logs: localLogs, stillNear: true, entryPair: watchlistPair });
+              continue;
             }
 
             localLogs.push(`🔥 Entry Triggered! Placing $${derivStakeAmount.toFixed(2)} ${strategyResult.direction} contract on ${pair}.`);
@@ -223,14 +227,14 @@ export async function GET() {
         stillNear = true; // Keep in watchlist on transient errors
       }
 
-      return {
+      scanResults.push({
         logs: localLogs,
         stillNear: stillNear && !executionSuccess,
         entryPair: finalNearEntryObj
-      };
-    });
-
-    const scanResults = await Promise.all(scanPromises);
+      });
+      // Small breather delay
+      await new Promise(r => setTimeout(r, 45));
+    }
     for (const r of scanResults) {
       scanLogs.push(...r.logs);
       if (r.stillNear && r.entryPair) {
