@@ -179,15 +179,16 @@ export async function GET() {
                 stake: derivStakeAmount,
                 payout: parseFloat(result.payout),
                 status: 'OPEN',
-                entry_price: parseFloat(result.entry_tick),
+                entry_price: parseFloat(result.buy_price),
                 exit_price: null,
+                barrier: null,
                 pnl: 0,
                 is_paper: tradingMode === 'DEMO',
                 created_at: new Date(result.start_time * 1000).toISOString(),
                 closed_at: null
               };
 
-              await supabase.from('trades').insert([newTrade]);
+              await supabase.from('deriv_trades').insert([newTrade]);
               
               const signalMsg = `🔔 <b>DERIV SIGNAL EXECUTED</b>\n\n` +
                 `Asset: <b>${pair}</b>\n` +
