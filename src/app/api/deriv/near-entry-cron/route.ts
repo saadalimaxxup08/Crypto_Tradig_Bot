@@ -212,7 +212,7 @@ export async function GET() {
               
               const signalMsg = `🔔 <b>DERIV SIGNAL EXECUTED</b>\n\n` +
                 `Asset: <b>${getDisplaySymbolName(pair)}</b>\n` +
-                `Direction: ${strategyResult.direction === 'CALL' ? '🟢 BUY' : '🔴 FALL'}\n` +
+                `Direction: ${strategyResult.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
                 `Timeframe: 15m\n` +
                 `Account: ${tradingMode}\n` +
                 `Stake: $${derivStakeAmount.toFixed(2)}`;

@@ -261,7 +261,7 @@ export async function GET(req: Request) {
               const signalMsg = `🚀 <b>DERIV OP-BOT SIGNAL ALERT</b> 🚀\n` +
                 `-------------------------------------\n` +
                 `<b>Asset Pair:</b> ${getDisplaySymbolName(pair)}\n` +
-                `<b>Option Direction:</b> ${strategyResult.direction === 'CALL' ? '🟢 RISE (CALL)' : '🔴 FALL (PUT)'}\n` +
+                `<b>Option Direction:</b> ${strategyResult.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
                 `<b>Entry Price:</b> $${result.buy_price}\n` +
                 `<b>Contract Expiry:</b> 15 Minutes\n` +
                 `<b>Scan Time (GMT):</b> ${gmtTime}\n` +

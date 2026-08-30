@@ -321,8 +321,8 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
               const outcomeMsg = `🔔 <b>DERIV CONTRACT COMPLETED</b> 🔔\n` +
                 `-------------------------------------\n` +
                 `<b>Asset Pair:</b> ${getDisplaySymbolName(matchingTrade.symbol)}\n` +
-                `<b>Type:</b> ${matchingTrade.contract_type === 'CALL' ? '🟢 RISE (CALL)' : '🔴 FALL (PUT)'}\n` +
-                `<b>Outcome:</b> ${status === 'WON' ? '🏆 WIN' : '❌ LOSS'}\n` +
+                `<b>Type:</b> ${matchingTrade.contract_type === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
+                `<b>Outcome:</b> ${status === 'WON' ? '🟢 WIN (WON)' : '🔴 LOSS (LOST)'}\n` +
                 `<b>Profit/Loss:</b> ${pnl > 0 ? '+' : ''}${pnl.toFixed(2)} USD\n` +
                 `<b>Entry Price:</b> $${entryPrice}\n` +
                 `<b>Exit Price:</b> $${exitPrice || 'N/A'}`;
