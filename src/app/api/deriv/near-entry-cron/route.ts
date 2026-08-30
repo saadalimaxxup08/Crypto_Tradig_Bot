@@ -15,7 +15,8 @@ import {
   buyContract,
   sendTelegramAlert,
   saveDerivScanLogs,
-  getDisplaySymbolName
+  getDisplaySymbolName,
+  syncOpenTrades
 } from '@/lib/deriv_api_helpers';
 
 export const dynamic = 'force-dynamic';
@@ -41,14 +42,22 @@ export async function GET() {
   const isBotEnabled = existingOverrides.deriv_bot_enabled !== undefined ? existingOverrides.deriv_bot_enabled : (settings.deriv_bot_enabled || false);
   const nearEntryPairs: any[] = existingOverrides.deriv_near_entry_pairs || [];
 
+  // Fetch open trades to sync
+  const { data: openTrades } = await supabase
+    .from('deriv_trades')
+    .select('*')
+    .eq('status', 'OPEN');
+
+  const openTradesCount = openTrades ? openTrades.length : 0;
+
   if (!isBotEnabled) {
     scanLogs.push('⚠️ Monitor inactive: Deriv Bot is disabled.');
     return NextResponse.json({ success: true, message: 'Bot disabled', logs: scanLogs });
   }
 
-  if (nearEntryPairs.length === 0) {
-    scanLogs.push('ℹ️ Monitor exit: No pairs currently in Near-Entry Watchlist.');
-    return NextResponse.json({ success: true, message: 'No pairs to monitor', logs: scanLogs });
+  if (nearEntryPairs.length === 0 && openTradesCount === 0) {
+    scanLogs.push('ℹ️ Monitor exit: No pairs currently in Near-Entry Watchlist and no open trades to sync.');
+    return NextResponse.json({ success: true, message: 'No pairs to monitor and no open trades to sync', logs: scanLogs });
   }
 
   const appId = settings.deriv_app_id || process.env.DERIV_APP_ID || '';
@@ -98,6 +107,12 @@ export async function GET() {
 
     if (!socket) {
       throw new Error(`WebSocket connection failed. Last error: ${lastError?.message || 'Unknown error'}`);
+    }
+
+    // Sync any open trades on the backend and alert Telegram on close
+    if (openTrades && openTrades.length > 0) {
+      scanLogs.push(`ℹ️ Syncing ${openTrades.length} open trade(s) on the backend...`);
+      await syncOpenTrades(socket, openTrades);
     }
 
     scanLogs.push('✅ Authenticated. Monitoring watchlist pairs...');

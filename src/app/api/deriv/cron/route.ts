@@ -16,7 +16,8 @@ import {
   buyContract,
   sendTelegramAlert,
   saveDerivScanLogs,
-  getDisplaySymbolName
+  getDisplaySymbolName,
+  syncOpenTrades
 } from '@/lib/deriv_api_helpers';
 
 export const dynamic = 'force-dynamic';
@@ -89,12 +90,14 @@ export async function GET(req: Request) {
 
     // 3. Filter: Risk Controls Check
     const derivMaxTrades = existingOverrides.deriv_max_trades || 10;
-    const { count: openTradesCount, error: countErr } = await supabase
+    const { data: openTrades, error: countErr } = await supabase
       .from('deriv_trades')
-      .select('*', { count: 'exact', head: true })
+      .select('*')
       .eq('status', 'OPEN');
 
-    if (!countErr && openTradesCount !== null && openTradesCount >= derivMaxTrades) {
+    const openTradesCount = openTrades ? openTrades.length : 0;
+
+    if (!countErr && openTradesCount >= derivMaxTrades) {
       scanLogs.push(`⚠️ Halted execution: Open trades count (${openTradesCount}) reached the maximum limit of ${derivMaxTrades}. Skipping.`);
       await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'Max trades limit reached', logs: scanLogs });
@@ -158,6 +161,12 @@ export async function GET(req: Request) {
 
     // Increase WebSocket MaxListeners to avoid warnings during parallel scans
     (socket as any).setMaxListeners?.(200);
+
+    // Sync any open trades on the backend and alert Telegram on close
+    if (openTrades && openTrades.length > 0) {
+      scanLogs.push(`ℹ️ Syncing ${openTrades.length} open trade(s) on the backend...`);
+      await syncOpenTrades(socket, openTrades);
+    }
 
     const pairsToTrade = existingOverrides.deriv_selected_pairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
     scanLogs.push(`✅ Authenticated. Running scans on pairs: ${pairsToTrade.join(', ')}`);

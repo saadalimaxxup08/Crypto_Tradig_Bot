@@ -263,3 +263,79 @@ export function getDisplaySymbolName(symbol: string): string {
   const name = SYMBOL_NAMES[symbol];
   return name ? `${name} (${symbol})` : symbol;
 }
+export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<void> {
+  if (openTrades.length === 0) return Promise.resolve();
+
+  return new Promise<void>((resolve) => {
+    let pending = openTrades.length;
+    const handleMsg = async (event: any) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.msg_type === 'proposal_open_contract' && msg.proposal_open_contract) {
+          const contract = msg.proposal_open_contract;
+          const contractId = contract.contract_id;
+          
+          const matchingTrade = openTrades.find(t => t.contract_id === contractId);
+          if (matchingTrade) {
+            const isExpired = contract.is_expired;
+            const status = isExpired ? (contract.profit > 0 ? 'WON' : 'LOST') : 'OPEN';
+            const pnl = parseFloat(contract.profit || 0);
+            const exitPrice = contract.exit_tick ? parseFloat(contract.exit_tick) : null;
+            const entryPrice = contract.entry_tick ? parseFloat(contract.entry_tick) : matchingTrade.entry_price;
+
+            if (isExpired) {
+              const closedAt = new Date().toISOString();
+              // Update database
+              await supabase
+                .from('deriv_trades')
+                .update({
+                  status,
+                  pnl,
+                  exit_price: exitPrice,
+                  entry_price: entryPrice,
+                  closed_at: closedAt
+                })
+                .eq('id', matchingTrade.id);
+
+              // Send Telegram Notification
+              const outcomeMsg = `🔔 <b>DERIV CONTRACT COMPLETED</b> 🔔\n` +
+                `-------------------------------------\n` +
+                `<b>Asset Pair:</b> ${getDisplaySymbolName(matchingTrade.symbol)}\n` +
+                `<b>Type:</b> ${matchingTrade.contract_type === 'CALL' ? '🟢 RISE (CALL)' : '🔴 FALL (PUT)'}\n` +
+                `<b>Outcome:</b> ${status === 'WON' ? '🏆 WIN' : '❌ LOSS'}\n` +
+                `<b>Profit/Loss:</b> ${pnl > 0 ? '+' : ''}${pnl.toFixed(2)} USD\n` +
+                `<b>Entry Price:</b> $${entryPrice}\n` +
+                `<b>Exit Price:</b> $${exitPrice || 'N/A'}`;
+              
+              await sendTelegramAlert(outcomeMsg);
+            }
+
+            pending--;
+            if (pending <= 0) {
+              socket.removeEventListener('message', handleMsg);
+              resolve();
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error in proposal_open_contract handler:', err);
+      }
+    };
+
+    socket.addEventListener('message', handleMsg);
+
+    // Send status request for each open trade
+    for (const trade of openTrades) {
+      socket.send(JSON.stringify({
+        proposal_open_contract: 1,
+        contract_id: trade.contract_id
+      }));
+    }
+
+    // Safety timeout: if server doesn't respond, resolve anyway in 8 seconds
+    setTimeout(() => {
+      socket.removeEventListener('message', handleMsg);
+      resolve();
+    }, 8000);
+  });
+}
