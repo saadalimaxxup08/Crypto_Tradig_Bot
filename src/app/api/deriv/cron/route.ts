@@ -15,7 +15,8 @@ import {
   fetchTick,
   buyContract,
   sendTelegramAlert,
-  saveDerivScanLogs
+  saveDerivScanLogs,
+  getDisplaySymbolName
 } from '@/lib/deriv_api_helpers';
 
 export const dynamic = 'force-dynamic';
@@ -163,7 +164,7 @@ export async function GET(req: Request) {
 
     const scanResults: any[] = [];
     for (const pair of pairsToTrade) {
-      const localLogs: string[] = [`Scanning ${pair}...`];
+      const localLogs: string[] = [`Scanning ${getDisplaySymbolName(pair)}...`];
       let nearEntryObj: any = null;
       try {
         // A. Check if trade already open for this symbol (Max 1 active trade per pair)
@@ -250,7 +251,7 @@ export async function GET(req: Request) {
               const gmtTime = new Date().toUTCString();
               const signalMsg = `🚀 <b>DERIV OP-BOT SIGNAL ALERT</b> 🚀\n` +
                 `-------------------------------------\n` +
-                `<b>Asset Pair:</b> ${pair.replace('frx', '')}\n` +
+                `<b>Asset Pair:</b> ${getDisplaySymbolName(pair)}\n` +
                 `<b>Option Direction:</b> ${strategyResult.direction === 'CALL' ? '🟢 RISE (CALL)' : '🔴 FALL (PUT)'}\n` +
                 `<b>Entry Price:</b> $${result.buy_price}\n` +
                 `<b>Contract Expiry:</b> 15 Minutes\n` +

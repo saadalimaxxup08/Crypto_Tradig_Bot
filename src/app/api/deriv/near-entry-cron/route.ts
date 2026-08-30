@@ -14,7 +14,8 @@ import {
   fetchTick,
   buyContract,
   sendTelegramAlert,
-  saveDerivScanLogs
+  saveDerivScanLogs,
+  getDisplaySymbolName
 } from '@/lib/deriv_api_helpers';
 
 export const dynamic = 'force-dynamic';
@@ -131,7 +132,7 @@ export async function GET() {
       let finalNearEntryObj = watchlistPair;
 
       try {
-        localLogs.push(`Monitoring ${pair}...`);
+        localLogs.push(`Monitoring ${getDisplaySymbolName(pair)}...`);
         
         // A. Asian Session Filter
         const isSessionBlocked = sessionFilterEnabled ? isAsianSessionBlocked() : false;
@@ -195,7 +196,7 @@ export async function GET() {
               await supabase.from('deriv_trades').insert([newTrade]);
               
               const signalMsg = `🔔 <b>DERIV SIGNAL EXECUTED</b>\n\n` +
-                `Asset: <b>${pair}</b>\n` +
+                `Asset: <b>${getDisplaySymbolName(pair)}</b>\n` +
                 `Direction: ${strategyResult.direction === 'CALL' ? '🟢 BUY' : '🔴 FALL'}\n` +
                 `Timeframe: 15m\n` +
                 `Account: ${tradingMode}\n` +
