@@ -1845,7 +1845,7 @@ export default function DerivDashboard() {
                     {openTrades.map((t) => (
                       <tr key={t.id}>
                         <td className="py-3.5 font-mono text-zinc-300 text-xs">{t.contract_id}</td>
-                        <td className="py-3.5 text-zinc-200 text-xs">{t.symbol}</td>
+                        <td className="py-3.5 text-zinc-200 text-xs">{getPairDisplayName(t.symbol)}</td>
                         <td className="py-3.5 text-center">
                           <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${
                             t.contract_type === 'CALL'
@@ -1909,7 +1909,7 @@ export default function DerivDashboard() {
                       return (
                         <tr key={t.id} className="hover:bg-zinc-950/20 transition-all">
                           <td className="py-3.5 font-mono text-zinc-400 text-xs">{t.contract_id}</td>
-                          <td className="py-3.5 text-zinc-300 text-xs">{t.symbol}</td>
+                          <td className="py-3.5 text-zinc-300 text-xs">{getPairDisplayName(t.symbol)}</td>
                           <td className="py-3.5 text-center">
                             <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${
                               t.contract_type === 'CALL'
