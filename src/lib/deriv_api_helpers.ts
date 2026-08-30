@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import { jsPDF } from 'jspdf';
 import { supabase } from './supabase';
 
 export async function fetchOTP(appId: string, token: string, accountId: string): Promise<string> {
@@ -297,7 +298,26 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
                 })
                 .eq('id', matchingTrade.id);
 
-              // Send Telegram Notification
+              // 1. Fetch candles for the closed trade duration
+              let candles: any[] = [];
+              try {
+                const startEpoch = contract.date_start;
+                const endEpoch = contract.exit_tick_time || contract.date_expiry;
+                candles = await fetchClosedTradeCandles(socket, matchingTrade.symbol, startEpoch, endEpoch);
+              } catch (candleErr) {
+                console.error('Failed to fetch closed trade candles for PDF:', candleErr);
+              }
+
+              // 2. Generate PDF Report containing the candlestick chart
+              let pdfBuffer: Buffer | null = null;
+              try {
+                const tradeCopy = { ...matchingTrade, status, entry_price: entryPrice, exit_price: exitPrice };
+                pdfBuffer = await generateTradePDF(tradeCopy, contract, candles);
+              } catch (pdfErr) {
+                console.error('Failed to generate trade PDF:', pdfErr);
+              }
+
+              // 3. Send Telegram Notification
               const outcomeMsg = `🔔 <b>DERIV CONTRACT COMPLETED</b> 🔔\n` +
                 `-------------------------------------\n` +
                 `<b>Asset Pair:</b> ${getDisplaySymbolName(matchingTrade.symbol)}\n` +
@@ -308,6 +328,13 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
                 `<b>Exit Price:</b> $${exitPrice || 'N/A'}`;
               
               await sendTelegramAlert(outcomeMsg);
+
+              // 4. Send PDF Document to Telegram
+              if (pdfBuffer) {
+                const filename = `Trade_Report_${matchingTrade.contract_id}.pdf`;
+                const docCaption = `📊 <b>Trade Report: ${getDisplaySymbolName(matchingTrade.symbol)}</b>\nOutcome: ${status === 'WON' ? '🏆 WIN' : '❌ LOSS'} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USD)`;
+                await sendTelegramDocument(pdfBuffer, filename, docCaption);
+              }
             }
 
             pending--;
@@ -338,4 +365,269 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
       resolve();
     }, 8000);
   });
+}
+
+export function fetchClosedTradeCandles(
+  socket: WebSocket,
+  symbol: string,
+  start: number,
+  end: number
+): Promise<any[]> {
+  return new Promise((resolve) => {
+    const handleMsg = (event: any) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.msg_type === 'candles' && data.echo_req.ticks_history === symbol && data.echo_req.start === start) {
+          socket.removeEventListener('message', handleMsg);
+          resolve(data.candles || []);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+    socket.addEventListener('message', handleMsg);
+    socket.send(JSON.stringify({
+      ticks_history: symbol,
+      adjust_start_time: 1,
+      start,
+      end,
+      granularity: 60,
+      style: 'candles'
+    }));
+
+    // Safety timeout
+    setTimeout(() => {
+      socket.removeEventListener('message', handleMsg);
+      resolve([]);
+    }, 5000);
+  });
+}
+
+export async function generateTradePDF(trade: any, contract: any, candles: any[]): Promise<Buffer> {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Header Slate-900 Banner
+  doc.setFillColor(15, 23, 42); // slate-900
+  doc.rect(0, 0, 210, 38, 'F');
+
+  // Title
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(15);
+  doc.text('DERIV BINARY OPTIONS - CONTRACT REPORT', 14, 16);
+
+  // Subtitle
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(148, 163, 184); // slate-400
+  const dateStr = new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
+  doc.text(`Generated: ${dateStr} (Jeddah Time) | Contract ID: ${trade.contract_id}`, 14, 26);
+
+  // Outcome Badge
+  const isWin = trade.status === 'WON';
+  doc.setFillColor(isWin ? 22 : 220, isWin ? 163 : 38, isWin ? 74 : 38); // green-600 or red-600
+  doc.roundedRect(155, 10, 40, 14, 2, 2, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text(isWin ? '🏆 WIN' : '❌ LOSS', 175, 19, { align: 'center' });
+
+  // Main Details Grid (Y: 48)
+  let y = 48;
+  
+  // Left Column Details Card
+  doc.setFillColor(248, 250, 252); // slate-50
+  doc.setDrawColor(226, 232, 240); // slate-200
+  doc.roundedRect(14, y, 85, 95, 3, 3, 'FD');
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(71, 85, 105); // slate-600
+  doc.text('CONTRACT DETAILS', 18, y + 8);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(30, 30, 35);
+  
+  const drawRow = (label: string, value: string, rowY: number, valColor?: number[]) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text(label, 18, rowY);
+    
+    doc.setFont('helvetica', 'normal');
+    if (valColor) {
+      doc.setTextColor(valColor[0], valColor[1], valColor[2]);
+    } else {
+      doc.setTextColor(15, 23, 42); // slate-900
+    }
+    doc.text(value, 50, rowY);
+  };
+
+  const displayName = getDisplaySymbolName(trade.symbol).split(' (')[0];
+  const pnl = parseFloat(contract.profit || 0);
+
+  drawRow('Asset Pair:', displayName, y + 18);
+  drawRow('Contract Type:', trade.contract_type === 'CALL' ? 'RISE (CALL)' : 'FALL (PUT)', y + 26, trade.contract_type === 'CALL' ? [22, 163, 74] : [220, 38, 38]);
+  drawRow('Stake Amount:', `$${trade.stake.toFixed(2)}`, y + 34);
+  drawRow('Total Payout:', `$${trade.payout.toFixed(2)}`, y + 42);
+  
+  const profitColor = pnl >= 0 ? [22, 163, 74] : [220, 38, 38];
+  drawRow('Net Profit/Loss:', `${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USD`, y + 50, profitColor);
+  drawRow('Duration:', `${contract.duration} ${contract.duration_unit || 'minutes'}`, y + 58);
+  drawRow('Entry Spot:', `$${parseFloat(contract.entry_tick || trade.entry_price).toFixed(2)}`, y + 66);
+  drawRow('Exit Spot:', `$${parseFloat(contract.exit_tick || trade.exit_price || 0).toFixed(2)}`, y + 74);
+  
+  const startTimeStr = new Date(contract.date_start * 1000).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
+  const endTimeStr = new Date(contract.exit_tick_time * 1000).toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
+  drawRow('Start Time:', startTimeStr.split(', ')[1] || startTimeStr, y + 82);
+  drawRow('Close Time:', endTimeStr.split(', ')[1] || endTimeStr, y + 90);
+
+  // Right Column Chart Area (Y: 48)
+  const chartX = 105;
+  const chartWidth = 90;
+  const chartHeight = 95;
+
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(chartX, y, chartWidth, chartHeight, 3, 3, 'FD');
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(71, 85, 105);
+  doc.text('1-MINUTE CANDLE CHART (TIMELINE)', chartX + 5, y + 8);
+
+  // Draw Candlestick Vector Chart inside PDF
+  if (candles.length > 0) {
+    const chartPadX = 8;
+    const chartPadTop = 18;
+    const chartPadBottom = 12;
+
+    const plotX = chartX + chartPadX;
+    const plotY = y + chartPadTop;
+    const plotW = chartWidth - (chartPadX * 2);
+    const plotH = chartHeight - chartPadTop - chartPadBottom;
+
+    // Draw Border and Grid lines
+    doc.setDrawColor(226, 232, 240); // slate-200
+    doc.setLineWidth(0.2);
+    doc.rect(plotX, plotY, plotW, plotH);
+
+    // Draw Grid Lines (3 horizontal)
+    for (let i = 1; i <= 3; i++) {
+      const gridY = plotY + (plotH * i) / 4;
+      doc.line(plotX, gridY, plotX + plotW, gridY);
+    }
+
+    // Calculate boundaries
+    const highs = candles.map(c => c.high);
+    const lows = candles.map(c => c.low);
+    const minP = Math.min(...lows);
+    const maxP = Math.max(...highs);
+    const priceDiff = maxP - minP || 1;
+
+    // Add padding to price scale
+    const finalMinP = minP - (priceDiff * 0.05);
+    const finalMaxP = maxP + (priceDiff * 0.05);
+    const finalDiff = finalMaxP - finalMinP;
+
+    const getPixelY = (price: number) => {
+      const percent = (price - finalMinP) / finalDiff;
+      return plotY + plotH - (plotH * percent); // Invert Y for drawing coordinates
+    };
+
+    // Draw Candles
+    const totalCandles = candles.length;
+    const candleWidth = (plotW / totalCandles) * 0.6;
+    const stepX = plotW / totalCandles;
+
+    for (let i = 0; i < totalCandles; i++) {
+      const c = candles[i];
+      const candleX = plotX + (i * stepX) + (stepX - candleWidth) / 2;
+      
+      const wickTopY = getPixelY(c.high);
+      const wickBottomY = getPixelY(c.low);
+      const bodyTopY = getPixelY(Math.max(c.open, c.close));
+      const bodyBottomY = getPixelY(Math.min(c.open, c.close));
+      const bodyHeight = Math.max(0.3, Math.abs(bodyTopY - bodyBottomY));
+
+      const isGreen = c.close >= c.open;
+      
+      // Draw wick line
+      doc.setDrawColor(isGreen ? 34 : 220, isGreen ? 197 : 38, isGreen ? 94 : 38);
+      doc.setLineWidth(0.3);
+      doc.line(candleX + (candleWidth / 2), wickTopY, candleX + (candleWidth / 2), wickBottomY);
+
+      // Draw body rect
+      doc.setFillColor(isGreen ? 34 : 220, isGreen ? 197 : 38, isGreen ? 94 : 38);
+      doc.rect(candleX, bodyTopY, candleWidth, bodyHeight, 'F');
+    }
+
+    // Draw Entry Spot Price line (dashed line)
+    const entrySpotY = getPixelY(parseFloat(contract.entry_tick));
+    if (entrySpotY >= plotY && entrySpotY <= plotY + plotH) {
+      doc.setDrawColor(34, 197, 94); // Green
+      doc.setLineWidth(0.4);
+      for (let dotX = plotX; dotX < plotX + plotW; dotX += 2) {
+        doc.line(dotX, entrySpotY, dotX + 1, entrySpotY);
+      }
+      
+      doc.setFillColor(34, 197, 94);
+      doc.setFontSize(5.5);
+      doc.setTextColor(255, 255, 255);
+      doc.rect(plotX + 2, entrySpotY - 3, 12, 2.6, 'F');
+      doc.text('Entry Spot', plotX + 2.5, entrySpotY - 1);
+    }
+
+    // Price Labels Axis (Right side)
+    doc.setFontSize(6.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(finalMaxP.toFixed(2), plotX + plotW - 12, plotY + 4);
+    doc.text(finalMinP.toFixed(2), plotX + plotW - 12, plotY + plotH - 2);
+  }
+
+  // Footer Branding and Disclaimer
+  y = 155;
+  doc.setDrawColor(241, 245, 249);
+  doc.line(14, y, 196, y);
+
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(148, 163, 184); // slate-400
+  doc.text('This is an automatically generated contract execution receipt by the Crypto Trading Bot.', 14, y + 6);
+  doc.text('Deriv API documentation guidelines and risk control parameters have been fully enforced.', 14, y + 10);
+
+  const pdfString = doc.output('arraybuffer');
+  return Buffer.from(pdfString);
+}
+
+export async function sendTelegramDocument(pdfBuffer: Buffer, filename: string, caption: string) {
+  try {
+    const { data: settings } = await supabase.from('settings').select('telegram_token, telegram_chat_id').eq('id', 1).single();
+    const token = settings?.telegram_token || process.env.TELEGRAM_TOKEN;
+    const chatId = settings?.telegram_chat_id || process.env.TELEGRAM_CHAT_ID;
+
+    if (token && chatId) {
+      const url = `https://api.telegram.org/bot${token}/sendDocument`;
+      const formData = new FormData();
+      formData.append('chat_id', chatId);
+      formData.append('caption', caption);
+      formData.append('parse_mode', 'HTML');
+      
+      const blob = new Blob([new Uint8Array(pdfBuffer)], { type: 'application/pdf' });
+      formData.append('document', blob, filename);
+
+      const res = await fetch(url, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        console.error('Failed to send PDF to Telegram API:', data);
+      }
+    }
+  } catch (err) {
+    console.error('Error sending Telegram PDF document:', err);
+  }
 }
