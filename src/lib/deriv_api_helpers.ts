@@ -10,7 +10,8 @@ export async function fetchOTP(appId: string, token: string, accountId: string):
       'Deriv-App-ID': appId,
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
-    }
+    },
+    cache: 'no-store'
   });
 
   if (response.status !== 200) {
@@ -144,7 +145,8 @@ export async function sendTelegramAlert(message: string) {
       await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' })
+        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
+        cache: 'no-store'
       });
     }
   } catch (err) {
@@ -641,7 +643,8 @@ export async function sendTelegramDocument(pdfBuffer: Buffer, filename: string, 
 
       const res = await fetch(url, {
         method: 'POST',
-        body: formData
+        body: formData,
+        cache: 'no-store'
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
