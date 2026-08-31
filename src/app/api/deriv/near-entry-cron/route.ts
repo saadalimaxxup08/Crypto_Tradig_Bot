@@ -28,37 +28,27 @@ export async function GET() {
   let socket: WebSocket | null = null;
   scanLogs.push(`[${new Date().toISOString()}] Starting Deriv Near-Entry 1m Monitor...`);
 
-  // 1. Fetch settings from database
-  const { data: settings, error: settingsErr } = await supabase
+  // Run 4 iterations spaced 15 seconds apart inside the 1-minute cron window
+  const ITERATIONS = 4;
+  const TARGET_INTERVAL_MS = 15000;
+
+  // 1. Initial settings check
+  let { data: settings, error: settingsErr } = await supabase
     .from('settings')
     .select('*')
     .eq('id', 1)
     .single();
 
-  if (settingsErr) {
+  if (settingsErr || !settings) {
     return NextResponse.json({ error: 'Failed to load settings' }, { status: 500 });
   }
 
-  const existingOverrides = settings.pair_overrides || {};
-  const isBotEnabled = existingOverrides.deriv_bot_enabled !== undefined ? existingOverrides.deriv_bot_enabled : (settings.deriv_bot_enabled || false);
-  const nearEntryPairs: any[] = existingOverrides.deriv_near_entry_pairs || [];
-
-  // Fetch open trades to sync
-  const { data: openTrades } = await supabase
-    .from('deriv_trades')
-    .select('*')
-    .eq('status', 'OPEN');
-
-  const openTradesCount = openTrades ? openTrades.length : 0;
+  let existingOverrides = settings.pair_overrides || {};
+  let isBotEnabled = existingOverrides.deriv_bot_enabled !== undefined ? existingOverrides.deriv_bot_enabled : (settings.deriv_bot_enabled || false);
 
   if (!isBotEnabled) {
     scanLogs.push('⚠️ Monitor inactive: Deriv Bot is disabled.');
     return NextResponse.json({ success: true, message: 'Bot disabled', logs: scanLogs });
-  }
-
-  if (nearEntryPairs.length === 0 && openTradesCount === 0) {
-    scanLogs.push('ℹ️ Monitor exit: No pairs currently in Near-Entry Watchlist and no open trades to sync.');
-    return NextResponse.json({ success: true, message: 'No pairs to monitor and no open trades to sync', logs: scanLogs });
   }
 
   const appId = settings.deriv_app_id || process.env.DERIV_APP_ID || '';
@@ -69,10 +59,8 @@ export async function GET() {
   const activeAccount = tradingMode === 'DEMO' ? demoAccount : realAccount;
   const derivStakeAmount = existingOverrides.deriv_stake_amount || 1.00;
 
-  scanLogs.push(`ℹ️ Watchlist has ${nearEntryPairs.length} pair(s) to monitor: ${nearEntryPairs.map(p => p.symbol).join(', ')}`);
-
   try {
-    // 2. Connect WebSocket via OTP (pre-authorized!)
+    // 2. Connect WebSocket via OTP once before the loop to reuse it and optimize connection delay
     const wsUrl = await fetchOTP(appId, token, activeAccount);
     
     const connectAttempts = 3;
@@ -110,172 +98,217 @@ export async function GET() {
       throw new Error(`WebSocket connection failed. Last error: ${lastError?.message || 'Unknown error'}`);
     }
 
-    // Sync any open trades on the backend and alert Telegram on close
-    if (openTrades && openTrades.length > 0) {
-      scanLogs.push(`ℹ️ Syncing ${openTrades.length} open trade(s) on the backend...`);
-      await syncOpenTrades(socket, openTrades);
-    }
+    scanLogs.push('✅ Authenticated. Commencing 15-second sub-loop checks...');
 
-    scanLogs.push('✅ Authenticated. Monitoring watchlist pairs...');
+    // 3. Commencing sub-loop iterations
+    for (let iter = 0; iter < ITERATIONS; iter++) {
+      const iterStartTime = Date.now();
+      scanLogs.push(`\n[Loop Iteration ${iter + 1}/${ITERATIONS}]`);
 
-    // 3. Risk Controls Checks
-    const riskControls = await getRiskControlsStatus();
-    const dailyLimitEnabled = existingOverrides.deriv_daily_limit_enabled !== false;
-    const cooldownFilterEnabled = existingOverrides.deriv_cooldown_filter_enabled !== false;
+      // A. Re-fetch overrides and watchlist to capture real-time manual updates
+      const { data: currentSettings } = await supabase
+        .from('settings')
+        .select('pair_overrides')
+        .eq('id', 1)
+        .single();
 
-    if (dailyLimitEnabled && riskControls.isDailyLimitBlocked) {
-      scanLogs.push('🚨 Risk Control: Daily profit target or loss limit reached. Skipping.');
-      socket.close();
-      return NextResponse.json({ success: true, message: 'Daily limit reached', logs: scanLogs });
-    }
-    if (cooldownFilterEnabled && riskControls.isCooldownBlocked) {
-      scanLogs.push('🚨 Risk Control: Cooldown period active. Skipping.');
-      socket.close();
-      return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
-    }
+      existingOverrides = currentSettings?.pair_overrides || {};
+      const loopBotEnabled = existingOverrides.deriv_bot_enabled !== undefined ? existingOverrides.deriv_bot_enabled : (settings.deriv_bot_enabled || false);
+      if (!loopBotEnabled) {
+        scanLogs.push('⚠️ Bot was disabled during runtime loop. Exiting loop.');
+        break;
+      }
 
-    const sessionFilterEnabled = existingOverrides.deriv_session_filter_enabled !== false;
-    const newsFilterEnabled = existingOverrides.deriv_news_filter_enabled !== false;
+      const nearEntryPairs: any[] = existingOverrides.deriv_near_entry_pairs || [];
 
-    // 4. Scan watchlist pairs
-    const updatedWatchlist: any[] = [];
-    const scanResults: any[] = [];
-    for (const watchlistPair of nearEntryPairs) {
-      const pair = watchlistPair.symbol;
-      const localLogs: string[] = [];
-      let executionSuccess = false;
-      let stillNear = false;
-      let finalNearEntryObj = watchlistPair;
+      // B. Fetch open trades to sync
+      const { data: openTrades } = await supabase
+        .from('deriv_trades')
+        .select('*')
+        .eq('status', 'OPEN');
+      const openTradesCount = openTrades ? openTrades.length : 0;
 
-      try {
-        localLogs.push(`Monitoring ${getDisplaySymbolName(pair)}...`);
-        
-        // A. Asian Session Filter
-        const isSessionBlocked = sessionFilterEnabled ? isAsianSessionBlocked() : false;
-        if (isSessionBlocked) {
-          localLogs.push(`- Skip: Asian Session block is active for ${pair}.`);
-          scanResults.push({ logs: localLogs, stillNear: true, entryPair: watchlistPair });
-          continue;
+      if (nearEntryPairs.length === 0 && openTradesCount === 0) {
+        scanLogs.push('ℹ️ No active watchlist pairs or open trades in this check.');
+      } else {
+        // C. Sync open trades
+        if (openTrades && openTrades.length > 0) {
+          scanLogs.push(`ℹ️ Syncing ${openTrades.length} open trade(s) on Deriv...`);
+          await syncOpenTrades(socket, openTrades);
         }
 
-        // B. High Impact News Filter
-        const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
-        if (newsBlocked) {
-          localLogs.push(`- Skip: High Impact News block is active for ${pair}.`);
-          scanResults.push({ logs: localLogs, stillNear: true, entryPair: watchlistPair });
-          continue;
+        // D. Risk Controls Checks
+        const riskControls = await getRiskControlsStatus();
+        const dailyLimitEnabled = existingOverrides.deriv_daily_limit_enabled !== false;
+        const cooldownFilterEnabled = existingOverrides.deriv_cooldown_filter_enabled !== false;
+
+        let skipScan = false;
+        if (dailyLimitEnabled && riskControls.isDailyLimitBlocked) {
+          scanLogs.push('🚨 Daily profit/loss limit reached. Skipping.');
+          skipScan = true;
+        }
+        if (cooldownFilterEnabled && riskControls.isCooldownBlocked) {
+          scanLogs.push('🚨 Cooldown active. Skipping.');
+          skipScan = true;
         }
 
-        // C. Fetch candles
-        const candles5m = await fetchCandles(socket!, pair, 300);
-        const candles15m = await fetchCandles(socket!, pair, 900);
-        const candlesH1 = await fetchCandles(socket!, pair, 3600);
+        if (!skipScan && nearEntryPairs.length > 0) {
+          const sessionFilterEnabled = existingOverrides.deriv_session_filter_enabled !== false;
+          const newsFilterEnabled = existingOverrides.deriv_news_filter_enabled !== false;
 
-        const activeStrategies = (existingOverrides.deriv_active_strategies || ['FOREX_15M_MTF']) as string[];
+          // E. Scan watchlist pairs
+          const updatedWatchlist: any[] = [];
+          const scanResults: any[] = [];
 
-        for (const stratId of activeStrategies) {
-          let strategyResultObj;
-          let stratName = '';
-          
-          if (stratId === 'FOREX_15M_MTF_V2') {
-            strategyResultObj = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
-            stratName = 'v2 - Forex 15m MTF Crossover';
-          } else {
-            strategyResultObj = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
-            stratName = 'v1 - Forex 15m MTF Crossover';
-          }
+          for (const watchlistPair of nearEntryPairs) {
+            const pair = watchlistPair.symbol;
+            const localLogs: string[] = [];
+            let executionSuccess = false;
+            let stillNear = false;
+            let finalNearEntryObj = watchlistPair;
 
-          localLogs.push(`- [${stratName}] Watchlist Check: ADX=${strategyResultObj.adxValue.toFixed(1)} | Direction=${strategyResultObj.direction}`);
-
-          if (strategyResultObj.direction !== 'NEUTRAL') {
-            // Trigger!
-            const tick = await fetchTick(socket!, pair);
-            if (tick) {
-              const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
-              if (spreadBlocked) {
-                localLogs.push(`- [${stratName}] Skip: Spread of ${pair} exceeds limit.`);
+            try {
+              localLogs.push(`Scanning ${getDisplaySymbolName(pair)}...`);
+              
+              // 1. Asian Session Check
+              const isSessionBlocked = sessionFilterEnabled ? isAsianSessionBlocked() : false;
+              if (isSessionBlocked) {
+                localLogs.push(`- Session block active for ${pair}.`);
+                scanResults.push({ logs: localLogs, stillNear: true, entryPair: watchlistPair });
                 continue;
               }
 
-              localLogs.push(`🔥 [${stratName}] Entry Triggered! Placing $${derivStakeAmount.toFixed(2)} ${strategyResultObj.direction} contract on ${pair}.`);
-              try {
-                const result = await buyContract(socket!, pair, strategyResultObj.direction, derivStakeAmount);
-                executionSuccess = true;
-                
-                const newTrade = {
-                  id: crypto.randomUUID(),
-                  contract_id: result.contract_id,
-                  symbol: pair,
-                  contract_type: strategyResultObj.direction,
-                  duration: 15,
-                  duration_unit: 'm',
-                  stake: derivStakeAmount,
-                  payout: parseFloat(result.payout),
-                  status: 'OPEN',
-                  entry_price: parseFloat(result.buy_price),
-                  exit_price: null,
-                  barrier: null,
-                  pnl: 0,
-                  is_paper: tradingMode === 'DEMO',
-                  created_at: new Date(result.start_time * 1000).toISOString(),
-                  closed_at: null
-                };
-
-                await supabase.from('deriv_trades').insert([newTrade]);
-                
-                const signalMsg = `🔔 <b>DERIV SIGNAL EXECUTED</b>\n\n` +
-                  `Asset: <b>${getDisplaySymbolName(pair)}</b>\n` +
-                  `Strategy: <b>${stratName}</b>\n` +
-                  `Direction: ${strategyResultObj.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
-                  `Timeframe: 15m\n` +
-                  `Account: ${tradingMode}\n` +
-                  `Stake: $${derivStakeAmount.toFixed(2)}`;
-                
-                await sendTelegramAlert(signalMsg);
-              } catch (buyErr: any) {
-                localLogs.push(`❌ [${stratName}] Purchase execution error: ${buyErr.message}`);
+              // 2. Economic News Check
+              const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
+              if (newsBlocked) {
+                localLogs.push(`- Economic news block active for ${pair}.`);
+                scanResults.push({ logs: localLogs, stillNear: true, entryPair: watchlistPair });
+                continue;
               }
+
+              // 3. Fetch candles (5m, 15m, 1h)
+              const candles5m = await fetchCandles(socket, pair, 300);
+              const candles15m = await fetchCandles(socket, pair, 900);
+              const candlesH1 = await fetchCandles(socket, pair, 3600);
+
+              const activeStrategies = (existingOverrides.deriv_active_strategies || ['FOREX_15M_MTF']) as string[];
+
+              for (const stratId of activeStrategies) {
+                let strategyResultObj;
+                let stratName = '';
+                
+                if (stratId === 'FOREX_15M_MTF_V2') {
+                  strategyResultObj = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
+                  stratName = 'v2 - Forex 15m MTF Crossover';
+                } else {
+                  strategyResultObj = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
+                  stratName = 'v1 - Forex 15m MTF Crossover';
+                }
+
+                localLogs.push(`- [${stratName}] ADX=${strategyResultObj.adxValue.toFixed(1)} | Direction=${strategyResultObj.direction}`);
+
+                if (strategyResultObj.direction !== 'NEUTRAL') {
+                  // Crossover Triggered!
+                  const tick = await fetchTick(socket, pair);
+                  if (tick) {
+                    const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
+                    if (spreadBlocked) {
+                      localLogs.push(`- [${stratName}] Skip: Spread exceeds limit.`);
+                      continue;
+                    }
+
+                    localLogs.push(`🔥 [${stratName}] Trigger! Buying $${derivStakeAmount.toFixed(2)} ${strategyResultObj.direction} contract.`);
+                    try {
+                      const result = await buyContract(socket, pair, strategyResultObj.direction, derivStakeAmount);
+                      executionSuccess = true;
+                      
+                      const newTrade = {
+                        id: crypto.randomUUID(),
+                        contract_id: result.contract_id,
+                        symbol: pair,
+                        contract_type: strategyResultObj.direction,
+                        duration: 15,
+                        duration_unit: 'm',
+                        stake: derivStakeAmount,
+                        payout: parseFloat(result.payout),
+                        status: 'OPEN',
+                        entry_price: parseFloat(result.buy_price),
+                        exit_price: null,
+                        barrier: null,
+                        pnl: 0,
+                        is_paper: tradingMode === 'DEMO',
+                        created_at: new Date(result.start_time * 1000).toISOString(),
+                        closed_at: null
+                      };
+
+                      await supabase.from('deriv_trades').insert([newTrade]);
+                      
+                      const signalMsg = `🔔 <b>DERIV SIGNAL EXECUTED</b>\n\n` +
+                        `Asset: <b>${getDisplaySymbolName(pair)}</b>\n` +
+                        `Strategy: <b>${stratName}</b>\n` +
+                        `Direction: ${strategyResultObj.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
+                        `Timeframe: 15m\n` +
+                        `Account: ${tradingMode}\n` +
+                        `Stake: $${derivStakeAmount.toFixed(2)}`;
+                      
+                      await sendTelegramAlert(signalMsg);
+                    } catch (buyErr: any) {
+                      localLogs.push(`❌ [${stratName}] Buy error: ${buyErr.message}`);
+                    }
+                  }
+                } else if (strategyResultObj.nearEntry.isNear) {
+                  stillNear = true;
+                  finalNearEntryObj = {
+                    symbol: pair,
+                    direction: strategyResultObj.nearEntry.direction,
+                    reason: `[${stratName}] ${strategyResultObj.nearEntry.reason}`,
+                    adx: strategyResultObj.adxValue,
+                    stochK: strategyResultObj.nearEntry.stochK,
+                    stochD: strategyResultObj.nearEntry.stochD,
+                    confirmations: strategyResultObj.nearEntry.confirmations,
+                    updatedAt: new Date().toISOString()
+                  };
+                } else {
+                  localLogs.push(`- [${stratName}] Not near entry.`);
+                }
+              }
+            } catch (err: any) {
+              localLogs.push(`❌ Error scanning ${pair}: ${err.message}`);
+              stillNear = true;
             }
-          } else if (strategyResultObj.nearEntry.isNear) {
-            stillNear = true;
-            finalNearEntryObj = {
-              symbol: pair,
-              direction: strategyResultObj.nearEntry.direction,
-              reason: `[${stratName}] ${strategyResultObj.nearEntry.reason}`,
-              adx: strategyResultObj.adxValue,
-              stochK: strategyResultObj.nearEntry.stochK,
-              stochD: strategyResultObj.nearEntry.stochD,
-              confirmations: strategyResultObj.nearEntry.confirmations,
-              updatedAt: new Date().toISOString()
-            };
-          } else {
-            localLogs.push(`ℹ️ Watchlist: ${pair} is no longer near entry criteria for ${stratName}.`);
+
+            scanResults.push({
+              logs: localLogs,
+              stillNear: stillNear && !executionSuccess,
+              entryPair: finalNearEntryObj
+            });
+            await new Promise(r => setTimeout(r, 45));
           }
+
+          // F. Consolidate results and save logs
+          const currentWatchlist: any[] = [];
+          for (const r of scanResults) {
+            scanLogs.push(...r.logs);
+            if (r.stillNear && r.entryPair) {
+              currentWatchlist.push(r.entryPair);
+            }
+          }
+          await saveDerivScanLogs(existingOverrides, scanLogs, currentWatchlist);
         }
-
-      } catch (err: any) {
-        localLogs.push(`❌ Error monitoring ${pair}: ${err.message}`);
-        stillNear = true; // Keep in watchlist on transient errors
       }
 
-      scanResults.push({
-        logs: localLogs,
-        stillNear: stillNear && !executionSuccess,
-        entryPair: finalNearEntryObj
-      });
-      // Small breather delay
-      await new Promise(r => setTimeout(r, 45));
-    }
-    for (const r of scanResults) {
-      scanLogs.push(...r.logs);
-      if (r.stillNear && r.entryPair) {
-        updatedWatchlist.push(r.entryPair);
+      // Calculate elapsed time and dynamic sleep offset to hit exactly 15 seconds
+      const elapsed = Date.now() - iterStartTime;
+      const sleepTime = Math.max(100, TARGET_INTERVAL_MS - elapsed);
+      scanLogs.push(`Loop iteration completed in ${elapsed}ms. Sleeping ${sleepTime}ms...`);
+      
+      if (iter < ITERATIONS - 1) {
+        await new Promise(r => setTimeout(r, sleepTime));
       }
     }
 
-    socket.close();
-    scanLogs.push('Near-Entry monitor execution complete.');
-    await saveDerivScanLogs(existingOverrides, scanLogs, updatedWatchlist);
+    try { socket.close(); } catch (e) {}
+    scanLogs.push('Near-Entry monitor execution loop complete.');
     return NextResponse.json({ success: true, logs: scanLogs });
 
   } catch (err: any) {
