@@ -1,709 +1,772 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Play,
-  ShieldAlert,
-  Square,
-  TrendingUp,
-  Percent,
-  Layers,
+  LineChart,
   DollarSign,
-  AlertTriangle,
-  RefreshCw,
-  XCircle,
-  ArrowUpRight,
-  ArrowDownRight,
-  History as HistoryIcon,
+  TrendingUp,
   Activity,
-  FlaskConical,
+  ArrowUpRight,
+  Layers,
+  Settings,
+  RefreshCw,
+  Loader2,
+  Save,
+  CheckCircle,
+  AlertTriangle,
+  Play,
   Eye,
-  X,
-  Search,
+  EyeOff,
+  FlaskConical,
+  ShieldAlert,
+  Square
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-interface Stats {
-  botEnabled: boolean;
-  balance: number;
-  realBalance?: number;
-  balanceFetched: boolean;
-  balanceError: string;
-  todayPnl: number;
-  winRate: number;
-  openTradesCount: number;
-  lastScanAt: string | null;
-  lastScanLogs: string[];
-  tradingMode: 'DEMO' | 'REAL';
-}
-
-interface Trade {
+interface DerivTrade {
   id: string;
-  timestamp: string;
-  pair: string;
-  direction: 'LONG' | 'SHORT';
+  contract_id: number;
+  symbol: string;
+  contract_type: 'CALL' | 'PUT';
+  duration: number;
+  duration_unit: string;
+  stake: number;
+  payout: number;
+  status: 'OPEN' | 'WON' | 'LOST' | 'ERROR';
   entry_price: number;
   exit_price: number | null;
-  amount: number;
-  tp_price: number;
-  sl_price: number;
-  status: 'OPEN' | 'CLOSED';
-  pnl: number | null;
+  pnl: number;
+  is_paper: boolean;
+  created_at: string;
   closed_at: string | null;
-  leverage?: number;
-  margin?: number;
-  strategy?: string;
-  is_paper?: boolean;
-  binance_order_id?: string;
 }
 
-export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [activeTrades, setActiveTrades] = useState<Trade[]>([]);
-  const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isTogglingBot, setIsTogglingBot] = useState(false);
-  const [closingTradeId, setClosingTradeId] = useState<string | null>(null);
-  const [isClosingAll, setIsClosingAll] = useState(false);
-  const [binancePositions, setBinancePositions] = useState<any[]>([]);
-  const [paperTrades, setPaperTrades] = useState<Trade[]>([]);
-  const [activeTab, setActiveTab] = useState<'db' | 'binance' | 'sandbox' | 'chart'>('binance');
-  const [isClosingBinanceSymbol, setIsClosingBinanceSymbol] = useState<string | null>(null);
-  const [positionsSearchQuery, setPositionsSearchQuery] = useState('');
+const STRATEGIES_LIST = [
+  { id: 'FOREX_15M_MTF', name: 'v1 - Forex 15m MTF Crossover', desc: 'H1 Trend Filter + 15m EMA/ADX + 5m Stochastic crossover entry trigger.' },
+  { id: 'FOREX_15M_MTF_V2', name: 'v2 - Forex 15m MTF Crossover', desc: 'v2: Adds Support/Resistance and Candlestick Filter validations for higher accuracy.' }
+];
+
+const GLOBAL_PAIRS_LIST = [
+  { id: 'frxEURUSD', name: 'EUR/USD', desc: 'Euro / US Dollar' },
+  { id: 'frxGBPUSD', name: 'GBP/USD', desc: 'Great British Pound / US Dollar' },
+  { id: 'frxUSDJPY', name: 'USD/JPY', desc: 'US Dollar / Japanese Yen' },
+  { id: 'frxAUDUSD', name: 'AUD/USD', desc: 'Australian Dollar / US Dollar' },
+  { id: 'frxUSDCAD', name: 'USD/CAD', desc: 'US Dollar / Canadian Dollar' },
+  { id: 'frxUSDCHF', name: 'USD/CHF', desc: 'US Dollar / Swiss Franc' },
+  { id: 'frxAUDJPY', name: 'AUD/JPY', desc: 'Australian Dollar / Japanese Yen' },
+  { id: 'frxEURJPY', name: 'EUR/JPY', desc: 'Euro / Japanese Yen' },
+  { id: 'frxGBPJPY', name: 'GBP/JPY', desc: 'Great British Pound / Japanese Yen' },
+  { id: 'frxXAUUSD', name: 'Gold / USD', desc: 'Spot Gold' },
+  { id: 'frxXAGUSD', name: 'Silver / USD', desc: 'Spot Silver' },
+  { id: 'cryBTCUSD', name: 'BTC/USD', desc: 'Bitcoin' },
+  { id: 'cryETHUSD', name: 'ETH/USD', desc: 'Ethereum' }
+];
+
+const SYNTHETIC_PAIRS_LIST = [
+  { id: 'R_10', name: 'Volatility 10 Index', desc: 'Constant volatility 10%' },
+  { id: 'R_25', name: 'Volatility 25 Index', desc: 'Constant volatility 25%' },
+  { id: 'R_50', name: 'Volatility 50 Index', desc: 'Constant volatility 50%' },
+  { id: 'R_75', name: 'Volatility 75 Index', desc: 'Constant volatility 75%' },
+  { id: 'R_100', name: 'Volatility 100 Index', desc: 'Constant volatility 100%' },
+  { id: '1HZ10V', name: 'Volatility 10 (1s) Index', desc: 'Volatility 10% (1-sec tick)' },
+  { id: '1HZ75V', name: 'Volatility 75 (1s) Index', desc: 'Volatility 75% (1-sec tick)' },
+  { id: '1HZ100V', name: 'Volatility 100 (1s) Index', desc: 'Volatility 100% (1-sec tick)' },
+  { id: 'BOOM500', name: 'Boom 500 Index', desc: 'Spike average every 500 ticks' },
+  { id: 'BOOM1000', name: 'Boom 1000 Index', desc: 'Spike average every 1000 ticks' },
+  { id: 'CRASH500', name: 'Crash 500 Index', desc: 'Drop average every 500 ticks' },
+  { id: 'CRASH1000', name: 'Crash 1000 Index', desc: 'Drop average every 1000 ticks' },
+  { id: 'JD50', name: 'Jump 50 Index', desc: 'Jump volatility 50%' },
+  { id: 'stpRNG', name: 'Step Index 100', desc: 'Step sizing 0.1 average' },
+  { id: 'RB100', name: 'Range Break 100', desc: 'Range Break 100 ticks' },
+  { id: 'RB200', name: 'Range Break 200', desc: 'Range Break 200 ticks' }
+];
+
+const UNUSUAL_PAIRS_LIST = [
+  // Forex Minor & Exotics
+  { id: 'frxEURGBP', name: 'EUR/GBP', desc: 'Euro / Great British Pound' },
+  { id: 'frxEURAUD', name: 'EUR/AUD', desc: 'Euro / Australian Dollar' },
+  { id: 'frxEURCAD', name: 'EUR/CAD', desc: 'Euro / Canadian Dollar' },
+  { id: 'frxEURCHF', name: 'EUR/CHF', desc: 'Euro / Swiss Franc' },
+  { id: 'frxGBPAUD', name: 'GBP/AUD', desc: 'Great British Pound / Australian Dollar' },
+  { id: 'frxAUDCAD', name: 'AUD/CAD', desc: 'Australian Dollar / Canadian Dollar' },
+  { id: 'frxAUDCHF', name: 'AUD/CHF', desc: 'Australian Dollar / Swiss Franc' },
+  { id: 'frxAUDNZD', name: 'AUD/NZD', desc: 'Australian Dollar / New Zealand Dollar' },
+  { id: 'frxEURNZD', name: 'EUR/NZD', desc: 'Euro / New Zealand Dollar' },
+  { id: 'frxGBPCAD', name: 'GBP/CAD', desc: 'Great British Pound / Canadian Dollar' },
+  { id: 'frxGBPCHF', name: 'GBP/CHF', desc: 'Great British Pound / Swiss Franc' },
+  { id: 'frxGBPNZD', name: 'GBP/NZD', desc: 'Great British Pound / New Zealand Dollar' },
+  { id: 'frxNZDJPY', name: 'NZD/JPY', desc: 'New Zealand Dollar / Japanese Yen' },
+  { id: 'frxNZDUSD', name: 'NZD/USD', desc: 'New Zealand Dollar / US Dollar' },
+  { id: 'frxUSDMXN', name: 'USD/MXN', desc: 'USD / Mexican Peso' },
+  { id: 'frxUSDPLN', name: 'USD/PLN', desc: 'USD / Polish Zloty' },
+  // Exotic Metals
+  { id: 'frxXPDUSD', name: 'Palladium / USD', desc: 'Palladium Spot' },
+  { id: 'frxXPTUSD', name: 'Platinum / USD', desc: 'Platinum Spot' },
+  // Stock Indices OTC
+  { id: 'OTC_NDX', name: 'US Tech 100', desc: 'US Tech 100 OTC' },
+  { id: 'OTC_SPC', name: 'US 500', desc: 'US 500 OTC' },
+  { id: 'OTC_DJI', name: 'Wall Street 30', desc: 'Wall Street 30 OTC' },
+  { id: 'OTC_FTSE', name: 'UK 100', desc: 'UK 100 OTC' },
+  { id: 'OTC_GDAXI', name: 'Germany 40', desc: 'Germany 40 OTC' },
+  { id: 'OTC_FCHI', name: 'France 40', desc: 'France 40 OTC' },
+  { id: 'OTC_SX5E', name: 'Euro 50', desc: 'Euro 50 OTC' },
+  { id: 'OTC_N225', name: 'Japan 225', desc: 'Japan 225 OTC' },
+  { id: 'OTC_HSI', name: 'Hong Kong 50', desc: 'Hong Kong 50 OTC' },
+  { id: 'OTC_AS51', name: 'Australia 200', desc: 'Australia 200 OTC' },
+  { id: 'OTC_AEX', name: 'Netherlands 25', desc: 'Netherlands 25 OTC' },
+  { id: 'OTC_SSMI', name: 'Swiss 20', desc: 'Swiss 20 OTC' },
+  // Daily & Baskets
+  { id: 'WLDAUD', name: 'AUD Basket', desc: 'AUD index' },
+  { id: 'WLDEUR', name: 'EUR Basket', desc: 'EUR index' },
+  { id: 'WLDGBP', name: 'GBP Basket', desc: 'GBP index' },
+  { id: 'WLDUSD', name: 'USD Basket', desc: 'USD index' },
+  { id: 'WLDXAU', name: 'Gold Basket', desc: 'Gold index' },
+  { id: 'RDBEAR', name: 'Bear Market Index', desc: 'Constant bear trend' },
+  { id: 'RDBULL', name: 'Bull Market Index', desc: 'Constant bull trend' },
+  // Non-standard synthetics variants
+  { id: '1HZ15V', name: 'Volatility 15 (1s) Index', desc: 'Volatility 15% (1-sec tick)' },
+  { id: '1HZ30V', name: 'Volatility 30 (1s) Index', desc: 'Volatility 30% (1-sec tick)' },
+  { id: '1HZ90V', name: 'Volatility 90 (1s) Index', desc: 'Volatility 90% (1-sec tick)' },
+  { id: 'BOOM50', name: 'Boom 50 Index', desc: 'Spike average every 50 ticks' },
+  { id: 'BOOM150N', name: 'Boom 150 Index', desc: 'Spike average every 150 ticks' },
+  { id: 'BOOM300N', name: 'Boom 300 Index', desc: 'Spike average every 300 ticks' },
+  { id: 'BOOM600', name: 'Boom 600 Index', desc: 'Spike average every 600 ticks' },
+  { id: 'BOOM900', name: 'Boom 900 Index', desc: 'Spike average every 900 ticks' },
+  { id: 'CRASH50', name: 'Crash 50 Index', desc: 'Drop average every 50 ticks' },
+  { id: 'CRASH150N', name: 'Crash 150 Index', desc: 'Drop average every 150 ticks' },
+  { id: 'CRASH300N', name: 'Crash 300 Index', desc: 'Drop average every 300 ticks' },
+  { id: 'CRASH600', name: 'Crash 600 Index', desc: 'Drop average every 600 ticks' },
+  { id: 'CRASH900', name: 'Crash 900 Index', desc: 'Drop average every 900 ticks' },
+  { id: 'JD10', name: 'Jump 10 Index', desc: 'Jump volatility 10%' },
+  { id: 'JD25', name: 'Jump 25 Index', desc: 'Jump volatility 25%' },
+  { id: 'JD100', name: 'Jump 100 Index', desc: 'Jump volatility 100%' },
+  { id: 'stpRNG2', name: 'Step Index 200', desc: 'Step average sizing 0.2' },
+  { id: 'stpRNG3', name: 'Step Index 300', desc: 'Step average sizing 0.3' },
+  { id: 'stpRNG4', name: 'Step Index 400', desc: 'Step average sizing 0.4' },
+  { id: 'stpRNG5', name: 'Step Index 500', desc: 'Step average sizing 0.5' }
+];
+
+export default function DerivDashboard() {
+  // Credentials
+  const [appId, setAppId] = useState('');
+  const [apiToken, setApiToken] = useState('');
+  const [demoAccount, setDemoAccount] = useState('');
+  const [realAccount, setRealAccount] = useState('');
+  const [demoBalance, setDemoBalance] = useState(0.00);
+  const [realBalance, setRealBalance] = useState(0.00);
+  const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
+  
+  // Toggles & logs
+  const [derivBotEnabled, setDerivBotEnabled] = useState(false);
+  const [lastScanAt, setLastScanAt] = useState('');
+  const [lastScanLogs, setLastScanLogs] = useState<string[]>([]);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState({ type: '', text: '' });
+  const [showToken, setShowToken] = useState(false);
+
+  // Bot control panel state states
   const [dashboardMaxTrades, setDashboardMaxTrades] = useState('10');
   const [isSavingMaxTrades, setIsSavingMaxTrades] = useState(false);
-
-  // Live price states via WebSocket
-  const [livePrices, setLivePrices] = useState<{ [symbol: string]: number }>({});
-  const [priceDirections, setPriceDirections] = useState<{ [symbol: string]: 'up' | 'down' | 'flat' }>({});
-  const wsRef = useRef<WebSocket | null>(null);
-
-  // Diagnostics states
-  const [isTesting, setIsTesting] = useState(false);
-  const [testReport, setTestReport] = useState<any>(null);
-  const [showReportModal, setShowReportModal] = useState(false);
+  const [isTestingProject, setIsTestingProject] = useState(false);
   const [isTestingTrade, setIsTestingTrade] = useState(false);
-  const [selectedChartSymbol, setSelectedChartSymbol] = useState<string | null>(null);
+  const [isClosingAll, setIsClosingAll] = useState(false);
+  const [selectedChartSymbol, setSelectedChartSymbol] = useState('frxEURUSD');
+  const [isTogglingBot, setIsTogglingBot] = useState(false);
+  const [dashboardStakeAmount, setDashboardStakeAmount] = useState('1.00');
+  const [isSavingStake, setIsSavingStake] = useState(false);
+  const [nearEntryPairs, setNearEntryPairs] = useState<any[]>([]);
+  const [isForceScanning, setIsForceScanning] = useState(false);
 
-  const [selectedStrategy, setSelectedStrategy] = useState<string>('');
-  const [activeStrategies, setActiveStrategies] = useState<string[]>([]);
-  const [draftActiveStrategies, setDraftActiveStrategies] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [isSavingStrategies, setIsSavingStrategies] = useState<boolean>(false);
+  // Sort nearEntryPairs descending by number of active confirmations (T A S) and then by ADX value
+  const sortedNearEntryPairs = useMemo(() => {
+    if (!nearEntryPairs) return [];
+    return [...nearEntryPairs].sort((a, b) => {
+      const scoreA = (a.confirmations?.trend ? 1 : 0) + (a.confirmations?.adx ? 1 : 0) + (a.confirmations?.stochZone ? 1 : 0);
+      const scoreB = (b.confirmations?.trend ? 1 : 0) + (b.confirmations?.adx ? 1 : 0) + (b.confirmations?.stochZone ? 1 : 0);
+      
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+      
+      return parseFloat(b.adx || 0) - parseFloat(a.adx || 0);
+    });
+  }, [nearEntryPairs]);
 
-  const STRATEGIES_LIST = [
-    { id: 'PREMIUM_80_WIN', name: 'Premium 80% Win Rate Scalper' },
-    { id: 'RSI_MACD', name: 'RSI + MACD Trend' },
-    { id: 'BOLLINGER_RSI', name: 'Bollinger + RSI Reversion' },
-    { id: 'BOLLINGER_RSI_OPT', name: 'Bollinger + RSI (OPT)' },
-    { id: 'DOUBLE_EMA', name: 'Double EMA' },
-    { id: 'DOUBLE_EMA_OPT', name: 'Double EMA (OPT)' },
-    { id: 'DOUBLE_EMA_5M', name: 'Double EMA 5M' },
-    { id: 'DOUBLE_EMA_15M', name: 'Double EMA 15M' },
-    { id: 'SUPERTREND_EMA', name: 'SuperTrend + EMA' },
-    { id: 'SUPERTREND_EMA_OPT', name: 'SuperTrend + EMA (OPT)' },
-    { id: 'STOCH_RSI_MACD', name: 'StochRSI + MACD' },
-    { id: 'ATR_BREAKOUT', name: 'ATR Breakout' },
-    { id: 'SWING_STRUCTURE', name: 'Swing Structure' },
-    { id: 'MACD_DIVERGENCE', name: 'MACD Divergence' },
-    { id: 'KDJ_REVERSION', name: 'KDJ Reversion' },
-    { id: 'KDJ_REVERSION_OPT', name: 'KDJ Reversion (OPT)' },
-    { id: 'FIBONACCI_PULLBACK', name: 'Fib Pullback' },
-    { id: 'ICHIMOKU_CLOUDBREAK', name: 'Ichimoku Cloud' },
-    { id: 'VWAP_REVERSION', name: 'VWAP Reversion' },
-    { id: 'VWAP_REVERSION_OPT', name: 'VWAP Reversion (OPT)' },
-    { id: 'RSI_STOCH_EMA_TREND', name: 'RSI + Stoch + EMA Trend' },
-    { id: 'CMF_BREAKOUT', name: 'CMF + BB Breakout' },
-    { id: 'HULL_MA_CROSSOVER', name: 'Hull MA Crossover' },
-    { id: 'DONCHIAN_BREAKOUT', name: 'Donchian Breakout' },
-    { id: 'ADX_DI_MOMENTUM', name: 'ADX + DI Momentum' },
-    { id: 'REGIME_ENSEMBLE_PRO', name: 'Regime Ensemble Pro' },
-    { id: 'COMBINATION_STRATEGIES', name: 'Combo Strategies' },
-  ];
+  // Selected pairs list state
+  const [selectedPairs, setSelectedPairs] = useState<string[]>(['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']);
+  const [draftPairs, setDraftPairs] = useState<string[]>(['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY']);
 
-  const handleToggleStrategyDraft = (strategyId: string) => {
-    let updatedActive = [...draftActiveStrategies];
-    if (updatedActive.includes(strategyId)) {
-      updatedActive = updatedActive.filter((s) => s !== strategyId);
-    } else {
-      updatedActive.push(strategyId);
+  // Risk filter toggles states
+  const [newsFilterEnabled, setNewsFilterEnabled] = useState(true);
+  const [sessionFilterEnabled, setSessionFilterEnabled] = useState(true);
+  const [cooldownFilterEnabled, setCooldownFilterEnabled] = useState(true);
+  const [dailyLimitEnabled, setDailyLimitEnabled] = useState(true);
+  const [isSavingRiskToggles, setIsSavingRiskToggles] = useState(false);
+
+  const getPairDisplayName = (symbolId: string) => {
+    const allPairs = [...GLOBAL_PAIRS_LIST, ...SYNTHETIC_PAIRS_LIST, ...UNUSUAL_PAIRS_LIST];
+    const match = allPairs.find(p => p.id === symbolId);
+    return match ? match.name : symbolId.replace('frx', '').replace('cry', '');
+  };
+
+  // Strategy list selectors
+  const [activeStrategies, setActiveStrategies] = useState<string[]>(['FOREX_15M_MTF']);
+  const [draftStrategies, setDraftStrategies] = useState<string[]>(['FOREX_15M_MTF']);
+  const [isSavingStrategies, setIsSavingStrategies] = useState(false);
+  const [searchEnginesQuery, setSearchEnginesQuery] = useState('');
+  const [searchGlobalQuery, setSearchGlobalQuery] = useState('');
+  const [searchSyntheticQuery, setSearchSyntheticQuery] = useState('');
+  const [searchUnusualQuery, setSearchUnusualQuery] = useState('');
+
+  // Trades states
+  const [trades, setTrades] = useState<DerivTrade[]>([]);
+  const [isLoadingTrades, setIsLoadingTrades] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Manual trade form state
+  const [tradeSymbol, setTradeSymbol] = useState('frxEURUSD');
+  const [tradeType, setTradeType] = useState<'CALL' | 'PUT'>('CALL');
+  const [tradeAmount, setTradeAmount] = useState('1.00');
+  const [tradeDuration, setTradeDuration] = useState('15');
+  const [tradeDurationUnit, setTradeDurationUnit] = useState('m');
+  const [tradeMode, setTradeMode] = useState<'DEMO' | 'REAL'>('DEMO');
+  const [isExecutingTrade, setIsExecutingTrade] = useState(false);
+
+  // Load everything on mount
+  useEffect(() => {
+    fetchSettings(true);
+    fetchTrades();
+
+    const interval = setInterval(() => {
+      syncTradesSilently();
+      fetchSettings(false); // Auto-refresh scan logs, settings, and watchlist without overwriting user drafts
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchSettings = async (isInitial: boolean = false) => {
+    try {
+      const res = await fetch('/api/deriv/settings');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAppId(data.appId || '');
+        setApiToken(data.apiToken || '');
+        setDemoAccount(data.demoAccount || '');
+        setRealAccount(data.realAccount || '');
+        setDemoBalance(data.demoBalance || 0);
+        setRealBalance(data.realBalance || 0);
+        setTradingMode(data.tradingMode || 'DEMO');
+        setTradeMode(data.tradingMode || 'DEMO');
+        setDerivBotEnabled(data.botEnabled || false);
+        setLastScanAt(data.lastScanAt || '');
+        setLastScanLogs(data.lastScanLogs || []);
+        
+        const activeStrats = data.activeStrategies || ['FOREX_15M_MTF'];
+        setActiveStrategies(activeStrats);
+        
+        const savedPairs = data.derivSelectedPairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
+        setSelectedPairs(savedPairs);
+
+        // Only overwrite draft user-facing checkboxes on initial load
+        if (isInitial) {
+          setDraftStrategies(activeStrats);
+          setDashboardMaxTrades(String(data.derivMaxTrades || 10));
+          setDashboardStakeAmount(String(data.derivStakeAmount || '1.00'));
+          setDraftPairs(savedPairs);
+          setNewsFilterEnabled(data.derivNewsFilterEnabled !== false);
+          setSessionFilterEnabled(data.derivSessionFilterEnabled !== false);
+          setCooldownFilterEnabled(data.derivCooldownFilterEnabled !== false);
+          setDailyLimitEnabled(data.derivDailyLimitEnabled !== false);
+        }
+        
+        setNearEntryPairs(data.derivNearEntryPairs || []);
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
     }
-    setDraftActiveStrategies(updatedActive);
+  };
+
+  const fetchTrades = async () => {
+    setIsLoadingTrades(true);
+    try {
+      const res = await fetch('/api/deriv/trade');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTrades(data.trades || []);
+      }
+    } catch (err) {
+      console.error('Error fetching trades:', err);
+    } finally {
+      setIsLoadingTrades(false);
+    }
+  };
+
+  const syncTradesSilently = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/deriv/trade');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        const previousOpenIds = trades.filter(t => t.status === 'OPEN').map(t => t.id);
+        const newTrades: DerivTrade[] = data.trades || [];
+        
+        newTrades.forEach(nt => {
+          if (previousOpenIds.includes(nt.id) && nt.status === 'WON') {
+            confetti({
+              particleCount: 80,
+              spread: 60,
+              origin: { y: 0.8 },
+              colors: ['#10b981', '#34d399', '#6ee7b7']
+            });
+          }
+        });
+
+        setTrades(newTrades);
+      }
+      
+      // Also fetch logs to update scanner box
+      const settingsRes = await fetch('/api/deriv/settings');
+      const settingsData = await settingsRes.json();
+      if (settingsRes.ok && settingsData.success) {
+        setLastScanAt(settingsData.lastScanAt || '');
+        setLastScanLogs(settingsData.lastScanLogs || []);
+        setDemoBalance(settingsData.demoBalance || 0);
+        setRealBalance(settingsData.realBalance || 0);
+      }
+    } catch (err) {
+      console.error('Error syncing:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleForceScan = async () => {
+    setIsForceScanning(true);
+    try {
+      const response = await fetch('/api/deriv/cron', {
+        method: 'GET'
+      });
+      const data = await response.json();
+      if (data.success) {
+        // Refresh settings to get new logs and watchlist immediately
+        await fetchSettings();
+        await fetchTrades();
+      } else {
+        alert(`Scan failed: ${data.error || 'Unknown error'}`);
+        // Still refresh to load the latest error logs in the terminal log
+        await fetchSettings();
+      }
+    } catch (err: any) {
+      alert(`Network error during scan: ${err.message}`);
+    } finally {
+      setIsForceScanning(false);
+    }
+  };
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingSettings(true);
+    setSettingsMessage({ type: '', text: '' });
+
+    try {
+      const res = await fetch('/api/deriv/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          apiToken,
+          demoAccount,
+          realAccount,
+          tradingMode,
+          botEnabled: derivBotEnabled,
+          activeStrategies,
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
+        }),
+      });
+
+      fetchSettings(true);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSettingsMessage({
+          type: 'success',
+          text: 'Deriv settings saved successfully!',
+        });
+        confetti({
+          particleCount: 50,
+          spread: 40,
+          origin: { y: 0.8 }
+        });
+      } else {
+        setSettingsMessage({
+          type: 'error',
+          text: data.error || 'Failed to save settings.',
+        });
+      }
+    } catch (err: any) {
+      setSettingsMessage({
+        type: 'error',
+        text: err.message || 'Error saving settings.',
+      });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleToggleStrategyDraft = (id: string) => {
+    if (draftStrategies.includes(id)) {
+      setDraftStrategies(draftStrategies.filter(x => x !== id));
+    } else {
+      setDraftStrategies([...draftStrategies, id]);
+    }
+  };
+
+  const handleTogglePairDraft = (id: string) => {
+    if (draftPairs.includes(id)) {
+      setDraftPairs(draftPairs.filter(x => x !== id));
+    } else {
+      setDraftPairs([...draftPairs, id]);
+    }
+  };
+
+  const handleToggleRiskFilter = async (filterType: string, currentValue: boolean) => {
+    setIsSavingRiskToggles(true);
+    const newValue = !currentValue;
+    
+    // Set UI state immediately
+    if (filterType === 'news') setNewsFilterEnabled(newValue);
+    if (filterType === 'session') setSessionFilterEnabled(newValue);
+    if (filterType === 'cooldown') setCooldownFilterEnabled(newValue);
+    if (filterType === 'daily') setDailyLimitEnabled(newValue);
+
+    try {
+      await fetch('/api/deriv/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          apiToken,
+          demoAccount,
+          realAccount,
+          tradingMode,
+          botEnabled: derivBotEnabled,
+          activeStrategies,
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: filterType === 'news' ? newValue : newsFilterEnabled,
+          derivSessionFilterEnabled: filterType === 'session' ? newValue : sessionFilterEnabled,
+          derivCooldownFilterEnabled: filterType === 'cooldown' ? newValue : cooldownFilterEnabled,
+          derivDailyLimitEnabled: filterType === 'daily' ? newValue : dailyLimitEnabled
+        })
+      });
+      confetti({ particleCount: 25, spread: 25, origin: { y: 0.85 } });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingRiskToggles(false);
+    }
   };
 
   const handleSaveActiveStrategies = async () => {
-    if (draftActiveStrategies.length === 0) {
-      alert('You must select at least one active strategy!');
-      return;
-    }
     setIsSavingStrategies(true);
     try {
-      const settingsRes = await fetch('/api/settings');
-      const currentSettings = await settingsRes.json();
-
-      const pairOverrides = currentSettings.pair_overrides || {};
-      const updatedPayload = {
-        ...currentSettings,
-        pair_overrides: {
-          ...pairOverrides,
-          ACTIVE_STRATEGIES: draftActiveStrategies,
-        },
-      };
-
-      const res = await fetch('/api/settings', {
+      const res = await fetch('/api/deriv/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedPayload),
+        body: JSON.stringify({
+          appId,
+          apiToken,
+          demoAccount,
+          realAccount,
+          tradingMode,
+          botEnabled: derivBotEnabled,
+          activeStrategies: draftStrategies,
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: draftPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
+        }),
       });
 
       if (res.ok) {
-        setActiveStrategies(draftActiveStrategies);
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.8 },
-        });
-      } else {
-        alert('Failed to save configuration.');
+        setActiveStrategies(draftStrategies);
+        setSelectedPairs(draftPairs);
+        confetti({ particleCount: 60, spread: 50, origin: { y: 0.8 } });
       }
     } catch (err) {
-      console.error('Failed to save strategy config:', err);
-      alert('Error saving strategy configuration.');
+      console.error(err);
     } finally {
       setIsSavingStrategies(false);
     }
   };
 
-  const displayedActiveTrades = activeTrades.filter((t) => {
-    return !t.is_paper;
-  });
-
-  const displayedRecentTrades = recentTrades.filter((t) => {
-    const isRealTrade = (t.binance_order_id || '').startsWith('REAL_');
-    const isRealMode = stats?.tradingMode === 'REAL';
-    return isRealMode ? isRealTrade : !isRealTrade;
-  });
-
-  const strategyRealizedPnl = displayedRecentTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-
-  const strategyTodayPnl = displayedRecentTrades
-    .filter((t) => {
-      if (!t.closed_at) return false;
-      const startOfToday = new Date();
-      startOfToday.setUTCHours(0, 0, 0, 0);
-      return new Date(t.closed_at) >= startOfToday;
-    })
-    .reduce((sum, t) => sum + (t.pnl || 0), 0);
-
-  const strategyWinRate = (() => {
-    const total = displayedRecentTrades.length;
-    const wins = displayedRecentTrades.filter((t) => (t.pnl || 0) > 0).length;
-    return total > 0 ? (wins / total) * 100 : 0;
-  })();
-
-  const runTestTrade = async () => {
-    if (isTestingTrade) return;
-    const confirmTest = window.confirm(
-      `Are you sure you want to execute a market TEST TRADE (0.001 BTC)?\n\n` +
-      `This will instantly open a position on your active account (${stats?.tradingMode === 'REAL' ? 'REAL LIVE' : 'DEMO SANDBOX'}) and close it 1 second later to test the complete execution cycle.`
-    );
-    if (!confirmTest) return;
-
-    try {
-      setIsTestingTrade(true);
-      const res = await fetch('/api/trades/test-trade', { method: 'POST' });
-      const data = await res.json();
-      if (res.ok) {
-        alert(`Success: Test trade executed and closed!\nP&L: ${data.pnl >= 0 ? '+' : ''}${data.pnl.toFixed(4)} USDT`);
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-        fetchDashboardData();
-      } else {
-        alert(`Test trade execution failed: ${data.error}`);
-      }
-    } catch (err: any) {
-      alert(`Network error executing test trade: ${err.message}`);
-    } finally {
-      setIsTestingTrade(false);
-    }
-  };
-
-  const fetchDashboardData = async () => {
-    try {
-      const statsRes = await fetch('/api/stats');
-      const statsData = await statsRes.json();
-
-      const settingsRes = await fetch('/api/settings');
-      const settingsData = await settingsRes.json();
-
-      let activeStrats: string[] = [];
-      let defaultStrat = 'ALL';
-      if (settingsRes.ok) {
-        activeStrats = settingsData.pair_overrides?.ACTIVE_STRATEGIES || [settingsData.active_strategy || 'RSI_MACD'];
-        setActiveStrategies(activeStrats);
-        setDraftActiveStrategies(activeStrats);
-        setDashboardMaxTrades(String(settingsData.max_open_trades !== undefined ? settingsData.max_open_trades : 10));
-      }
-
-      const currentStrategyParam = selectedStrategy || defaultStrat;
-      if (!selectedStrategy) {
-        setSelectedStrategy(defaultStrat);
-      }
-
-      const url = currentStrategyParam === 'ALL' ? '/api/trades' : `/api/trades?strategy=${currentStrategyParam}`;
-      const tradesRes = await fetch(url);
-      const tradesData = await tradesRes.json();
-
-      if (statsData.success) {
-        setStats(statsData);
-      }
-      if (tradesData.success) {
-        const allDetailed: Trade[] = tradesData.detailedTrades || [];
-        const liveTrades = allDetailed.filter((t) => !t.is_paper);
-        const allOpen: Trade[] = tradesData.openTrades || [];
-        
-        setActiveTrades(allOpen.filter((t) => !t.is_paper));
-        setPaperTrades(allOpen.filter((t) => !!t.is_paper));
-        setRecentTrades(liveTrades.filter((t) => t.status === 'CLOSED'));
-
-        if (tradesData.binancePositions) {
-          setBinancePositions(tradesData.binancePositions);
-        } else {
-          setBinancePositions([]);
-        }
-
-        if (tradesData.livePrices) {
-          setLivePrices((prev) => ({ ...prev, ...tradesData.livePrices }));
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 10000); // refresh every 10 seconds
-    return () => clearInterval(interval);
-  }, [selectedStrategy]);
-
-  // Binance WebSocket connection for active trades (Live Floating P&L)
-  useEffect(() => {
-    if (activeTrades.length === 0) {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      return;
-    }
-
-    const symbols = activeTrades.map((t) => t.pair).sort();
-    const streams = symbols.map((s) => `${s.toLowerCase()}@ticker`).join('/');
-    const wsUrl = `wss://fstream.binance.com/stream?streams=${streams}`;
-
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        if (!message.data) return;
-
-        const symbol = message.data.s;
-        const closePrice = parseFloat(message.data.c);
-
-        if (symbol && !isNaN(closePrice)) {
-          setLivePrices((prev) => {
-            const oldPrice = prev[symbol] || 0;
-            let dir: 'up' | 'down' | 'flat' = 'flat';
-            if (closePrice > oldPrice) dir = 'up';
-            else if (closePrice < oldPrice) dir = 'down';
-
-            if (dir !== 'flat') {
-              setPriceDirections((prevDirs) => ({ ...prevDirs, [symbol]: dir }));
-              // Reset flash styling after 1s
-              setTimeout(() => {
-                setPriceDirections((prevDirs) => ({ ...prevDirs, [symbol]: 'flat' }));
-              }, 1000);
-            }
-
-            return { ...prev, [symbol]: closePrice };
-          });
-        }
-      } catch (err) {
-        console.error('Error parsing live price:', err);
-      }
-    };
-
-    ws.onclose = () => {
-      console.log('Overview WS closed');
-    };
-
-    return () => {
-      ws.close();
-    };
-  }, [activeTrades.map(t => t.pair).sort().join(',')]);
-
-  const toggleBot = async () => {
-    if (!stats || isTogglingBot) return;
-    setIsTogglingBot(true);
-    const newStatus = !stats.botEnabled;
-
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bot_enabled: newStatus }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setStats((prev) => (prev ? { ...prev, botEnabled: newStatus } : null));
-        if (newStatus) {
-          confetti({
-            particleCount: 100,
-            spread: 70,
-            origin: { y: 0.6 },
-            colors: ['#10b981', '#3b82f6', '#06b6d4'],
-          });
-        }
-      }
-    } catch (err) {
-      console.error('Failed to toggle bot status:', err);
-    } finally {
-      setIsTogglingBot(false);
-    }
-  };
-
-  const handleEmergencyCloseAll = async () => {
-    const confirmClose = window.confirm("⚠️ ARE YOU ABSOLUTELY SURE?\n\nThis will instantly close all open positions on Binance Futures, cancel all pending orders, and mark all active trades in the database as CLOSED!");
-    if (!confirmClose) return;
-
-    setIsClosingAll(true);
-    try {
-      const res = await fetch('/api/trades/close-all', {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        alert("🚨 EMERGENCY RESET COMPLETE!\n\nAll live positions closed and database trades resolved successfully.");
-        window.location.reload();
-      } else {
-        alert(`❌ EMERGENCY CLOSE FAILED: ${data.error || 'Unknown error'}`);
-      }
-    } catch (err: any) {
-      alert(`❌ EMERGENCY CLOSE ERROR: ${err.message}`);
-    } finally {
-      setIsClosingAll(false);
-    }
-  };
-
-  const handleCloseAllSandbox = async () => {
-    const confirmClose = window.confirm("Are you sure you want to CLOSE all active Sandbox Demo positions in the database?");
-    if (!confirmClose) return;
-
-    setIsClosingAll(true);
-    try {
-      const res = await fetch('/api/trades/close-all?mode=sandbox', {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        alert("Sandbox Demo positions reset complete!");
-        fetchDashboardData();
-      } else {
-        alert(`Failed to reset: ${data.error || 'Unknown error'}`);
-      }
-    } catch (err: any) {
-      alert(`Error: ${err.message}`);
-    } finally {
-      setIsClosingAll(false);
-    }
-  };
-
-  const handleCloseBinancePosition = async (symbol: string) => {
-    const confirmClose = window.confirm(`Are you sure you want to CLOSE the active position for ${symbol} on Binance and cancel any associated open orders?`);
-    if (!confirmClose) return;
-
-    setIsClosingBinanceSymbol(symbol);
-    try {
-      const res = await fetch('/api/trades/close', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        alert(`Successfully closed position for ${symbol}!`);
-        fetchDashboardData();
-      } else {
-        alert(`Failed to close position: ${data.error || 'Unknown error'}`);
-      }
-    } catch (err: any) {
-      alert(`Error closing position: ${err.message}`);
-    } finally {
-      setIsClosingBinanceSymbol(null);
-    }
-  };
-
-  const renderTradingViewChart = () => {
-    const symbolToUse = selectedChartSymbol || (binancePositions[0]?.pair || 'BTCUSDT');
-    const tradingViewSymbol = `BINANCE:${symbolToUse}`.replace('USDTUSDT', 'USDT');
-    
-    return (
-      <div className="w-full h-[450px] bg-zinc-950/40 border border-zinc-800 rounded-3xl overflow-hidden relative mt-4 shadow-inner">
-        <iframe
-          title="TradingView Chart"
-          src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_chart&symbol=${tradingViewSymbol}&interval=15&hidesidetoolbar=1&symboledit=0&saveimage=1&toolbarbg=f1f3f6&studies=%5B%5D&theme=dark&style=1&timezone=exchange&studies_overrides=%7B%7D&overrides=%7B%7D&enabled_features=%5B%5D&disabled_features=%5B%5D&locale=en&utm_source=localhost&utm_medium=widget&utm_campaign=chart-embed`}
-          className="w-full h-full border-0"
-        />
-      </div>
-    );
-  };
-
-  const handleSaveDashboardMaxTrades = async () => {
+  const handleSaveMaxTrades = async () => {
     setIsSavingMaxTrades(true);
     try {
-      const res = await fetch('/api/settings', {
+      const res = await fetch('/api/deriv/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ max_open_trades: parseInt(dashboardMaxTrades) })
+        body: JSON.stringify({
+          appId,
+          apiToken,
+          demoAccount,
+          realAccount,
+          tradingMode,
+          botEnabled: derivBotEnabled,
+          activeStrategies,
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
+        })
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        alert(`Successfully set maximum open trades limit to ${dashboardMaxTrades}!`);
-        fetchDashboardData();
-      } else {
-        alert(`Failed to save limit: ${data.error || 'Unknown error'}`);
+      if (res.ok) {
+        confetti({ particleCount: 40, spread: 30, origin: { y: 0.8 } });
+        alert('Max Trades limit updated successfully!');
       }
-    } catch (err: any) {
-      alert(`Error saving limit: ${err.message}`);
+    } catch (err) {
+      console.error(err);
     } finally {
       setIsSavingMaxTrades(false);
     }
   };
 
-  const closePosition = async (tradeId: string, isProfitable: boolean) => {
-    if (closingTradeId) return;
-    setClosingTradeId(tradeId);
-
+  const handleSaveStakeAmount = async () => {
+    setIsSavingStake(true);
     try {
-      const res = await fetch('/api/trades/close', {
+      const res = await fetch('/api/deriv/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tradeId }),
+        body: JSON.stringify({
+          appId,
+          apiToken,
+          demoAccount,
+          realAccount,
+          tradingMode,
+          botEnabled: derivBotEnabled,
+          activeStrategies,
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
+        })
       });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        if (isProfitable) {
-          confetti({
-            particleCount: 150,
-            spread: 80,
-            origin: { y: 0.6 },
-            colors: ['#10b981', '#059669', '#34d399'],
-          });
-        }
-        fetchDashboardData();
-      } else {
-        alert(data.error || 'Failed to close trade.');
+      if (res.ok) {
+        confetti({ particleCount: 45, spread: 30, origin: { y: 0.8 } });
+        alert('Trade Price (Stake) updated successfully!');
       }
     } catch (err) {
       console.error(err);
-      alert('Error closing position.');
     } finally {
-      setClosingTradeId(null);
+      setIsSavingStake(false);
     }
   };
 
   const runDiagnostics = async () => {
-    setIsTesting(true);
-    setTestReport(null);
-    setShowReportModal(true);
-
+    setIsTestingProject(true);
     try {
-      const res = await fetch('/api/diagnostics', { method: 'POST' });
+      const res = await fetch('/api/deriv/settings');
       const data = await res.json();
-      if (res.ok && data.success) {
-        setTestReport(data.report);
-        confetti({
-          particleCount: 70,
-          spread: 50,
-          origin: { y: 0.6 },
-          colors: ['#3b82f6', '#10b981'],
-        });
+      if (res.ok && data.success && !data.isFallback && data.appId) {
+        alert('🟢 Deriv Bot Connection Diagnostic: Success!\nApp ID & API Token PAT validation passed. Account lists retrieved successfully.');
       } else {
-        setTestReport({
-          error: data.error || 'Failed to complete diagnostics.',
-        });
+        alert('🔴 Deriv Bot Connection Diagnostic: Failed!\nPlease verify your App ID, API Token and Account IDs under Settings.');
       }
     } catch (err: any) {
-      setTestReport({ error: err.message || 'An unexpected error occurred.' });
+      alert(`🔴 Error running diagnostics: ${err.message}`);
     } finally {
-      setIsTesting(false);
+      setIsTestingProject(false);
     }
   };
 
-  const getChartData = () => {
-    const completed = displayedRecentTrades.length > 0 ? [...displayedRecentTrades].reverse() : [];
-    if (completed.length === 0) {
-      return [{ time: 'Start', pnl: 0 }];
+  const runTestTrade = async () => {
+    const confirm = window.confirm(`Are you sure you want to place a market TEST TRADE ($1 Stake CALL) on ${tradingMode === 'REAL' ? 'REAL LIVE' : 'DEMO SANDBOX'}?\n\nThis will execute immediately on Deriv.`);
+    if (!confirm) return;
+    setIsTestingTrade(true);
+    try {
+      const res = await fetch('/api/deriv/trade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: 'frxEURUSD',
+          contractType: 'CALL',
+          amount: '1.00',
+          duration: '15',
+          durationUnit: 'm',
+          isPaper: tradingMode === 'DEMO'
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`🎉 Test trade executed!\nContract ID: ${data.trade.contract_id}`);
+        fetchTrades();
+      } else {
+        alert(`❌ Test trade failed: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert(`❌ Network error: ${err.message}`);
+    } finally {
+      setIsTestingTrade(false);
     }
-    
-    let runningSum = 0;
-    const data = completed.map((trade) => {
-      runningSum += trade.pnl || 0;
-      return {
-        time: trade.closed_at ? new Date(trade.closed_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '',
-        pnl: parseFloat(runningSum.toFixed(2)),
-      };
-    });
-
-    return [{ time: 'Start', pnl: 0 }, ...data];
   };
 
-  if (isLoading && !stats) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-        <p className="text-sm text-zinc-400 font-medium animate-pulse">Loading VIP Terminal...</p>
-      </div>
-    );
-  }
+  const toggleBot = async () => {
+    setIsTogglingBot(true);
+    const newStatus = !derivBotEnabled;
+    try {
+      const res = await fetch('/api/deriv/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          appId,
+          apiToken,
+          demoAccount,
+          realAccount,
+          tradingMode,
+          botEnabled: newStatus,
+          activeStrategies,
+          derivMaxTrades: parseInt(dashboardMaxTrades),
+          derivStakeAmount: parseFloat(dashboardStakeAmount),
+          derivSelectedPairs: selectedPairs,
+          derivNewsFilterEnabled: newsFilterEnabled,
+          derivSessionFilterEnabled: sessionFilterEnabled,
+          derivCooldownFilterEnabled: cooldownFilterEnabled,
+          derivDailyLimitEnabled: dailyLimitEnabled
+        })
+      });
+      if (res.ok) {
+        setDerivBotEnabled(newStatus);
+        if (newStatus) {
+          confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 }, colors: ['#10b981', '#34d399'] });
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsTogglingBot(false);
+    }
+  };
 
-  const filteredStrategies = STRATEGIES_LIST.filter((strat) =>
-    strat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    strat.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleEmergencyClose = async () => {
+    const confirm = window.confirm("Are you sure you want to instantly CLOSE all open Deriv options contracts in the database?");
+    if (!confirm) return;
+    setIsClosingAll(true);
+    try {
+      const res = await fetch('/api/trades/close-all?mode=sandbox', {
+        method: 'POST'
+      });
+      if (res.ok) {
+        fetchTrades();
+        alert('Emergency Close: All active options contracts have been closed.');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsClosingAll(false);
+    }
+  };
 
-  const hasUnsavedChanges = JSON.stringify([...draftActiveStrategies].sort()) !== JSON.stringify([...activeStrategies].sort());
+  const handleExecuteTrade = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsExecutingTrade(true);
+
+    try {
+      const res = await fetch('/api/deriv/trade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: tradeSymbol,
+          contractType: tradeType,
+          amount: tradeAmount,
+          duration: tradeDuration,
+          durationUnit: tradeDurationUnit,
+          isPaper: tradeMode === 'DEMO',
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(`🎉 Options contract purchased successfully!\nContract ID: ${data.trade.contract_id}`);
+        fetchTrades();
+      } else {
+        alert(`❌ Trade execution failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err: any) {
+      alert(`❌ Error executing trade: ${err.message}`);
+    } finally {
+      setIsExecutingTrade(false);
+    }
+  };
+
+  const handleCloseAllTrades = async () => {
+    const confirm = window.confirm("Are you sure you want to CLOSE and archive all Deriv trades in the database?");
+    if (!confirm) return;
+
+    setIsSyncing(true);
+    try {
+      const res = await fetch('/api/trades/close-all?mode=sandbox', {
+        method: 'POST',
+      });
+      if (res.ok) {
+        fetchTrades();
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const openTrades = trades.filter((t) => t.status === 'OPEN');
+  const closedTrades = trades.filter((t) => t.status !== 'OPEN');
+
+  const totalSimulatedPnl = closedTrades.reduce((sum, t) => sum + parseFloat(t.pnl as any || 0), 0);
+  const winRate =
+    closedTrades.length > 0
+      ? (closedTrades.filter((t) => t.status === 'WON').length / closedTrades.length) * 100
+      : 0;
+
+  const hasUnsavedConfig =
+    JSON.stringify(activeStrategies.sort()) !== JSON.stringify(draftStrategies.sort()) ||
+    JSON.stringify(selectedPairs.sort()) !== JSON.stringify(draftPairs.sort());
+
+  const filteredStrategies = STRATEGIES_LIST.filter(s => s.name.toLowerCase().includes(searchEnginesQuery.toLowerCase()) || s.desc.toLowerCase().includes(searchEnginesQuery.toLowerCase()));
+  const filteredGlobalPairs = GLOBAL_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchGlobalQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchGlobalQuery.toLowerCase()));
+  const filteredSyntheticPairs = SYNTHETIC_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchSyntheticQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchSyntheticQuery.toLowerCase()));
+  const filteredUnusualPairs = UNUSUAL_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchUnusualQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchUnusualQuery.toLowerCase()));
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      
-      {/* 2-column Main Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        
-        {/* Left Column: Strategies Sidebar Checklist */}
-        <div className="lg:col-span-1 bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 h-fit space-y-4">
-          <div>
-            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Active Engines</h3>
-            <p className="text-[9px] text-zinc-500 mt-1 leading-relaxed">
-              Tick to run on Binance, untick to run in Sandbox.
-            </p>
-          </div>
-
-          {/* Search Box */}
-          <div>
-            <input
-              type="text"
-              placeholder="🔍 Search strategy..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-3 py-2 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-700/80 transition-all font-mono"
-            />
-          </div>
-
-          <div className="space-y-1.5 max-h-[500px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
-            {/* All Strategies View Toggle */}
-            <div
-              className={`flex items-center justify-between px-2.5 py-2 rounded-xl transition-all duration-200 text-[10px] font-bold cursor-pointer ${
-                selectedStrategy === 'ALL'
-                  ? 'bg-blue-950/20 text-blue-400 font-extrabold border border-blue-500/25'
-                  : 'text-zinc-300 hover:bg-zinc-900/40 hover:text-zinc-200'
-              }`}
-              onClick={() => setSelectedStrategy('ALL')}
-            >
-              <span className="uppercase tracking-wider font-mono flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                All Strategies
-              </span>
-            </div>
-            <div className="h-px bg-zinc-800/50 my-1.5" />
-
-            {filteredStrategies.map((strat) => {
-              const isTicked = draftActiveStrategies.includes(strat.id);
-              const isSelected = selectedStrategy === strat.id;
-              return (
-                <div
-                  key={strat.id}
-                  className={`flex items-center justify-between px-2.5 py-1.5 rounded-xl transition-all duration-200 text-[10px] font-bold ${
-                    isSelected
-                      ? 'bg-emerald-950/20 text-emerald-400 font-extrabold'
-                      : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
-                  }`}
-                >
-                  <button
-                    onClick={() => setSelectedStrategy(strat.id)}
-                    className="flex-1 text-left uppercase tracking-wider cursor-pointer outline-none truncate mr-2 font-mono"
-                  >
-                    {strat.name}
-                  </button>
-                  <label className="flex items-center justify-center cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={isTicked}
-                      onChange={() => handleToggleStrategyDraft(strat.id)}
-                      className="w-3.5 h-3.5 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 focus:outline-none transition-all cursor-pointer accent-emerald-500"
-                    />
-                  </label>
-                </div>
-              );
-            })}
-            {filteredStrategies.length === 0 && (
-              <div className="text-[10px] text-zinc-650 italic text-center py-4">
-                No matching engines
-              </div>
-            )}
-          </div>
-
-          {/* Save Button for Draft Config */}
-          {hasUnsavedChanges && (
-            <div className="pt-2 border-t border-zinc-800/60">
-              <button
-                onClick={handleSaveActiveStrategies}
-                disabled={isSavingStrategies}
-                className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[10px] font-extrabold uppercase tracking-wider rounded-xl transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer disabled:opacity-50"
-              >
-                {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
-              </button>
-            </div>
-          )}
+    <div className="space-y-6">
+      {/* Header Banner */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between border-b border-zinc-800/80 pb-5 gap-6">
+        <div>
+          <h2 className="text-2xl font-extrabold text-zinc-100 flex items-center gap-2.5">
+            <LineChart className="w-7 h-7 text-emerald-400" />
+            <span>Deriv Options Dashboard</span>
+          </h2>
+          <p className="text-xs text-zinc-400 mt-1">
+            Real-time Deriv {tradingMode === 'REAL' ? 'Live Production' : 'Demo Sandbox'} options engine tracker.
+          </p>
         </div>
 
-        {/* Right Column: Dashboard Panel details */}
-        <div className="lg:col-span-4 space-y-8">
-
-          {/* Welcome & Global Toggle Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-[#0c0c0f]/40 backdrop-blur-md border border-zinc-800/80 p-6 rounded-3xl">
-            <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-extrabold tracking-tight">
-                  VIP Dashboard <span className="text-zinc-500">/</span> <span className="text-emerald-400 font-bold">{selectedStrategy === 'ALL' ? 'All Strategies' : (STRATEGIES_LIST.find(s => s.id === selectedStrategy)?.name || selectedStrategy)}</span>
-                </h2>
-                {stats?.tradingMode === 'REAL' ? (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full bg-emerald-950/30 text-emerald-400 border border-emerald-900/50 animate-pulse tracking-wide">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Live Mode
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5 px-2.5 py-1 text-[9px] font-extrabold uppercase rounded-full bg-amber-950/20 text-amber-500 border border-amber-900/50 tracking-wide">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    Demo Mode
-                  </span>
-                )}
-              </div>
-              <p className="text-sm text-zinc-400 mt-1">
-                Real-time Binance {stats?.tradingMode === 'REAL' ? 'Live Production' : 'Demo Sandbox'} engine tracker.
-              </p>
-            </div>
-
-        {/* Bot Toggle Switch & Diagnostics */}
+        {/* Bot Controls Row */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Select Symbol to View Chart */}
           <div className="relative">
@@ -711,26 +774,27 @@ export default function DashboardPage() {
               onChange={(e) => {
                 if (e.target.value) {
                   setSelectedChartSymbol(e.target.value);
-                  e.target.value = ''; // Reset select after select
+                  window.open(`https://tradingview.com/chart/?symbol=DERIV:${e.target.value}`, '_blank');
+                  e.target.value = '';
                 }
               }}
               defaultValue=""
               className="px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer outline-none max-w-[150px]"
             >
               <option value="" disabled>View Charts</option>
-              {['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'DOGEUSDT', 'TRXUSDT', 'XRPUSDT', 'LTCUSDT', 'AVAXUSDT', 'XLMUSDT', 'ADAUSDT', 'DOTUSDT', '1000SHIBUSDT', 'ARBUSDT', 'BCHUSDT', 'ATOMUSDT', 'LINKUSDT', 'POLUSDT'].map((p) => (
-                <option key={p} value={p}>{p}</option>
-              ))}
+              <option value="frxEURUSD">EUR/USD</option>
+              <option value="frxGBPUSD">GBP/USD</option>
+              <option value="frxUSDJPY">USD/JPY</option>
             </select>
           </div>
 
           <button
             onClick={runDiagnostics}
-            disabled={isTesting}
+            disabled={isTestingProject}
             className="flex items-center gap-2 px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
           >
-            <Activity className={`w-4 h-4 text-emerald-400 ${isTesting ? 'animate-pulse' : ''}`} />
-            <span>Test Project</span>
+            <Activity className={`w-4 h-4 text-emerald-400 ${isTestingProject ? 'animate-pulse' : ''}`} />
+            <span>{isTestingProject ? 'Testing...' : 'Test Project'}</span>
           </button>
 
           <button
@@ -754,7 +818,7 @@ export default function DashboardPage() {
               className="w-12 bg-zinc-950 border border-zinc-800 rounded-xl py-1 px-1.5 font-mono text-center font-bold text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/85 focus:ring-1 focus:ring-emerald-500/20"
             />
             <button
-              onClick={handleSaveDashboardMaxTrades}
+              onClick={handleSaveMaxTrades}
               disabled={isSavingMaxTrades}
               className="px-2.5 py-1 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-900/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer disabled:opacity-50"
             >
@@ -762,986 +826,1133 @@ export default function DashboardPage() {
             </button>
           </div>
 
+          {/* Stake / Trade Price Inline Controller */}
+          <div className="flex items-center gap-2 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 px-4 py-2.5 rounded-2xl shadow-md transition-all duration-300">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block whitespace-nowrap">Stake:</span>
+            <input
+              type="number"
+              step="0.1"
+              min="0.35"
+              value={dashboardStakeAmount}
+              onChange={(e) => setDashboardStakeAmount(e.target.value)}
+              className="w-16 bg-zinc-950 border border-zinc-800 rounded-xl py-1 px-1.5 font-mono text-center font-bold text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/85 focus:ring-1 focus:ring-emerald-500/20"
+            />
+            <button
+              onClick={handleSaveStakeAmount}
+              disabled={isSavingStake}
+              className="px-2.5 py-1 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-900/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer disabled:opacity-50"
+            >
+              {isSavingStake ? 'Saving...' : 'Set'}
+            </button>
+          </div>
+
           <button
             onClick={toggleBot}
             disabled={isTogglingBot}
             className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-md cursor-pointer ${
-              stats?.botEnabled
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-emerald-500/20'
+              derivBotEnabled
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-emerald-500/20 shadow-md'
                 : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400'
             }`}
           >
-            {stats?.botEnabled ? (
+            {derivBotEnabled ? (
               <>
                 <Play className="w-4 h-4 fill-white animate-pulse" />
                 <span>BOT RUNNING</span>
               </>
             ) : (
               <>
-                <Square className="w-4 h-4 fill-zinc-400" />
+                <Square className="w-4 h-4 fill-zinc-450 text-zinc-450" />
                 <span>BOT STOPPED</span>
               </>
             )}
           </button>
 
           <button
-            onClick={handleEmergencyCloseAll}
+            onClick={handleEmergencyClose}
             disabled={isClosingAll}
             className="flex items-center gap-2 px-5 py-3 bg-red-950/30 hover:bg-red-900/40 border border-red-900/50 rounded-2xl text-xs font-bold uppercase tracking-wider text-red-400 hover:text-red-300 transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
-            title="Instantly close all open positions on Binance and reset database trades"
+            title="Instantly close all open positions on Deriv and reset database trades"
           >
             <ShieldAlert className="w-4 h-4 text-red-400" />
             <span>{isClosingAll ? 'Closing All...' : 'Emergency Close'}</span>
           </button>
+
+          <button
+            onClick={fetchTrades}
+            disabled={isLoadingTrades || isSyncing}
+            className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl hover:bg-zinc-850 hover:text-emerald-400 text-zinc-400 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+            title="Refresh Dashboard Data"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing || isLoadingTrades ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Card 1: Balance */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-blue-500/10 transition-colors" />
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
-              Live Balance
-            </span>
-            <span className="p-2 bg-blue-950/30 border border-blue-900/50 rounded-xl text-blue-400">
-              <DollarSign className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-3xl font-extrabold tracking-tight text-zinc-100">
-              {stats?.balance !== undefined ? stats.balance.toFixed(2) : '0.00'}
-              <span className="text-sm font-medium text-zinc-500 ml-1.5">USDT</span>
-            </h3>
-            {stats?.realBalance !== undefined && stats?.balanceFetched && (
-              <p className="text-[10px] text-zinc-500 font-semibold mt-1.5 flex items-center gap-1">
-                <span>Binance Wallet:</span>
-                <span className="text-zinc-300 font-bold">{stats.realBalance.toFixed(2)} USDT</span>
-              </p>
-            )}
-            {stats?.balanceError && (
-              <p className="text-[10px] text-amber-500 mt-2 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>Default loaded (API check settings)</span>
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Card 2: Today's P&L */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-emerald-500/10 transition-colors" />
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
-              Today P&L
-            </span>
-            <span
-              className={`p-2 rounded-xl border ${
-                strategyTodayPnl >= 0
-                  ? 'bg-emerald-950/30 border-emerald-900/50 text-emerald-400'
-                  : 'bg-red-950/30 border-red-900/50 text-red-400'
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3
-              className={`text-3xl font-extrabold tracking-tight ${
-                strategyTodayPnl >= 0 ? 'text-emerald-400' : 'text-red-400'
-              }`}
-            >
-              {strategyTodayPnl >= 0 ? '+' : ''}
-              {strategyTodayPnl.toFixed(2)}
-              <span className="text-sm font-medium text-zinc-500 ml-1.5">USDT</span>
-            </h3>
-            <p className="text-[10px] text-zinc-500 mt-2 font-medium">Daily profit accumulation</p>
-          </div>
-        </div>
-
-        {/* Card 3: Win Rate */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-purple-500/10 transition-colors" />
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
-              Win Rate %
-            </span>
-            <span className="p-2 bg-purple-950/30 border border-purple-900/50 rounded-xl text-purple-400">
-              <Percent className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-3xl font-extrabold tracking-tight text-purple-400">
-              {strategyWinRate.toFixed(1)}%
-            </h3>
-            <p className="text-[10px] text-zinc-500 mt-2 font-medium">Of completed operations</p>
-          </div>
-        </div>
-
-        {/* Card 4: Open Positions */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-amber-500/10 transition-colors" />
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
-              Active Positions
-            </span>
-            <span className="p-2 bg-amber-950/30 border border-amber-900/50 rounded-xl text-amber-400">
-              <Layers className="w-4 h-4" />
-            </span>
-          </div>
-          <div className="mt-4">
-            <h3 className="text-3xl font-extrabold tracking-tight text-amber-400">
-              {displayedActiveTrades.length}
-            </h3>
-            <p className="text-[10px] text-zinc-500 mt-2 font-medium">Running on Binance Futures</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Row: Visual Performance Chart & Heartbeat Logs Terminal */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <PerformanceChart data={getChartData()} />
-        </div>
-        <div className="lg:col-span-1">
-          <EngineLogsConsole stats={stats} />
-        </div>
-      </div>
-
-      {/* Grid: Open Positions & Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Open Positions List */}
-        <div className="lg:col-span-2 bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex flex-wrap justify-between items-center gap-4 mb-6 border-b border-zinc-800/60 pb-4">
-              <div className="flex items-center gap-3">
-                <h3 className="text-lg font-bold text-zinc-200">Active Account Tracking</h3>
-                <button
-                  onClick={fetchDashboardData}
-                  className="p-1.5 hover:bg-zinc-800/60 rounded-lg text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Tabs */}
-              <div className="flex flex-wrap bg-zinc-950/80 border border-zinc-800/80 p-1 rounded-xl gap-1">
-                <button
-                  onClick={() => setActiveTab('binance')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === 'binance'
-                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  Binance Wallet ({binancePositions.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('db')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === 'db'
-                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  DB Managed ({displayedActiveTrades.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('sandbox')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === 'sandbox'
-                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  Sandbox Demo ({paperTrades.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('chart')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === 'chart'
-                      ? 'bg-zinc-800 text-zinc-100 shadow-sm'
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  Interactive Chart
-                </button>
+      {/* Main Grid: Left sidebar strategy list, Right main dashboard panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+        
+        {/* Left Column Sidebar */}
+        <div className="lg:col-span-1 space-y-6">
+          
+          {/* 1. Active Engines Box */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Active Engines</h3>
+                <p className="text-[8px] text-zinc-500 leading-tight">Select active engines to run.</p>
               </div>
             </div>
 
-            {/* Search and Action Bar */}
-            {activeTab !== 'chart' && (
-              <div className="flex flex-wrap items-center justify-between gap-4 mb-5 pb-4 border-b border-zinc-850">
-                <div className="relative flex-1 max-w-[280px]">
-                  <input
-                    type="text"
-                    placeholder="Search symbol (e.g. BTC)..."
-                    value={positionsSearchQuery}
-                    onChange={(e) => setPositionsSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-zinc-950/65 hover:bg-zinc-950 border border-zinc-800 focus:border-zinc-700 focus:outline-none rounded-xl text-xs text-zinc-300 placeholder-zinc-500 transition-all font-semibold"
-                  />
-                  <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                </div>
-                
-                {activeTab === 'binance' && binancePositions.length > 0 && (
-                  <button
-                    onClick={handleEmergencyCloseAll}
-                    disabled={isClosingAll}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-red-950/40 hover:bg-red-900/50 border border-red-900/60 rounded-xl text-xs font-bold uppercase tracking-wider text-red-400 hover:text-red-300 transition-all shadow-md cursor-pointer disabled:opacity-50"
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                    <span>Close All ({binancePositions.length})</span>
-                  </button>
-                )}
+            {/* Search Box */}
+            <input
+              type="text"
+              placeholder="🔍 Search engines..."
+              value={searchEnginesQuery}
+              onChange={(e) => setSearchEnginesQuery(e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
+            />
 
-                {activeTab === 'sandbox' && paperTrades.length > 0 && (
-                  <button
-                    onClick={handleCloseAllSandbox}
-                    disabled={isClosingAll}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-red-950/40 hover:bg-red-900/50 border border-red-900/60 rounded-xl text-xs font-bold uppercase tracking-wider text-red-400 hover:text-red-300 transition-all shadow-md cursor-pointer disabled:opacity-50"
-                  >
-                    <ShieldAlert className="w-4 h-4" />
-                    <span>Close All Sandbox ({paperTrades.length})</span>
-                  </button>
-                )}
+            {/* Select All Checkbox */}
+            {filteredStrategies.length > 0 && (
+              <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
+                <span className="uppercase tracking-wider">Select All Filtered</span>
+                <input
+                  type="checkbox"
+                  checked={filteredStrategies.every(s => draftStrategies.includes(s.id))}
+                  onChange={() => {
+                    const allChecked = filteredStrategies.every(s => draftStrategies.includes(s.id));
+                    const filteredIds = filteredStrategies.map(s => s.id);
+                    if (allChecked) {
+                      setDraftStrategies(draftStrategies.filter(id => !filteredIds.includes(id)));
+                    } else {
+                      setDraftStrategies(draftStrategies.concat(filteredIds.filter(id => !draftStrategies.includes(id))));
+                    }
+                  }}
+                  className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                />
               </div>
             )}
 
-            {/* TAB: BINANCE POSITIONS */}
-            {activeTab === 'binance' && (
-              <div>
-                {binancePositions.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 border border-dashed border-zinc-800/80 rounded-2xl">
-                    <Layers className="w-8 h-8 text-zinc-600 mb-2" />
-                    <p className="text-sm text-zinc-500 font-medium">No active positions open on Binance Futures</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                          <th className="pb-3">Symbol</th>
-                          <th className="pb-3 text-center">Direction</th>
-                          <th className="pb-3 text-right">Size</th>
-                          <th className="pb-3 text-right">Entry Price</th>
-                          <th className="pb-3 text-right">Mark Price</th>
-                          <th className="pb-3 text-right">Unrealized P&L</th>
-                          <th className="pb-3 text-right">Leverage</th>
-                          <th className="pb-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/50 text-sm">
-                        {binancePositions
-                          .filter((pos) => pos.pair.toUpperCase().includes(positionsSearchQuery.toUpperCase()))
-                          .map((pos) => {
-                            const pnl = pos.unrealizedPnl;
-                            const isProfit = pnl >= 0;
-                            return (
-                            <tr key={pos.symbol} className="group">
-                              <td className="py-4 font-bold text-zinc-200">{pos.pair}</td>
-                              <td className="py-4 text-center">
-                                <span
-                                  className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
-                                    pos.side === 'LONG'
-                                      ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                                      : 'bg-red-950/20 border-red-900/50 text-red-400'
-                                  }`}
-                                >
-                                  {pos.side}
-                                </span>
-                              </td>
-                              <td className="py-4 text-right font-mono font-medium">{pos.contracts.toFixed(3)}</td>
-                              <td className="py-4 text-right font-mono">{pos.entryPrice.toFixed(4)}</td>
-                              <td className="py-4 text-right font-mono">{pos.markPrice.toFixed(4)}</td>
-                              <td className="py-4 text-right font-mono font-bold">
-                                <span className={isProfit ? 'text-emerald-400' : 'text-red-400'}>
-                                  {isProfit ? '+' : ''}{pnl.toFixed(2)} USDT
-                                </span>
-                              </td>
-                              <td className="py-4 text-right font-mono text-zinc-400">{pos.leverage}x</td>
-                              <td className="py-4 text-right flex items-center justify-end gap-1">
-                                <button
-                                  onClick={() => {
-                                    setSelectedChartSymbol(pos.pair);
-                                    setActiveTab('chart');
-                                  }}
-                                  className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-950/20 rounded-lg transition-colors cursor-pointer"
-                                  title="View Live Chart"
-                                >
-                                  <Eye className="w-5 h-5" />
-                                </button>
-                                <button
-                                  onClick={() => handleCloseBinancePosition(pos.symbol)}
-                                  disabled={isClosingBinanceSymbol === pos.symbol}
-                                  className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                                  title="Market Close Position on Binance"
-                                >
-                                  <XCircle className="w-5 h-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB: DB MANAGED TRADES */}
-            {activeTab === 'db' && (
-              <div>
-                {displayedActiveTrades.length > 0 && (
-                  <div className="grid grid-cols-2 gap-4 mb-5 p-4 bg-zinc-950/20 border border-zinc-800/50 rounded-2xl">
-                    <div>
-                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Deployed Margin</span>
-                      <div className="text-sm font-extrabold text-zinc-200 mt-1 font-mono">
-                        {displayedActiveTrades.reduce((sum, t) => sum + (t.margin || 10.0), 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Floating P&L</span>
-                      <div className={`text-sm font-extrabold mt-1 font-mono ${
-                        displayedActiveTrades.reduce((sum, t) => {
-                          const currentPrice = livePrices[t.pair] || t.entry_price;
-                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-                          return sum + pnl;
-                        }, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
-                      }`}>
-                        {displayedActiveTrades.reduce((sum, t) => {
-                          const currentPrice = livePrices[t.pair] || t.entry_price;
-                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-                          return sum + pnl;
-                        }, 0) >= 0 ? '+' : ''}
-                        {displayedActiveTrades.reduce((sum, t) => {
-                          const currentPrice = livePrices[t.pair] || t.entry_price;
-                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-                          return sum + pnl;
-                        }, 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {displayedActiveTrades.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 border border-dashed border-zinc-800/80 rounded-2xl">
-                    <Layers className="w-8 h-8 text-zinc-600 mb-2" />
-                    <p className="text-sm text-zinc-500 font-medium">No bot trades registered in database</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                          <th className="pb-3">Pair</th>
-                          <th className="pb-3">Strategy</th>
-                          <th className="pb-3 text-center">Direction</th>
-                          <th className="pb-3 text-right">Entry Price</th>
-                          <th className="pb-3 text-right">Live Price</th>
-                          <th className="pb-3 text-right">Live P&L</th>
-                          <th className="pb-3 text-right">SL / TP</th>
-                          <th className="pb-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/50 text-sm">
-                        {displayedActiveTrades
-                          .filter((trade) => trade.pair.toUpperCase().includes(positionsSearchQuery.toUpperCase()))
-                          .map((trade) => {
-                            const currentPrice = livePrices[trade.pair] || trade.entry_price;
-                            const floatingPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
-                            const isProfit = floatingPnl >= 0;
-
-                          const flashClass =
-                            priceDirections[trade.pair] === 'up'
-                              ? 'text-emerald-400 bg-emerald-950/15'
-                              : priceDirections[trade.pair] === 'down'
-                              ? 'text-red-400 bg-red-950/15'
-                              : 'text-zinc-200';
-
-                          return (
-                            <tr key={trade.id} className="group">
-                              <td className="py-4 font-bold text-zinc-200">{trade.pair}</td>
-                              <td className="py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                                {STRATEGIES_LIST.find(s => s.id === trade.strategy)?.name || trade.strategy || 'RSI_MACD'}
-                              </td>
-                              <td className="py-4 text-center">
-                                <span
-                                  className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
-                                    trade.direction === 'LONG'
-                                      ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                                      : 'bg-red-950/20 border-red-900/50 text-red-400'
-                                  }`}
-                                >
-                                  {trade.direction}
-                                </span>
-                              </td>
-                              <td className="py-4 text-right font-mono">{trade.entry_price.toFixed(4)}</td>
-                              <td className="py-4 text-right font-mono font-bold">
-                                <span className={`px-2 py-0.5 rounded transition-all duration-300 ${flashClass}`}>
-                                  {currentPrice.toFixed(4)}
-                                </span>
-                              </td>
-                              <td className="py-4 text-right font-mono font-bold">
-                                <span className={isProfit ? 'text-emerald-400' : 'text-red-400'}>
-                                  {isProfit ? '+' : ''}{floatingPnl.toFixed(2)} USDT
-                                </span>
-                              </td>
-                              <td className="py-4 text-right text-xs space-y-0.5">
-                                <div className="font-mono text-red-400/80 font-medium">SL: {trade.sl_price.toFixed(4)}</div>
-                                <div className="font-mono text-emerald-400/80 font-medium">TP: {trade.tp_price.toFixed(4)}</div>
-                              </td>
-                              <td className="py-4 text-right flex items-center justify-end gap-1">
-                                <button
-                                  onClick={() => {
-                                    setSelectedChartSymbol(trade.pair);
-                                    setActiveTab('chart');
-                                  }}
-                                  className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-950/20 rounded-lg transition-colors cursor-pointer"
-                                  title="View Live Chart"
-                                >
-                                  <Eye className="w-5 h-5" />
-                                </button>
-                                <button
-                                  onClick={() => closePosition(trade.id, isProfit)}
-                                  disabled={closingTradeId === trade.id}
-                                  className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
-                                  title="Force Manual Close"
-                                >
-                                  <XCircle className="w-5 h-5" />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB: SANDBOX DEMO TRADES */}
-            {activeTab === 'sandbox' && (
-              <div>
-                {paperTrades.length > 0 && (
-                  <div className="grid grid-cols-2 gap-4 mb-5 p-4 bg-zinc-950/20 border border-zinc-800/50 rounded-2xl">
-                    <div>
-                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Simulated Margin</span>
-                      <div className="text-sm font-extrabold text-zinc-200 mt-1 font-mono">
-                        {paperTrades.reduce((sum, t) => sum + (t.margin || 10.0), 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
-                      </div>
-                    </div>
-                    <div>
-                      <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Total Simulated P&L</span>
-                      <div className={`text-sm font-extrabold mt-1 font-mono ${
-                        paperTrades.reduce((sum, t) => {
-                          const currentPrice = livePrices[t.pair] || t.entry_price;
-                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-                          return sum + pnl;
-                        }, 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
-                      }`}>
-                        {paperTrades.reduce((sum, t) => {
-                          const currentPrice = livePrices[t.pair] || t.entry_price;
-                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-                          return sum + pnl;
-                        }, 0) >= 0 ? '+' : ''}
-                        {paperTrades.reduce((sum, t) => {
-                          const currentPrice = livePrices[t.pair] || t.entry_price;
-                          const pnl = (currentPrice - t.entry_price) * t.amount * (t.direction === 'LONG' ? 1 : -1);
-                          return sum + pnl;
-                        }, 0).toFixed(2)} <span className="text-[10px] text-zinc-400">USDT</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {paperTrades.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 border border-dashed border-zinc-800/80 rounded-2xl">
-                    <Layers className="w-8 h-8 text-zinc-600 mb-2" />
-                    <p className="text-sm text-zinc-500 font-medium">No sandbox demo trades registered in database</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                          <th className="pb-3">Pair</th>
-                          <th className="pb-3">Strategy</th>
-                          <th className="pb-3 text-center">Direction</th>
-                          <th className="pb-3 text-right">Entry Price</th>
-                          <th className="pb-3 text-right">Live Price</th>
-                          <th className="pb-3 text-right">Live P&L</th>
-                          <th className="pb-3 text-right">SL / TP</th>
-                          <th className="pb-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-zinc-800/50 text-sm">
-                        {paperTrades
-                          .filter((trade) => trade.pair.toUpperCase().includes(positionsSearchQuery.toUpperCase()))
-                          .map((trade) => {
-                            const currentPrice = livePrices[trade.pair] || trade.entry_price;
-                            const floatingPnl = (currentPrice - trade.entry_price) * trade.amount * (trade.direction === 'LONG' ? 1 : -1);
-                            const isProfit = floatingPnl >= 0;
-
-                            const flashClass =
-                              priceDirections[trade.pair] === 'up'
-                                ? 'text-emerald-400 bg-emerald-950/15'
-                                : priceDirections[trade.pair] === 'down'
-                                ? 'text-red-400 bg-red-950/15'
-                                : 'text-zinc-200';
-
-                            return (
-                              <tr key={trade.id} className="group">
-                                <td className="py-4 font-bold text-zinc-200">{trade.pair}</td>
-                                <td className="py-4 text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                                  {STRATEGIES_LIST.find(s => s.id === trade.strategy)?.name || trade.strategy || 'RSI_MACD'}
-                                </td>
-                                <td className="py-4 text-center">
-                                  <span
-                                    className={`px-2 py-0.5 text-[10px] font-extrabold uppercase rounded-md border ${
-                                      trade.direction === 'LONG'
-                                        ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                                        : 'bg-red-950/20 border-red-900/50 text-red-400'
-                                    }`}
-                                  >
-                                    {trade.direction}
-                                  </span>
-                                </td>
-                                <td className="py-4 text-right font-mono">{trade.entry_price.toFixed(4)}</td>
-                                <td className="py-4 text-right font-mono font-bold">
-                                  <span className={`px-2 py-0.5 rounded transition-all duration-300 ${flashClass}`}>
-                                    {currentPrice.toFixed(4)}
-                                  </span>
-                                </td>
-                                <td className="py-4 text-right font-mono font-bold">
-                                  <span className={isProfit ? 'text-emerald-400' : 'text-red-400'}>
-                                    {isProfit ? '+' : ''}{floatingPnl.toFixed(2)} USDT
-                                  </span>
-                                </td>
-                                <td className="py-4 text-right text-xs space-y-0.5">
-                                  <div className="font-mono text-red-400/80 font-medium">SL: {trade.sl_price.toFixed(4)}</div>
-                                  <div className="font-mono text-emerald-400/80 font-medium">TP: {trade.tp_price.toFixed(4)}</div>
-                                </td>
-                                <td className="py-4 text-right flex items-center justify-end gap-1">
-                                  <button
-                                    onClick={() => {
-                                      setSelectedChartSymbol(trade.pair);
-                                      setActiveTab('chart');
-                                    }}
-                                    className="p-1.5 text-zinc-500 hover:text-emerald-400 hover:bg-emerald-950/20 rounded-lg transition-colors cursor-pointer"
-                                    title="View Live Chart"
-                                  >
-                                    <Eye className="w-5 h-5" />
-                                  </button>
-                                  <button
-                                    onClick={() => closePosition(trade.id, isProfit)}
-                                    disabled={closingTradeId === trade.id}
-                                    className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-red-950/20 rounded-lg transition-colors cursor-pointer"
-                                    title="Force Manual Close"
-                                  >
-                                    <XCircle className="w-5 h-5" />
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB: INTERACTIVE CHART */}
-            {activeTab === 'chart' && (
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Active Chart:</span>
-                  <select
-                    value={selectedChartSymbol || (binancePositions[0]?.pair || 'BTCUSDT')}
-                    onChange={(e) => setSelectedChartSymbol(e.target.value)}
-                    className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-xs font-bold text-zinc-300 outline-none cursor-pointer"
-                  >
-                    {binancePositions.length > 0 ? (
-                      binancePositions.map((pos) => (
-                        <option key={pos.symbol} value={pos.pair}>{pos.pair}</option>
-                      ))
-                    ) : (
-                      ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'TRXUSDT', 'XRPUSDT', 'LTCUSDT', 'XLMUSDT', 'ADAUSDT', 'LINKUSDT'].map((p) => (
-                        <option key={p} value={p}>{p}</option>
-                      ))
-                    )}
-                  </select>
-                </div>
-                {renderTradingViewChart()}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Recent Trade Logs */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6">
-          <h3 className="text-lg font-bold text-zinc-200 mb-6">Recent Completed Trades</h3>
-
-          {displayedRecentTrades.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800/80 rounded-2xl">
-              <HistoryIcon className="w-8 h-8 text-zinc-600 mb-2" />
-              <p className="text-sm text-zinc-500 font-medium">No trade history yet</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {displayedRecentTrades.slice(0, 5).map((trade) => {
-                const pnl = trade.pnl || 0;
-                const isWin = pnl >= 0;
+            {/* Items List */}
+            <div className="space-y-1.5 max-h-[140px] overflow-y-auto pr-1">
+              {filteredStrategies.map((strat) => {
+                const isTicked = draftStrategies.includes(strat.id);
+                const isSelected = activeStrategies.includes(strat.id);
                 return (
                   <div
-                    key={trade.id}
-                    className="flex justify-between items-center p-3 bg-zinc-900/20 hover:bg-zinc-900/40 border border-zinc-800/50 rounded-2xl transition-all duration-200"
+                    key={strat.id}
+                    className={`flex items-center justify-between px-2 py-1.5 rounded-lg text-[9px] font-bold ${
+                      isSelected
+                        ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
+                        : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                    }`}
                   >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-zinc-200">{trade.pair}</span>
-                        <span
-                          className={`text-[9px] font-bold px-1 py-0.2 rounded border uppercase ${
-                            trade.direction === 'LONG'
-                              ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                              : 'bg-red-950/20 border-red-900/50 text-red-400'
-                          }`}
-                        >
-                          {trade.direction}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-zinc-500 font-medium">
-                        {trade.closed_at ? new Date(trade.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh' }) : ''}
-                      </span>
-                    </div>
-
-                    <div className="text-right">
-                      <div
-                        className={`text-sm font-bold flex items-center justify-end gap-0.5 ${
-                          isWin ? 'text-emerald-400' : 'text-red-400'
-                        }`}
-                      >
-                        {isWin ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                        <span>
-                          {isWin ? '+' : ''}
-                          {pnl.toFixed(2)} USDT
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-zinc-500 font-mono">
-                        Exit: {trade.exit_price?.toFixed(4)}
-                      </span>
-                    </div>
+                    <span className="truncate mr-2 uppercase tracking-wide">{strat.name}</span>
+                    <input
+                      type="checkbox"
+                      checked={isTicked}
+                      onChange={() => handleToggleStrategyDraft(strat.id)}
+                      className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                    />
                   </div>
                 );
               })}
+              {filteredStrategies.length === 0 && (
+                <p className="text-[9px] text-zinc-650 text-center py-2">No strategies found.</p>
+              )}
             </div>
-          )}
-        </div>
-      </div>
 
-      {/* Close Right Column and 2-column Main Layout Grid */}
-        </div>
-      </div>
+            {/* Save Button */}
+            {JSON.stringify(activeStrategies.sort()) !== JSON.stringify(draftStrategies.sort()) && (
+              <div className="pt-2 border-t border-zinc-800/60">
+                <button
+                  type="button"
+                  onClick={handleSaveActiveStrategies}
+                  disabled={isSavingStrategies}
+                  className="w-full py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer"
+                >
+                  {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
+                </button>
+              </div>
+            )}
+          </div>
 
-      {/* System Diagnostics Modal */}
-      {showReportModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="relative w-full max-w-md bg-[#0c0c0f]/95 border border-zinc-800/80 rounded-3xl p-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col justify-between">
+          {/* 2. Global Markets Box */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4 shadow-sm">
             <div>
-              <h3 className="text-lg font-bold text-zinc-200 mb-4 border-b border-zinc-800/50 pb-2">
-                System Diagnostics Report
-              </h3>
+              <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Global Markets</h3>
+              <p className="text-[8px] text-zinc-500 leading-tight">Forex, Gold & Cryptocurrencies</p>
+            </div>
 
-              {isTesting ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-4">
-                  <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin" />
-                  <p className="text-xs text-zinc-400 font-medium animate-pulse">Running live checks...</p>
+            {/* Search Box */}
+            <input
+              type="text"
+              placeholder="🔍 Search pairs..."
+              value={searchGlobalQuery}
+              onChange={(e) => setSearchGlobalQuery(e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
+            />
+
+            {/* Select All Checkbox */}
+            {filteredGlobalPairs.length > 0 && (
+              <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
+                <span className="uppercase tracking-wider">Select All Filtered</span>
+                <input
+                  type="checkbox"
+                  checked={filteredGlobalPairs.every(p => draftPairs.includes(p.id))}
+                  onChange={() => {
+                    const allChecked = filteredGlobalPairs.every(p => draftPairs.includes(p.id));
+                    const filteredIds = filteredGlobalPairs.map(p => p.id);
+                    if (allChecked) {
+                      setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
+                    } else {
+                      setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
+                    }
+                  }}
+                  className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                />
+              </div>
+            )}
+
+            {/* Items List */}
+            <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
+              {filteredGlobalPairs.map((pair) => {
+                const isTicked = draftPairs.includes(pair.id);
+                const isSelected = selectedPairs.includes(pair.id);
+                return (
+                  <div
+                    key={pair.id}
+                    className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
+                      isSelected
+                        ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
+                        : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                    }`}
+                    title={pair.desc}
+                  >
+                    <span>{pair.name}</span>
+                    <input
+                      type="checkbox"
+                      checked={isTicked}
+                      onChange={() => handleTogglePairDraft(pair.id)}
+                      className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                    />
+                  </div>
+                );
+              })}
+              {filteredGlobalPairs.length === 0 && (
+                <p className="text-[9px] text-zinc-650 text-center py-2">No assets found.</p>
+              )}
+            </div>
+
+            {/* Save Button */}
+            {JSON.stringify(selectedPairs.sort()) !== JSON.stringify(draftPairs.sort()) && (
+              <div className="pt-2 border-t border-zinc-800/60">
+                <button
+                  type="button"
+                  onClick={handleSaveActiveStrategies}
+                  disabled={isSavingStrategies}
+                  className="w-full py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer"
+                >
+                  {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 3. Synthetic Markets Box */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4 shadow-sm">
+            <div>
+              <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Synthetic Markets</h3>
+              <p className="text-[8px] text-zinc-500 leading-tight">Volatility, Boom & Crash indices</p>
+            </div>
+
+            {/* Search Box */}
+            <input
+              type="text"
+              placeholder="🔍 Search synthetics..."
+              value={searchSyntheticQuery}
+              onChange={(e) => setSearchSyntheticQuery(e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
+            />
+
+            {/* Select All Checkbox */}
+            {filteredSyntheticPairs.length > 0 && (
+              <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
+                <span className="uppercase tracking-wider">Select All Filtered</span>
+                <input
+                  type="checkbox"
+                  checked={filteredSyntheticPairs.every(p => draftPairs.includes(p.id))}
+                  onChange={() => {
+                    const allChecked = filteredSyntheticPairs.every(p => draftPairs.includes(p.id));
+                    const filteredIds = filteredSyntheticPairs.map(p => p.id);
+                    if (allChecked) {
+                      setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
+                    } else {
+                      setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
+                    }
+                  }}
+                  className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                />
+              </div>
+            )}
+
+            {/* Items List */}
+            <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
+              {filteredSyntheticPairs.map((pair) => {
+                const isTicked = draftPairs.includes(pair.id);
+                const isSelected = selectedPairs.includes(pair.id);
+                return (
+                  <div
+                    key={pair.id}
+                    className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
+                      isSelected
+                        ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
+                        : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                    }`}
+                    title={pair.desc}
+                  >
+                    <span className="truncate max-w-[120px]">{pair.name}</span>
+                    <input
+                      type="checkbox"
+                      checked={isTicked}
+                      onChange={() => handleTogglePairDraft(pair.id)}
+                      className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                    />
+                  </div>
+                );
+              })}
+              {filteredSyntheticPairs.length === 0 && (
+                <p className="text-[9px] text-zinc-650 text-center py-2">No assets found.</p>
+              )}
+            </div>
+
+            {/* Save Button */}
+            {JSON.stringify(selectedPairs.sort()) !== JSON.stringify(draftPairs.sort()) && (
+              <div className="pt-2 border-t border-zinc-800/60">
+                <button
+                  type="button"
+                  onClick={handleSaveActiveStrategies}
+                  disabled={isSavingStrategies}
+                  className="w-full py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer"
+                >
+                  {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 4. Unusual Markets Box */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4 shadow-sm">
+            <div>
+              <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Unusual Markets</h3>
+              <p className="text-[8px] text-zinc-500 leading-tight">Exotics, Baskets, Minor indices & Vol (1s) variants</p>
+            </div>
+
+            {/* Search Box */}
+            <input
+              type="text"
+              placeholder="🔍 Search exotics..."
+              value={searchUnusualQuery}
+              onChange={(e) => setSearchUnusualQuery(e.target.value)}
+              className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
+            />
+
+            {/* Select All Checkbox */}
+            {filteredUnusualPairs.length > 0 && (
+              <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
+                <span className="uppercase tracking-wider">Select All Filtered</span>
+                <input
+                  type="checkbox"
+                  checked={filteredUnusualPairs.every(p => draftPairs.includes(p.id))}
+                  onChange={() => {
+                    const allChecked = filteredUnusualPairs.every(p => draftPairs.includes(p.id));
+                    const filteredIds = filteredUnusualPairs.map(p => p.id);
+                    if (allChecked) {
+                      setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
+                    } else {
+                      setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
+                    }
+                  }}
+                  className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                />
+              </div>
+            )}
+
+            {/* Items List */}
+            <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
+              {filteredUnusualPairs.map((pair) => {
+                const isTicked = draftPairs.includes(pair.id);
+                const isSelected = selectedPairs.includes(pair.id);
+                return (
+                  <div
+                    key={pair.id}
+                    className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
+                      isSelected
+                        ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
+                        : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                    }`}
+                    title={pair.desc}
+                  >
+                    <span className="truncate max-w-[120px]">{pair.name}</span>
+                    <input
+                      type="checkbox"
+                      checked={isTicked}
+                      onChange={() => handleTogglePairDraft(pair.id)}
+                      className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                    />
+                  </div>
+                );
+              })}
+              {filteredUnusualPairs.length === 0 && (
+                <p className="text-[9px] text-zinc-650 text-center py-2">No assets found.</p>
+              )}
+            </div>
+
+            {/* Save Button */}
+            {JSON.stringify(selectedPairs.sort()) !== JSON.stringify(draftPairs.sort()) && (
+              <div className="pt-2 border-t border-zinc-800/60">
+                <button
+                  type="button"
+                  onClick={handleSaveActiveStrategies}
+                  disabled={isSavingStrategies}
+                  className="w-full py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer"
+                >
+                  {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Manual Trade proposal widget */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4">
+            <h3 className="text-xs font-bold text-zinc-200 flex items-center gap-2 uppercase tracking-wider">
+              <Play className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Manual Execution</span>
+            </h3>
+
+            <form onSubmit={handleExecuteTrade} className="space-y-4">
+              <div>
+                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Asset Symbol</label>
+                <select
+                  value={tradeSymbol}
+                  onChange={(e) => setTradeSymbol(e.target.value)}
+                  className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
+                >
+                  <option value="frxEURUSD">EUR/USD (Forex - 15m Expiry)</option>
+                  <option value="frxGBPUSD">GBP/USD (Forex - 15m Expiry)</option>
+                  <option value="frxUSDJPY">USD/JPY (Forex - 15m Expiry)</option>
+                  <option value="1HZ100V">Volatility 100 (1s) Index</option>
+                  <option value="1HZ50V">Volatility 50 (1s) Index</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Direction</label>
+                  <div className="flex bg-zinc-950 border border-zinc-800 p-0.5 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setTradeType('CALL')}
+                      className={`flex-1 py-1 rounded-lg text-[9px] font-black transition-all ${
+                        tradeType === 'CALL' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/25' : 'text-zinc-650'
+                      }`}
+                    >
+                      Rise
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTradeType('PUT')}
+                      className={`flex-1 py-1 rounded-lg text-[9px] font-black transition-all ${
+                        tradeType === 'PUT' ? 'bg-red-500/20 text-red-400 border border-red-500/25' : 'text-zinc-650'
+                      }`}
+                    >
+                      Fall
+                    </button>
+                  </div>
                 </div>
-              ) : testReport?.error ? (
-                <div className="p-4 bg-red-950/25 border border-red-900/50 rounded-2xl text-red-400 text-xs font-semibold">
-                  {testReport.error}
+
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Mode</label>
+                  <select
+                    value={tradeMode}
+                    onChange={(e) => setTradeMode(e.target.value as any)}
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
+                  >
+                    <option value="DEMO">Demo Sandbox</option>
+                    <option value="REAL">Real Account</option>
+                  </select>
                 </div>
-              ) : testReport ? (
-                <div className="space-y-3.5 text-xs">
-                  {/* Database */}
-                  <div className="flex justify-between items-start p-3 bg-zinc-900/25 border border-zinc-800/50 rounded-2xl">
-                    <span className="font-semibold text-zinc-400">Database Connection</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      testReport.database.status === 'OK' ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/50' : 'bg-red-950/20 text-red-400 border border-red-900/50'
-                    }`}>
-                      {testReport.database.status}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Stake</label>
+                  <input
+                    type="number"
+                    value={tradeAmount}
+                    onChange={(e) => setTradeAmount(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Duration</label>
+                  <input
+                    type="number"
+                    value={tradeDuration}
+                    onChange={(e) => setTradeDuration(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Unit</label>
+                  <select
+                    value={tradeDurationUnit}
+                    onChange={(e) => setTradeDurationUnit(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-bold text-zinc-300 outline-none focus:border-zinc-700 cursor-pointer"
+                  >
+                    <option value="m">Minutes</option>
+                    <option value="s">Seconds</option>
+                    <option value="t">Ticks</option>
+                  </select>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isExecutingTrade}
+                className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1"
+              >
+                {isExecutingTrade ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <span>Purchase Contract</span>
+                )}
+              </button>
+            </form>
+          </div>
+
+          {/* Credentials Settings Toggle widget */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4">
+            <h3 className="text-xs font-bold text-zinc-200 flex items-center gap-2 uppercase tracking-wider">
+              <Settings className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Deriv API Credentials</span>
+            </h3>
+
+            <form onSubmit={handleSaveSettings} className="space-y-3">
+              <div>
+                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">App ID</label>
+                <input
+                  type="text"
+                  value={appId}
+                  onChange={(e) => setAppId(e.target.value)}
+                  className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                  placeholder="App ID"
+                />
+              </div>
+
+              <div>
+                <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">API Token (PAT)</label>
+                <div className="relative">
+                  <input
+                    type={showToken ? 'text' : 'password'}
+                    value={apiToken}
+                    onChange={(e) => setApiToken(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono pr-8"
+                    placeholder="pat_..."
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowToken(!showToken)}
+                    className="absolute inset-y-0 right-0 pr-2 flex items-center text-zinc-500 hover:text-zinc-350"
+                  >
+                    {showToken ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Demo ID</label>
+                  <input
+                    type="text"
+                    value={demoAccount}
+                    onChange={(e) => setDemoAccount(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                    placeholder="DOT..."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest block mb-1">Real ID</label>
+                  <input
+                    type="text"
+                    value={realAccount}
+                    onChange={(e) => setRealAccount(e.target.value)}
+                    className="w-full px-2 py-1.5 bg-zinc-950/60 border border-zinc-800 rounded-xl text-[10px] font-semibold text-zinc-300 outline-none focus:border-zinc-700 font-mono"
+                    placeholder="ROT..."
+                  />
+                </div>
+              </div>
+
+              {settingsMessage.text && (
+                <div className={`p-2 rounded-xl text-[9px] font-semibold border flex gap-1 ${
+                  settingsMessage.type === 'success' ? 'bg-emerald-950/15 border-emerald-900/40 text-emerald-400' : 'bg-red-950/15 border-red-900/40 text-red-400'
+                }`}>
+                  <span>{settingsMessage.text}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSavingSettings}
+                className="w-full py-2 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border border-zinc-750 font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all cursor-pointer"
+              >
+                {isSavingSettings ? 'Saving...' : 'Save Credentials'}
+              </button>
+            </form>
+          </div>
+        </div>
+
+        {/* Right Column Panel */}
+        <div className="lg:col-span-4 space-y-8">
+          
+          {/* Active Engine Toggle Banner (Matches Binance Dashboard Header perfectly) */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6 shadow-md">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <span className="flex h-4 w-4 relative">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${derivBotEnabled ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-4 w-4 ${derivBotEnabled ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                  </span>
+                </div>
+
+                <div>
+                  <h3 className="text-md font-extrabold text-zinc-100 flex items-center gap-2">
+                    <span>Deriv Active Options Engine</span>
+                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-extrabold ${derivBotEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-red-950 text-red-400 border border-red-500/20'}`}>
+                      {derivBotEnabled ? 'ENGINE ACTIVE' : 'ENGINE PAUSED'}
                     </span>
-                  </div>
-
-                  {/* Binance API */}
-                  <div className="flex flex-col gap-1 p-3 bg-zinc-900/25 border border-zinc-800/50 rounded-2xl">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-zinc-400">Binance API Key Check</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        testReport.binance.status === 'OK' ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/50' : 'bg-red-950/20 text-red-400 border border-red-900/50'
-                      }`}>
-                        {testReport.binance.status}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-zinc-500 leading-normal">{testReport.binance.message}</p>
-                  </div>
-
-                  {/* Indicators */}
-                  <div className="flex flex-col gap-1 p-3 bg-zinc-900/25 border border-zinc-800/50 rounded-2xl">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-zinc-400">Mathematical Indicators</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        testReport.indicators.status === 'OK' ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/50' : 'bg-red-950/20 text-red-400 border border-red-900/50'
-                      }`}>
-                        {testReport.indicators.status}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-zinc-500 leading-normal">{testReport.indicators.message}</p>
-                  </div>
-
-                  {/* Telegram */}
-                  <div className="flex flex-col gap-1 p-3 bg-zinc-900/25 border border-zinc-800/50 rounded-2xl">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-zinc-400">Telegram Alert Route</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                        testReport.telegram.status === 'OK' ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/50' : 'bg-red-950/20 text-red-400 border border-red-900/50'
-                      }`}>
-                        {testReport.telegram.status}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-zinc-500 leading-normal">{testReport.telegram.message}</p>
-                  </div>
-
-                  <p className="text-[10px] text-center text-emerald-400 font-semibold bg-emerald-950/10 border border-emerald-900/30 p-2.5 rounded-xl">
-                    Report details have been sent to your Telegram Bot!
+                  </h3>
+                  <p className="text-[10px] text-zinc-500 mt-1">
+                    Active Account Mode: <span className="font-extrabold text-zinc-300">{tradingMode} Sandbox</span> | Pulse interval: <span className="font-mono">30s</span>
                   </p>
                 </div>
-              ) : null}
-            </div>
-
-            <button
-              onClick={() => setShowReportModal(false)}
-              className="mt-6 w-full py-3 bg-zinc-850 hover:bg-zinc-800 text-zinc-200 font-semibold rounded-2xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
-            >
-              Close Diagnostics
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* TradingView Advanced Real-Time Chart Modal */}
-      {selectedChartSymbol && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
-          <div className="relative w-full max-w-5xl bg-[#0c0c0f] border border-zinc-800 rounded-3xl p-6 shadow-2xl flex flex-col justify-between overflow-hidden">
-            
-            {/* Modal Header */}
-            <div className="flex justify-between items-center mb-4 pb-2 border-b border-zinc-800/80">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <h3 className="text-lg font-bold text-zinc-200 uppercase tracking-wide">
-                  Live Market Chart: {selectedChartSymbol}
-                </h3>
               </div>
-              <button
-                onClick={() => setSelectedChartSymbol(null)}
-                className="p-1.5 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-850/50 border border-zinc-800/60 rounded-lg transition-colors cursor-pointer"
-                title="Close Chart"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* Switchers */}
+              <div className="flex flex-wrap gap-3 items-center">
+                {/* Bot Work Status */}
+                <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setDerivBotEnabled(true);
+                      await fetch('/api/deriv/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: true, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs, derivNewsFilterEnabled: newsFilterEnabled, derivSessionFilterEnabled: sessionFilterEnabled, derivCooldownFilterEnabled: cooldownFilterEnabled, derivDailyLimitEnabled: dailyLimitEnabled })
+                      });
+                      fetchSettings();
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      derivBotEnabled ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    }`}
+                  >
+                    WORK ON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setDerivBotEnabled(false);
+                      await fetch('/api/deriv/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode, botEnabled: false, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs, derivNewsFilterEnabled: newsFilterEnabled, derivSessionFilterEnabled: sessionFilterEnabled, derivCooldownFilterEnabled: cooldownFilterEnabled, derivDailyLimitEnabled: dailyLimitEnabled })
+                      });
+                      fetchSettings();
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      !derivBotEnabled ? 'bg-red-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    }`}
+                  >
+                    WORK OFF
+                  </button>
+                </div>
+
+                {/* Segmented Switcher */}
+                <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTradingMode('DEMO');
+                      await fetch('/api/deriv/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'DEMO', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs, derivNewsFilterEnabled: newsFilterEnabled, derivSessionFilterEnabled: sessionFilterEnabled, derivCooldownFilterEnabled: cooldownFilterEnabled, derivDailyLimitEnabled: dailyLimitEnabled })
+                      });
+                      fetchSettings();
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      tradingMode === 'DEMO' ? 'bg-amber-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    }`}
+                  >
+                    DEMO SANDBOX
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setTradingMode('REAL');
+                      await fetch('/api/deriv/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ appId, apiToken, demoAccount, realAccount, tradingMode: 'REAL', botEnabled: derivBotEnabled, activeStrategies, derivMaxTrades: parseInt(dashboardMaxTrades), derivStakeAmount: parseFloat(dashboardStakeAmount), derivSelectedPairs: selectedPairs, derivNewsFilterEnabled: newsFilterEnabled, derivSessionFilterEnabled: sessionFilterEnabled, derivCooldownFilterEnabled: cooldownFilterEnabled, derivDailyLimitEnabled: dailyLimitEnabled })
+                      });
+                      fetchSettings();
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      tradingMode === 'REAL' ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    }`}
+                  >
+                    REAL LIVE
+                  </button>
+                </div>
+
+                {/* Force Scan Action */}
+                <button
+                  type="button"
+                  disabled={isForceScanning}
+                  onClick={handleForceScan}
+                  className={`px-3.5 py-1.5 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isForceScanning 
+                      ? 'bg-zinc-900/50 text-zinc-650 border-zinc-850/40 cursor-not-allowed' 
+                      : 'bg-zinc-950/60 text-zinc-300 border-zinc-800/80 hover:bg-zinc-900/40 hover:text-zinc-200 hover:border-zinc-700/80'
+                  }`}
+                >
+                  {isForceScanning ? (
+                    <>
+                      <Loader2 className="w-3 h-3 animate-spin text-zinc-500" />
+                      Scanning...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3 h-3 text-zinc-400" />
+                      Run Scan Now
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* TradingView Widget Frame */}
-            <div className="w-full h-[500px] bg-black/30 rounded-2xl overflow-hidden border border-zinc-800/60">
-              <iframe
-                src={`https://s.tradingview.com/widgetembed/?symbol=BINANCE:${selectedChartSymbol.toUpperCase()}&theme=dark&interval=1&hidesidetoolbar=0&symboledit=0&saveimage=1&toolbarbg=1c1d22&style=1&timezone=Etc%2FUTC&locale=en`}
-                className="w-full h-full border-0"
-                allowFullScreen
-              />
+            {/* Divider */}
+            <div className="h-[1px] bg-zinc-800/50 w-full" />
+
+            {/* Safety toggles buttons tabs */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Active Safety & News Filters</h4>
+                {isSavingRiskToggles && <span className="text-[9px] text-emerald-400 animate-pulse font-bold">Saving settings...</span>}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* News Filter Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleRiskFilter('news', newsFilterEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    newsFilterEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-wider">News Blocker</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">USD/EUR/GBP High Impact</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${newsFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {newsFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
+                </button>
+
+                {/* Session Filter Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleRiskFilter('session', sessionFilterEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    sessionFilterEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Asian Session</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">21:00 - 23:59 GMT Block</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${sessionFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {sessionFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
+                </button>
+
+                {/* Loss Cooldown Guard Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleRiskFilter('cooldown', cooldownFilterEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    cooldownFilterEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Loss Cooldown</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">2 Losses = 60m Cooldown</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${cooldownFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {cooldownFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
+                </button>
+
+                {/* Daily Trades Limit Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleRiskFilter('daily', dailyLimitEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    dailyLimitEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Daily Trade Limit</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">Max 10 Trades Limit</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${dailyLimitEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {dailyLimitEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Statistics Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-emerald-400 border border-zinc-850">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Live Balance</span>
+                <span className="text-xl font-black font-mono mt-0.5 text-zinc-100 block">
+                  ${(tradingMode === 'DEMO' ? demoBalance : realBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-emerald-400 border border-zinc-850">
+                <DollarSign className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Today P&L</span>
+                <span className={`text-xl font-black font-mono mt-0.5 block ${totalSimulatedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {totalSimulatedPnl >= 0 ? '+' : ''}{totalSimulatedPnl.toFixed(2)} USD
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-blue-400 border border-zinc-850">
+                <TrendingUp className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Win Rate %</span>
+                <span className="text-xl font-black font-mono mt-0.5 text-zinc-200 block">
+                  {winRate.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
+              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-purple-400 border border-zinc-850">
+                <Activity className="w-6 h-6" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Active Positions</span>
+                <span className="text-xl font-black font-mono mt-0.5 text-zinc-200 block">
+                  {openTrades.length}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Pairs Near Entry Watchlist */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-5 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between border-b border-zinc-850 pb-2">
+              <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                Pairs Near Entry Watchlist
+              </span>
+              <span className="text-[9px] text-zinc-500 font-medium">
+                Real-time monitoring ({nearEntryPairs.length} active)
+              </span>
             </div>
             
-            {/* Modal Footer */}
-            <div className="mt-4 text-right">
-              <button
-                onClick={() => setSelectedChartSymbol(null)}
-                className="px-5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all duration-200 cursor-pointer"
-              >
-                Close View
-              </button>
+            <div className="overflow-x-auto overflow-y-auto max-h-[148px] rounded-2xl border border-zinc-900 bg-[#050507]/40 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+              <table className="w-full text-left border-collapse text-[10px]">
+                <thead>
+                  <tr className="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/90 text-zinc-500 font-bold uppercase tracking-wider font-mono text-[8px]">
+                    <th className="py-2.5 px-4 bg-zinc-950/90">Asset Pair</th>
+                    <th className="py-2.5 px-3 bg-zinc-950/90">Direction</th>
+                    <th className="py-2.5 px-3 bg-zinc-950/90">Proximity Status</th>
+                    <th className="py-2.5 px-3 text-right bg-zinc-950/90">Confirmations (T A S)</th>
+                    <th className="py-2.5 px-3 text-right bg-zinc-950/90">ADX</th>
+                    <th className="py-2.5 px-4 text-right bg-zinc-950/90">Stoch %K / %D</th>
+                    <th className="py-2.5 px-4 text-center bg-zinc-950/90">Chart</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-900/60 font-medium">
+                  {sortedNearEntryPairs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-zinc-650 italic">
+                        No pairs currently near trade entry criteria. Running active scans...
+                      </td>
+                    </tr>
+                  ) : (
+                    sortedNearEntryPairs.map((pair: any, idx: number) => (
+                      <tr key={idx} className="hover:bg-zinc-900/20 transition-colors text-zinc-300">
+                        <td className="py-2.5 px-4 font-bold text-zinc-200">
+                          {getPairDisplayName(pair.symbol)}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                            pair.direction === 'RISE' 
+                              ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/40' 
+                              : 'bg-rose-950/40 text-rose-400 border border-rose-900/40'
+                          }`}>
+                            {pair.direction === 'RISE' ? '🟢 RISE (CALL)' : '🔴 FALL (PUT)'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-3 text-zinc-400 font-mono text-[9px]">
+                          {pair.reason}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {/* Trend Indicator */}
+                            <span 
+                              title={pair.confirmations?.trend ? "Trend Aligned (H1 & 15m EMAs match)" : "Trend Disaligned"}
+                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
+                                pair.confirmations?.trend 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
+                                  : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                              }`}
+                            >
+                              T
+                            </span>
+                            {/* ADX Indicator */}
+                            <span 
+                              title={pair.confirmations?.adx ? "ADX > 22 (Strong Momentum)" : "ADX <= 22 (Weak Momentum)"}
+                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
+                                pair.confirmations?.adx 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
+                                  : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                              }`}
+                            >
+                              A
+                            </span>
+                            {/* Stochastic Zone Indicator */}
+                            <span 
+                              title={pair.confirmations?.stochZone ? "Stochastic in Oversold/Overbought Trigger Zone" : "Stochastic not in zone"}
+                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
+                                pair.confirmations?.stochZone 
+                                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
+                                  : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                              }`}
+                            >
+                              S
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-zinc-200">
+                          {parseFloat(pair.adx).toFixed(1)}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-mono font-bold text-zinc-400">
+                          {parseFloat(pair.stochK).toFixed(0)} / {parseFloat(pair.stochD).toFixed(0)}
+                        </td>
+                        <td className="py-2.5 px-4 text-center">
+                          <a
+                            href={`https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair.symbol}&trade_type=rise_fall`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block px-2 py-0.5 text-[8px] font-black text-amber-400 bg-amber-950/30 hover:bg-amber-950/60 border border-amber-500/25 hover:border-amber-500/50 rounded-md transition-all uppercase tracking-wider font-mono"
+                          >
+                            go live chart
+                          </a>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
-// ---------------------------------------------------------
-// Custom SVG Cumulative P&L Area/Line Chart
-// ---------------------------------------------------------
-function PerformanceChart({ data }: { data: { time: string; pnl: number }[] }) {
-  const width = 500;
-  const height = 150;
-  const padding = 20;
+          {/* Terminal Scans Log */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-5 space-y-3">
+            <div className="flex items-center justify-between border-b border-zinc-850 pb-2">
+              <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Terminal Scans Log
+              </span>
+              <span className="text-[10px] text-zinc-500 font-mono">
+                Last scan: {lastScanAt ? new Date(lastScanAt).toLocaleTimeString() : 'Never'}
+              </span>
+            </div>
+            <div className="bg-[#050507]/90 border border-zinc-900 rounded-2xl p-4 min-h-[160px] max-h-[220px] overflow-y-auto font-mono text-[10px] text-zinc-450 space-y-1.5 scrollbar-thin">
+              {lastScanLogs.length === 0 ? (
+                <div className="text-zinc-650 italic py-6 text-center">No terminal scan events captured yet. Check if Bot is WORK ON.</div>
+              ) : (
+                lastScanLogs.map((log, idx) => (
+                  <div key={idx} className="leading-relaxed hover:bg-zinc-900/30 py-0.5 px-1 rounded transition-colors">
+                    {log.includes('❌') || log.includes('🚨') ? (
+                      <span className="text-red-400">{log}</span>
+                    ) : log.includes('🔥') || log.includes('🎉') ? (
+                      <span className="text-emerald-400 font-bold">{log}</span>
+                    ) : log.includes('⏳') || log.includes('⚠️') ? (
+                      <span className="text-amber-500">{log}</span>
+                    ) : (
+                      <span>{log}</span>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
-  const pnls = data.map((d) => d.pnl);
-  const minPnl = Math.min(...pnls, 0);
-  const maxPnl = Math.max(...pnls, 5); // default min max range
+          {/* Section: Open Active Contracts */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
+              <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider">Active Option Contracts</h3>
+              {openTrades.length > 0 && isSyncing && (
+                <span className="text-[10px] text-zinc-500 font-medium animate-pulse flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Syncing with Deriv...</span>
+                </span>
+              )}
+            </div>
 
-  const pnlRange = maxPnl - minPnl;
-  const xStep = (width - padding * 2) / (data.length - 1 || 1);
+            {openTrades.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800/80 rounded-2xl">
+                <Layers className="w-8 h-8 text-zinc-600 mb-2" />
+                <p className="text-xs text-zinc-500 font-medium">No active contracts running currently</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <th className="pb-3">Contract ID</th>
+                      <th className="pb-3">Asset</th>
+                      <th className="pb-3 text-center">Type</th>
+                      <th className="pb-3 text-right">Stake</th>
+                      <th className="pb-3 text-right">Target Payout</th>
+                      <th className="pb-3 text-right">Duration</th>
+                      <th className="pb-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/50 text-sm font-semibold">
+                    {openTrades.map((t) => (
+                      <tr key={t.id}>
+                        <td className="py-3.5 font-mono text-zinc-300 text-xs">{t.contract_id}</td>
+                        <td className="py-3.5 text-zinc-200 text-xs">{getPairDisplayName(t.symbol)}</td>
+                        <td className="py-3.5 text-center">
+                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${
+                            t.contract_type === 'CALL'
+                              ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
+                              : 'bg-red-950/20 border-red-900/50 text-red-400'
+                          }`}>
+                            {t.contract_type === 'CALL' ? 'RISE' : 'FALL'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 text-right font-mono text-xs text-zinc-300">${t.stake.toFixed(2)}</td>
+                        <td className="py-3.5 text-right font-mono text-xs text-zinc-200">${t.payout.toFixed(2)}</td>
+                        <td className="py-3.5 text-right text-xs text-zinc-400">{t.duration}{t.duration_unit}</td>
+                        <td className="py-3.5 text-center">
+                          <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold bg-zinc-800/60 border border-zinc-700/50 text-zinc-300 uppercase animate-pulse">
+                            ACTIVE
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
-  // Generate coordinates (x, y)
-  const points = data.map((d, i) => {
-    const x = padding + i * xStep;
-    // Normalize Y to range [padding, height - padding]
-    const y = height - padding - ((d.pnl - minPnl) / (pnlRange || 1)) * (height - padding * 2);
-    return { x, y, ...d };
-  });
+          {/* Section: Closed Option Contracts History */}
+          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
+              <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider">Trades History</h3>
+              {closedTrades.length > 0 && (
+                <button
+                  onClick={handleCloseAllTrades}
+                  className="px-2.5 py-1 text-[9px] font-extrabold bg-red-950/25 border border-red-900/40 text-red-400 hover:text-red-300 rounded-lg uppercase tracking-wider transition-colors cursor-pointer"
+                >
+                  Clear Archive
+                </button>
+              )}
+            </div>
 
-  // Create path strings
-  const linePath = points.reduce(
-    (path, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${path} L ${p.x} ${p.y}`),
-    ''
-  );
-
-  const areaPath = points.length > 0
-    ? `${linePath} L ${points[points.length - 1].x} ${height - padding} L ${points[0].x} ${height - padding} Z`
-    : '';
-
-  return (
-    <div className="w-full bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden group hover:border-zinc-700/80 transition-all duration-300 h-full flex flex-col justify-between">
-      <div>
-        <h3 className="text-md font-bold text-zinc-200">P&L Performance</h3>
-        <p className="text-xs text-zinc-500 font-medium">Cumulative account profit growth</p>
-      </div>
-      <div className="relative w-full h-[160px] mt-4 flex items-center justify-center">
-        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
-          <defs>
-            <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
-            </linearGradient>
-          </defs>
-
-          {/* Grid lines */}
-          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#1e1e24" strokeWidth="1" />
-          <line x1={padding} y1={padding} x2={width - padding} y2={padding} stroke="#1e1e24" strokeWidth="1" strokeDasharray="3,3" />
-
-          {/* Area under the line */}
-          {areaPath && <path d={areaPath} fill="url(#areaGrad)" />}
-
-          {/* Glowing Line */}
-          {linePath && (
-            <path
-              d={linePath}
-              fill="none"
-              stroke="#10b981"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              className="drop-shadow-[0_2px_8px_rgba(16,185,129,0.3)]"
-            />
-          )}
-
-          {/* Data Points */}
-          {points.map((p, i) => (
-            <g key={i} className="group/dot">
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r="4.5"
-                fill="#09090b"
-                stroke="#10b981"
-                strokeWidth="2.5"
-                className="transition-all duration-200 hover:r-6 cursor-pointer"
-              />
-              <title>{`${p.time}: ${p.pnl.toFixed(2)} USDT`}</title>
-            </g>
-          ))}
-        </svg>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------
-// Heartbeat Monitor & Console Logs Terminal Panel
-// ---------------------------------------------------------
-function EngineLogsConsole({ stats }: { stats: Stats | null }) {
-  const [now, setNow] = useState(new Date());
-
-  useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 5000);
-    return () => clearInterval(t);
-  }, []);
-
-  if (!stats) return null;
-
-  // Determine health
-  const lastScan = stats.lastScanAt ? new Date(stats.lastScanAt) : null;
-  
-  // Consider online if last scan was within 90 seconds and bot is enabled
-  const isOnline = stats.botEnabled && lastScan && (now.getTime() - lastScan.getTime()) < 90000;
-  
-  let statusBadge = '🔴 SYSTEM OFFLINE';
-  let badgeColor = 'bg-red-950/20 border-red-900/50 text-red-400';
-  if (stats.botEnabled) {
-    if (isOnline) {
-      statusBadge = '🟢 ENGINE ACTIVE';
-      badgeColor = 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400 shadow-md shadow-emerald-500/5';
-    } else {
-      statusBadge = '⚠️ CRON LAG';
-      badgeColor = 'bg-amber-950/20 border-amber-900/50 text-amber-400 shadow-md shadow-amber-500/5';
-    }
-  } else {
-    statusBadge = '⚪ ENGINE PAUSED';
-    badgeColor = 'bg-zinc-900/60 border-zinc-800 text-zinc-500';
-  }
-
-  // Format relative time for last scan
-  const getRelativeTimeString = () => {
-    if (!lastScan) return 'Never';
-    const secAgo = Math.floor((now.getTime() - lastScan.getTime()) / 1000);
-    if (secAgo < 5) return 'Just now';
-    if (secAgo < 60) return `${secAgo}s ago`;
-    return `${Math.floor(secAgo / 60)}m ago`;
-  };
-
-  return (
-    <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 flex flex-col h-[280px] justify-between group hover:border-zinc-700/80 transition-all duration-300">
-      <div>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-md font-bold text-zinc-200">Terminal Scans Log</h3>
-          <div className={`px-2.5 py-1 text-[10px] font-extrabold uppercase rounded-lg border ${badgeColor}`}>
-            {statusBadge}
+            {closedTrades.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 border border-dashed border-zinc-800/80 rounded-2xl">
+                <Layers className="w-8 h-8 text-zinc-600 mb-2" />
+                <p className="text-xs text-zinc-500 font-medium">No recent contracts in history</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <th className="pb-3">Contract ID</th>
+                      <th className="pb-3">Asset</th>
+                      <th className="pb-3 text-center">Type</th>
+                      <th className="pb-3 text-right">Stake</th>
+                      <th className="pb-3 text-right">Return P&L</th>
+                      <th className="pb-3 text-center">Outcome</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-800/50 text-sm font-semibold">
+                    {closedTrades.map((t) => {
+                      const isWin = t.status === 'WON';
+                      return (
+                        <tr key={t.id} className="hover:bg-zinc-950/20 transition-all">
+                          <td className="py-3.5 font-mono text-zinc-400 text-xs">{t.contract_id}</td>
+                          <td className="py-3.5 text-zinc-300 text-xs">{getPairDisplayName(t.symbol)}</td>
+                          <td className="py-3.5 text-center">
+                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${
+                              t.contract_type === 'CALL'
+                                ? 'bg-emerald-950/10 border-emerald-900/20 text-emerald-400'
+                                : 'bg-red-950/10 border-red-900/20 text-red-400'
+                            }`}>
+                              {t.contract_type === 'CALL' ? 'RISE' : 'FALL'}
+                            </span>
+                          </td>
+                          <td className="py-3.5 text-right font-mono text-xs text-zinc-400">${t.stake.toFixed(2)}</td>
+                          <td className={`py-3.5 text-right font-mono text-xs font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {isWin ? '+' : ''}{t.pnl.toFixed(2)} USD
+                          </td>
+                          <td className="py-3.5 text-center">
+                            <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase ${
+                              isWin
+                                ? 'bg-emerald-500 text-emerald-950'
+                                : 'bg-red-500 text-red-950'
+                            }`}>
+                              {t.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
-
-        <div className="bg-black/40 border border-zinc-800/60 rounded-xl p-3 h-[160px] overflow-y-auto font-mono text-[11px] text-zinc-400 space-y-1.5 scrollbar-thin scrollbar-thumb-zinc-800">
-          {stats.lastScanLogs && stats.lastScanLogs.length > 0 ? (
-            stats.lastScanLogs.map((log, i) => {
-              let color = 'text-zinc-500';
-              if (log.includes('Triggered')) color = 'text-emerald-400 font-bold';
-              else if (log.includes('Failed') || log.includes('Error')) color = 'text-red-400';
-              else if (log.includes('Executing')) color = 'text-blue-400 font-semibold';
-              
-              return (
-                <div key={i} className={color}>
-                  {log}
-                </div>
-              );
-            })
-          ) : (
-            <div className="text-zinc-600 italic">No logs recorded yet. Toggling bot ON will start engine logging...</div>
-          )}
-        </div>
-      </div>
-      <div className="flex justify-between items-center text-[10px] text-zinc-500 font-medium border-t border-zinc-800/50 pt-3">
-        <span>Pulse frequency: 60s</span>
-        <span>Last scan: {getRelativeTimeString()}</span>
       </div>
     </div>
   );
