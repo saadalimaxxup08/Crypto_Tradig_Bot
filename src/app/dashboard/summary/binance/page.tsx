@@ -1098,7 +1098,8 @@ export default function SummaryPage() {
           {/* Calculate daily P&L */}
           {(() => {
             const startOfToday = new Date();
-            startOfToday.setUTCHours(0, 0, 0, 0);
+            // Align with Jeddah Time (GMT+3)
+            startOfToday.setUTCHours(-3, 0, 0, 0);
             const dailyPnl = trades
               .filter((t) => t.closed_at && new Date(t.closed_at) >= startOfToday)
               .reduce((sum, t) => sum + (t.pnl || 0), 0);

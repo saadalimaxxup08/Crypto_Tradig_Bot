@@ -1077,7 +1077,8 @@ export default function DerivSummaryPage() {
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 relative overflow-hidden print-card">
           {(() => {
             const startOfToday = new Date();
-            startOfToday.setUTCHours(0, 0, 0, 0);
+            // Align with Jeddah Time (GMT+3)
+            startOfToday.setUTCHours(-3, 0, 0, 0);
             const dailyPnl = trades
               .filter((t) => t.closed_at && new Date(t.closed_at) >= startOfToday)
               .reduce((sum, t) => sum + (t.pnl || 0), 0);

@@ -190,7 +190,8 @@ export default function DashboardPage() {
     .filter((t) => {
       if (!t.closed_at) return false;
       const startOfToday = new Date();
-      startOfToday.setUTCHours(0, 0, 0, 0);
+      // Align with Jeddah Time (GMT+3)
+      startOfToday.setUTCHours(-3, 0, 0, 0);
       return new Date(t.closed_at) >= startOfToday;
     })
     .reduce((sum, t) => sum + (t.pnl || 0), 0);
