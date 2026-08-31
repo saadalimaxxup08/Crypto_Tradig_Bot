@@ -25,6 +25,7 @@ interface Trade {
 const STRATEGY_NAMES: Record<string, string> = {
   FOREX_15M_MTF: 'Forex 15m MTF Crossover v1',
   FOREX_15M_MTF_V2: 'Forex 15m MTF Crossover v2',
+  FOREX_30M_MTF_V3: 'Forex 30m MTF Crossover v3',
 };
 
 const SYMBOL_NAMES: Record<string, string> = {

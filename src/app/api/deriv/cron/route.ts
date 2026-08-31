@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import {
   analyzeForex15mStrategy,
   analyzeForex15mStrategyV2,
+  analyzeForex30mStrategyV3,
   isAsianSessionBlocked,
   isSpreadBlocked,
   isEconomicNewsBlocked,
@@ -204,18 +205,33 @@ export async function GET(req: Request) {
         const candles15m = await fetchCandles(socket!, pair, 900);
         const candlesH1 = await fetchCandles(socket!, pair, 3600);
 
-        const strategyResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
-        
+        let candles10m: any[] = [];
+        let candles30m: any[] = [];
+        let candlesH4: any[] = [];
+
+        if (activeStrategies.includes('FOREX_30M_MTF_V3')) {
+          candles10m = await fetchCandles(socket!, pair, 600);
+          candles30m = await fetchCandles(socket!, pair, 1800);
+          candlesH4 = await fetchCandles(socket!, pair, 14400);
+        }
+
         for (const stratId of activeStrategies) {
           let strategyResultObj;
           let stratName = '';
+          let tradeDuration = 15;
           
           if (stratId === 'FOREX_15M_MTF_V2') {
             strategyResultObj = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
             stratName = 'v2 - Forex 15m MTF Crossover';
+            tradeDuration = 15;
+          } else if (stratId === 'FOREX_30M_MTF_V3') {
+            strategyResultObj = analyzeForex30mStrategyV3(candles10m, candles30m, candlesH1, candlesH4);
+            stratName = 'v3 - Forex 30m MTF Crossover';
+            tradeDuration = 30;
           } else {
             strategyResultObj = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
             stratName = 'v1 - Forex 15m MTF Crossover';
+            tradeDuration = 15;
           }
 
           localLogs.push(`- [${stratName}] ADX: ${strategyResultObj.adxValue.toFixed(1)} | Signal: ${strategyResultObj.direction}`);
@@ -244,16 +260,16 @@ export async function GET(req: Request) {
               }
 
               // E. Execute Trade!
-              localLogs.push(`🔥 [${stratName}] Trigger: Placing $${derivStakeAmount.toFixed(2)} ${strategyResultObj.direction} contract on ${pair} with 15m expiry.`);
+              localLogs.push(`🔥 [${stratName}] Trigger: Placing $${derivStakeAmount.toFixed(2)} ${strategyResultObj.direction} contract on ${pair} with ${tradeDuration}m expiry.`);
               try {
-                const result = await buyContract(socket!, pair, strategyResultObj.direction, derivStakeAmount);
+                const result = await buyContract(socket!, pair, strategyResultObj.direction, derivStakeAmount, tradeDuration);
                 
                 const newTrade = {
                   id: crypto.randomUUID(),
                   contract_id: result.contract_id,
                   symbol: pair,
                   contract_type: strategyResultObj.direction,
-                  duration: 15,
+                  duration: tradeDuration,
                   duration_unit: 'm',
                   stake: derivStakeAmount,
                   payout: parseFloat(result.payout),
@@ -278,7 +294,7 @@ export async function GET(req: Request) {
                   `<b>Strategy:</b> ${stratName}\n` +
                   `<b>Option Direction:</b> ${strategyResultObj.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
                   `<b>Entry Price:</b> $${result.buy_price}\n` +
-                  `<b>Contract Expiry:</b> 15 Minutes\n` +
+                  `<b>Contract Expiry:</b> ${tradeDuration} Minutes\n` +
                   `<b>Scan Time (GMT):</b> ${gmtTime}\n` +
                   `<b>Analysis Stats:</b> H1 Trend: ${strategyResultObj.direction === 'CALL' ? 'BULLISH' : 'BEARISH'} | ADX: ${strategyResultObj.adxValue.toFixed(1)}\n` +
                   `<b>Account Mode:</b> ${tradingMode} Sandbox`;

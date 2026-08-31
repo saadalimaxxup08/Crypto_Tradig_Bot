@@ -84,7 +84,7 @@ export function fetchTick(socket: WebSocket, symbol: string): Promise<{ ask: num
 }
 
 // Buy contract over WebSocket
-export function buyContract(socket: WebSocket, symbol: string, direction: 'CALL' | 'PUT', amount: number): Promise<any> {
+export function buyContract(socket: WebSocket, symbol: string, direction: 'CALL' | 'PUT', amount: number, duration: number = 15): Promise<any> {
   return new Promise((resolve, reject) => {
     const handleMsg = (event: any) => {
       try {
@@ -112,14 +112,14 @@ export function buyContract(socket: WebSocket, symbol: string, direction: 'CALL'
 
     socket.addEventListener('message', handleMsg);
 
-    // Send Proposal Request (15 Minutes Expiry)
+    // Send Proposal Request
     socket.send(JSON.stringify({
       proposal: 1,
       amount,
       basis: 'stake',
       contract_type: direction,
       currency: 'USD',
-      duration: 15,
+      duration,
       duration_unit: 'm',
       underlying_symbol: symbol
     }));

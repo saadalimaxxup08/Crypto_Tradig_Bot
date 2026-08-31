@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { calculateEMA, calculateADX, calculateStochastic } from './indicators';
+import { calculateEMA, calculateADX, calculateStochastic, calculateRSI, calculateATR } from './indicators';
 
 interface Candle {
   open: number;
@@ -406,6 +406,236 @@ export function analyzeForex15mStrategyV2(
         ...base.nearEntry.confirmations,
         srSafe,
         candleSafe
+      }
+    }
+  };
+}
+
+function calculateSMA(data: number[], period: number): number[] {
+  const sma: number[] = [];
+  for (let i = 0; i < data.length; i++) {
+    if (i < period - 1) {
+      sma.push(0);
+    } else {
+      const sum = data.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0);
+      sma.push(sum / period);
+    }
+  }
+  return sma;
+}
+
+export function analyzeForex30mStrategyV3(
+  candles10m: Candle[],
+  candles30m: Candle[],
+  candlesH1: Candle[],
+  candlesH4: Candle[]
+): {
+  direction: 'CALL' | 'PUT' | 'NEUTRAL'; 
+  adxValue: number;
+  nearEntry: {
+    isNear: boolean;
+    direction: 'RISE' | 'FALL' | 'NEUTRAL';
+    reason: string;
+    stochK: number;
+    stochD: number;
+    confirmations: {
+      trend: boolean;
+      adx: boolean;
+      stochZone: boolean;
+      srSafe: boolean;
+      candleSafe: boolean;
+      rsiSafe: boolean;
+      volatilitySafe: boolean;
+    }
+  }
+} {
+  // 1. Data sanity checks
+  if (candles10m.length < 30 || candles30m.length < 40 || candlesH1.length < 110 || candlesH4.length < 210) {
+    return {
+      direction: 'NEUTRAL',
+      adxValue: 0,
+      nearEntry: {
+        isNear: false,
+        direction: 'NEUTRAL',
+        reason: 'Insufficient data points',
+        stochK: 0,
+        stochD: 0,
+        confirmations: {
+          trend: false,
+          adx: false,
+          stochZone: false,
+          srSafe: false,
+          candleSafe: false,
+          rsiSafe: false,
+          volatilitySafe: false
+        }
+      }
+    };
+  }
+
+  // A. H4 Trend Check (EMA 200)
+  const h4Closes = candlesH4.map(c => c.close);
+  const h4Ema200 = calculateEMA(h4Closes, 200);
+  const currentH4Ema200 = h4Ema200[h4Ema200.length - 1];
+  const currentH4Price = h4Closes[h4Closes.length - 1];
+  const isH4Uptrend = currentH4Price > currentH4Ema200;
+  const isH4Downtrend = currentH4Price < currentH4Ema200;
+
+  // B. H1 Trend Check (EMA 100)
+  const h1Closes = candlesH1.map(c => c.close);
+  const h1Ema100 = calculateEMA(h1Closes, 100);
+  const currentH1Ema100 = h1Ema100[h1Ema100.length - 1];
+  const currentH1Price = h1Closes[h1Closes.length - 1];
+  const isH1Uptrend = currentH1Price > currentH1Ema100;
+  const isH1Downtrend = currentH1Price < currentH1Ema100;
+
+  // C. 30m Trend & Strength Check (EMA 50 & ADX 14)
+  const closes30m = candles30m.map(c => c.close);
+  const highs30m = candles30m.map(c => c.high);
+  const lows30m = candles30m.map(c => c.low);
+
+  const ema50_30m = calculateEMA(closes30m, 50);
+  const current30mEma50 = ema50_30m[ema50_30m.length - 1];
+  const current30mPrice = closes30m[closes30m.length - 1];
+  const is30mUptrend = current30mPrice > current30mEma50;
+  const is30mDowntrend = current30mPrice < current30mEma50;
+
+  const adx14_30m = calculateADX(highs30m, lows30m, closes30m, 14);
+  const current30mADX = adx14_30m[adx14_30m.length - 1] || 0;
+  const isADXStrong = current30mADX > 25; // High precision filter
+
+  // D. 30m Volatility Filter (ATR 14 vs its SMA 14)
+  const atrValues = calculateATR(highs30m, lows30m, closes30m, 14);
+  const currentAtr = atrValues[atrValues.length - 1] || 0;
+  const atrSma = calculateSMA(atrValues, 14);
+  const currentAtrSma = atrSma[atrSma.length - 1] || 0.0001;
+  const isVolatilitySafe = currentAtrSma > 0 ? (currentAtr / currentAtrSma) >= 0.6 : true;
+
+  // E. 10m Trigger Crossover Check (Stochastic 14, 3, 3)
+  const closes10m = candles10m.map(c => c.close);
+  const highs10m = candles10m.map(c => c.high);
+  const lows10m = candles10m.map(c => c.low);
+
+  const stoch = calculateStochastic(highs10m, lows10m, closes10m, 14, 3, 3);
+  const currentK = stoch.k[stoch.k.length - 1] || 0;
+  const currentD = stoch.d[stoch.d.length - 1] || 0;
+  const prevK = stoch.k[stoch.k.length - 2] || 0;
+  const prevD = stoch.d[stoch.d.length - 2] || 0;
+
+  const isStochCallCrossover = 
+    (prevK < 30 && currentK >= 30) || 
+    (prevK <= prevD && currentK > currentD && currentK < 30);
+
+  const isStochPutCrossover = 
+    (prevK > 70 && currentK <= 70) || 
+    (prevK >= prevD && currentK < currentD && currentK > 70);
+
+  // F. 10m RSI Guard
+  const rsi14 = calculateRSI(closes10m, 14);
+  const currentRsi = rsi14[rsi14.length - 1] || 50;
+
+  // Enforce Trend Alignment
+  const isDirectionUptrend = isH4Uptrend && isH1Uptrend && is30mUptrend;
+  const isDirectionDowntrend = isH4Downtrend && isH1Downtrend && is30mDowntrend;
+
+  // Execution Signal Trigger
+  let initialDirection: 'CALL' | 'PUT' | 'NEUTRAL' = 'NEUTRAL';
+  if (isDirectionUptrend && isADXStrong && isStochCallCrossover && isVolatilitySafe) {
+    initialDirection = 'CALL';
+  } else if (isDirectionDowntrend && isADXStrong && isStochPutCrossover && isVolatilitySafe) {
+    initialDirection = 'PUT';
+  }
+
+  // RSI Check
+  let rsiSafe = true;
+  if (initialDirection === 'CALL' && currentRsi >= 70) {
+    rsiSafe = false;
+  } else if (initialDirection === 'PUT' && currentRsi <= 30) {
+    rsiSafe = false;
+  }
+
+  // Support & Resistance Check on 10m
+  const { supports, resistances } = getPivotSR(candles10m);
+  let srSafe = true;
+  let blockReason = '';
+  const currentPrice = closes10m[closes10m.length - 1];
+  const thresholdPercent = 0.001; // 0.1% near S/R
+
+  if (initialDirection === 'CALL') {
+    for (const r of resistances) {
+      if (currentPrice < r && (r - currentPrice) / currentPrice <= thresholdPercent) {
+        srSafe = false;
+        blockReason = `Resistance zone detected at $${r.toFixed(2)}.`;
+        break;
+      }
+    }
+  } else if (initialDirection === 'PUT') {
+    for (const s of supports) {
+      if (currentPrice > s && (currentPrice - s) / currentPrice <= thresholdPercent) {
+        srSafe = false;
+        blockReason = `Support zone detected at $${s.toFixed(2)}.`;
+        break;
+      }
+    }
+  }
+
+  // Trigger Candle Bullish/Bearish confirmation check
+  const lastCandle = candles10m[candles10m.length - 2] || candles10m[candles10m.length - 1];
+  let candleSafe = true;
+  if (initialDirection === 'CALL') {
+    if (lastCandle.close <= lastCandle.open) {
+      candleSafe = false;
+      blockReason = 'Trigger candle is not bullish.';
+    }
+  } else if (initialDirection === 'PUT') {
+    if (lastCandle.close >= lastCandle.open) {
+      candleSafe = false;
+      blockReason = 'Trigger candle is not bearish.';
+    }
+  }
+
+  let finalDirection: 'CALL' | 'PUT' | 'NEUTRAL' = 'NEUTRAL';
+  if (initialDirection !== 'NEUTRAL' && rsiSafe && srSafe && candleSafe) {
+    finalDirection = initialDirection;
+  }
+
+  // Diagnostics and Watchlist
+  let isNear = false;
+  let reason = '';
+  if (isDirectionUptrend && current30mADX > 18 && isVolatilitySafe) {
+    if (currentK < 45 && finalDirection === 'NEUTRAL') {
+      isNear = true;
+      reason = `Uptrend (ADX ${current30mADX.toFixed(1)}) - Waiting for Stochastic gold cross (K: ${currentK.toFixed(0)}, D: ${currentD.toFixed(0)})`;
+    }
+  } else if (isDirectionDowntrend && current30mADX > 18 && isVolatilitySafe) {
+    if (currentK > 55 && finalDirection === 'NEUTRAL') {
+      isNear = true;
+      reason = `Downtrend (ADX ${current30mADX.toFixed(1)}) - Waiting for Stochastic death cross (K: ${currentK.toFixed(0)}, D: ${currentD.toFixed(0)})`;
+    }
+  }
+
+  if (finalDirection === 'NEUTRAL' && !isNear && initialDirection !== 'NEUTRAL') {
+    if (!rsiSafe) blockReason = 'RSI is in exhausted zone.';
+    reason = `[V3 Blocked] ${blockReason}`;
+  }
+
+  return {
+    direction: finalDirection,
+    adxValue: current30mADX,
+    nearEntry: {
+      isNear,
+      direction: isDirectionUptrend ? 'RISE' : isDirectionDowntrend ? 'FALL' : 'NEUTRAL',
+      reason: finalDirection !== 'NEUTRAL' ? 'Entry conditions fully satisfied.' : reason || 'Waiting for setup.',
+      stochK: currentK,
+      stochD: currentD,
+      confirmations: {
+        trend: isDirectionUptrend || isDirectionDowntrend,
+        adx: isADXStrong,
+        stochZone: isDirectionUptrend ? (currentK < 30) : (currentK > 70),
+        srSafe,
+        candleSafe,
+        rsiSafe,
+        volatilitySafe: isVolatilitySafe
       }
     }
   };

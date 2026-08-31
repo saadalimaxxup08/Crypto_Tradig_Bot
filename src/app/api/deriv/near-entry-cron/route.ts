@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import {
   analyzeForex15mStrategy,
   analyzeForex15mStrategyV2,
+  analyzeForex30mStrategyV3,
   isAsianSessionBlocked,
   isSpreadBlocked,
   isEconomicNewsBlocked,
@@ -178,6 +179,25 @@ export async function GET() {
                 continue;
               }
 
+              // 0. Cooldown Filter based on consecutive losses
+              const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+              const { data: recentTrades } = await supabase
+                .from('deriv_trades')
+                .select('pnl')
+                .eq('symbol', pair)
+                .gte('closed_at', twoHoursAgo)
+                .order('closed_at', { ascending: false });
+
+              if (recentTrades && recentTrades.length >= 2) {
+                const lastTwoAreLosses = recentTrades.slice(0, 2).every(t => t.pnl < 0);
+                if (lastTwoAreLosses) {
+                  localLogs.push(`- Skip: ${pair} has 2 consecutive losses. Locked under cooldown.`);
+                  scanResults.push({ logs: localLogs, stillNear: true, entryPair: watchlistPair });
+                  continue;
+                }
+              }
+
+
               // 2. Economic News Check
               const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
               if (newsBlocked) {
@@ -193,16 +213,33 @@ export async function GET() {
 
               const activeStrategies = (existingOverrides.deriv_active_strategies || ['FOREX_15M_MTF']) as string[];
 
+              let candles10m: any[] = [];
+              let candles30m: any[] = [];
+              let candlesH4: any[] = [];
+
+              if (activeStrategies.includes('FOREX_30M_MTF_V3')) {
+                candles10m = await fetchCandles(socket, pair, 600);
+                candles30m = await fetchCandles(socket, pair, 1800);
+                candlesH4 = await fetchCandles(socket, pair, 14400);
+              }
+
               for (const stratId of activeStrategies) {
                 let strategyResultObj;
                 let stratName = '';
+                let tradeDuration = 15;
                 
                 if (stratId === 'FOREX_15M_MTF_V2') {
                   strategyResultObj = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
                   stratName = 'v2 - Forex 15m MTF Crossover';
+                  tradeDuration = 15;
+                } else if (stratId === 'FOREX_30M_MTF_V3') {
+                  strategyResultObj = analyzeForex30mStrategyV3(candles10m, candles30m, candlesH1, candlesH4);
+                  stratName = 'v3 - Forex 30m MTF Crossover';
+                  tradeDuration = 30;
                 } else {
                   strategyResultObj = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
                   stratName = 'v1 - Forex 15m MTF Crossover';
+                  tradeDuration = 15;
                 }
 
                 localLogs.push(`- [${stratName}] ADX=${strategyResultObj.adxValue.toFixed(1)} | Direction=${strategyResultObj.direction}`);
@@ -219,7 +256,7 @@ export async function GET() {
 
                     localLogs.push(`🔥 [${stratName}] Trigger! Buying $${derivStakeAmount.toFixed(2)} ${strategyResultObj.direction} contract.`);
                     try {
-                      const result = await buyContract(socket, pair, strategyResultObj.direction, derivStakeAmount);
+                      const result = await buyContract(socket, pair, strategyResultObj.direction, derivStakeAmount, tradeDuration);
                       executionSuccess = true;
                       
                       const newTrade = {
@@ -227,7 +264,7 @@ export async function GET() {
                         contract_id: result.contract_id,
                         symbol: pair,
                         contract_type: strategyResultObj.direction,
-                        duration: 15,
+                        duration: tradeDuration,
                         duration_unit: 'm',
                         stake: derivStakeAmount,
                         payout: parseFloat(result.payout),
@@ -247,7 +284,7 @@ export async function GET() {
                         `Asset: <b>${getDisplaySymbolName(pair)}</b>\n` +
                         `Strategy: <b>${stratName}</b>\n` +
                         `Direction: ${strategyResultObj.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
-                        `Timeframe: 15m\n` +
+                        `Timeframe: ${tradeDuration}m\n` +
                         `Account: ${tradingMode}\n` +
                         `Stake: $${derivStakeAmount.toFixed(2)}`;
                       
