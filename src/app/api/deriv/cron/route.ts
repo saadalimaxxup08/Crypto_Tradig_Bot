@@ -226,7 +226,7 @@ export async function GET(req: Request) {
             tradeDuration = 15;
           } else if (stratId === 'FOREX_30M_MTF_V3') {
             strategyResultObj = analyzeForex30mStrategyV3(candles10m, candles30m, candlesH1, candlesH4);
-            stratName = 'v3 - Forex 30m MTF Crossover';
+            stratName = 'v1.1 - Forex 30m MTF Crossover';
             tradeDuration = 30;
           } else {
             strategyResultObj = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
