@@ -129,8 +129,8 @@ export default function DerivSummaryPage() {
       }
     });
 
-    // Sort ascending by close time
-    filteredClosed.sort((a, b) => new Date(a.closed_at).getTime() - new Date(b.closed_at).getTime());
+    // Sort descending by close time (latest trades on top)
+    filteredClosed.sort((a, b) => new Date(b.closed_at).getTime() - new Date(a.closed_at).getTime());
     setTrades(filteredClosed);
 
     // Filter active trades
