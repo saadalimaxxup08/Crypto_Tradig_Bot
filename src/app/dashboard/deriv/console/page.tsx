@@ -419,12 +419,22 @@ export default function DerivConsolePage() {
 
     for (let i = logs.length - 1; i >= 0; i--) {
       const text = logs[i].text;
-      if (text.includes('Technical analysis complete in') || text.includes('fetch & TA complete in')) {
+      
+      if (text.includes('Loop iteration completed in')) {
+        const match = text.match(/completed in (\d+)ms/);
+        if (match) {
+          fetchTime = `${match[1]}ms`;
+          if (!scanTimestamp) {
+            scanTimestamp = logs[i].time;
+          }
+        }
+      } else if (text.includes('Technical analysis complete in') || text.includes('fetch & TA complete in')) {
         const match = text.match(/complete in (\d+)ms/);
         if (match) fetchTime = `${match[1]}ms`;
       }
-      if (text.includes('Cron execution complete') || text.includes('Scan loop execution complete')) {
-        const match = text.match(/complete in (\d+)ms/);
+      
+      if (text.includes('Near-Entry monitor execution loop complete') || text.includes('Loop iteration completed in')) {
+        const match = text.match(/in (\d+)ms/) || text.match(/completed in (\d+)ms/);
         if (match) {
           totalTime = `${match[1]}ms`;
           scanTimestamp = logs[i].time;
@@ -511,10 +521,12 @@ export default function DerivConsolePage() {
               else if (log.type === 'system') color = 'text-blue-400 font-bold';
               else if (log.type === 'input') color = 'text-zinc-100 font-bold';
 
+              const isLoopLog = log.text.includes('Loop iteration completed in');
+
               return (
-                <div key={idx} className="flex items-start gap-2 break-all hover:bg-zinc-900/10 py-0.5 rounded transition-all">
+                <div key={idx} className={`flex items-start gap-2 break-all hover:bg-zinc-900/10 py-1 px-2 rounded-xl transition-all ${isLoopLog ? 'bg-emerald-950/20 border border-emerald-900/40 text-emerald-400 font-bold my-1 shadow-sm' : ''}`}>
                   <span className="text-zinc-600 select-none">[{log.time}]</span>
-                  <span className={color}>{log.text}</span>
+                  <span className={isLoopLog ? 'text-emerald-300' : color}>{log.text}</span>
                 </div>
               );
             })}
@@ -617,13 +629,13 @@ export default function DerivConsolePage() {
             </span>
 
             <div className="space-y-3 font-mono text-[10px]">
-              <div className="flex items-center justify-between p-2.5 bg-zinc-950/20 border border-zinc-900/60 rounded-xl">
-                <span className="text-zinc-500">1. Data Fetch & TA</span>
-                <span className="text-zinc-300 font-extrabold">{profileStats.fetchTime}</span>
+              <div className="flex items-center justify-between p-2.5 bg-zinc-950/20 border border-zinc-900/60 rounded-xl relative overflow-hidden group">
+                <span className="text-zinc-500">1. Last Loop Iteration Time</span>
+                <span className="text-emerald-400 font-extrabold text-[11px] bg-emerald-950/30 border border-emerald-500/30 px-2 py-0.5 rounded-lg animate-pulse">{profileStats.fetchTime}</span>
               </div>
-              <div className="flex items-center justify-between p-2.5 bg-zinc-950/20 border border-zinc-900/60 rounded-xl text-emerald-400 animate-pulse">
-                <span className="font-bold">Total Cron Duration</span>
-                <span className="font-extrabold">{profileStats.totalTime}</span>
+              <div className="flex items-center justify-between p-2.5 bg-zinc-950/20 border border-zinc-900/60 rounded-xl text-emerald-400">
+                <span className="font-bold">Total Execution Latency</span>
+                <span className="font-extrabold text-[11px] bg-emerald-500 text-zinc-950 px-2 py-0.5 rounded-lg shadow-md shadow-emerald-500/20">{profileStats.totalTime}</span>
               </div>
               {profileStats.scanTimestamp && (
                 <div className="text-right text-[8.5px] text-zinc-500 italic">
