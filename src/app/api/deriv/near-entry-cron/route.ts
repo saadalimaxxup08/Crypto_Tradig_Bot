@@ -5,6 +5,7 @@ import {
   analyzeForex15mStrategy,
   analyzeForex15mStrategyV2,
   analyzeForex30mStrategyV3,
+  analyzeForex15mProV1Strategy,
   isAsianSessionBlocked,
   isSpreadBlocked,
   isEconomicNewsBlocked,
@@ -228,7 +229,11 @@ export async function GET() {
                 let stratName = '';
                 let tradeDuration = 15;
                 
-                if (stratId === 'FOREX_15M_MTF_V2') {
+                if (stratId === 'FOREX_15M_PRO_V1') {
+                  strategyResultObj = analyzeForex15mProV1Strategy(candlesH1, candles15m, candles5m);
+                  stratName = 'v1 - Forex 15m Trend-Rejection Pro';
+                  tradeDuration = 15;
+                } else if (stratId === 'FOREX_15M_MTF_V2') {
                   strategyResultObj = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
                   stratName = 'v2 - Forex 15m MTF Crossover';
                   tradeDuration = 15;

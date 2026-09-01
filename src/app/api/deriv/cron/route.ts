@@ -5,6 +5,7 @@ import {
   analyzeForex15mStrategy,
   analyzeForex15mStrategyV2,
   analyzeForex30mStrategyV3,
+  analyzeForex15mProV1Strategy,
   isAsianSessionBlocked,
   isSpreadBlocked,
   isEconomicNewsBlocked,
@@ -64,9 +65,9 @@ export async function GET(req: Request) {
     }
 
     const activeStrategies = (existingOverrides.deriv_active_strategies || ['FOREX_15M_MTF']) as string[];
-    const hasAnyActiveStrategy = activeStrategies.includes('FOREX_15M_MTF') || activeStrategies.includes('FOREX_15M_MTF_V2');
+    const hasAnyActiveStrategy = activeStrategies.length > 0;
     if (!hasAnyActiveStrategy) {
-      scanLogs.push('⚠️ Scanner inactive: No strategy engine (v1 or v2) is ticked (enabled) on the Deriv dashboard.');
+      scanLogs.push('⚠️ Scanner inactive: No strategy engine is ticked (enabled) on the Deriv dashboard.');
       await saveDerivScanLogs(existingOverrides, scanLogs);
       return NextResponse.json({ success: true, message: 'No active strategy enabled', logs: scanLogs });
     }
@@ -220,7 +221,11 @@ export async function GET(req: Request) {
           let stratName = '';
           let tradeDuration = 15;
           
-          if (stratId === 'FOREX_15M_MTF_V2') {
+          if (stratId === 'FOREX_15M_PRO_V1') {
+            strategyResultObj = analyzeForex15mProV1Strategy(candlesH1, candles15m, candles5m);
+            stratName = 'v1 - Forex 15m Trend-Rejection Pro';
+            tradeDuration = 15;
+          } else if (stratId === 'FOREX_15M_MTF_V2') {
             strategyResultObj = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
             stratName = 'v2 - Forex 15m MTF Crossover';
             tradeDuration = 15;

@@ -28,6 +28,7 @@ const STRATEGY_NAMES: Record<string, string> = {
   FOREX_15M_MTF: 'Forex 15m MTF Crossover v1',
   FOREX_15M_MTF_V2: 'Forex 15m MTF Crossover v2',
   FOREX_30M_MTF_V3: 'Forex 30m MTF Crossover v1.1',
+  FOREX_15M_PRO_V1: 'Forex 15m Trend-Rejection Pro v1',
 };
 
 const SYMBOL_NAMES: Record<string, string> = {
@@ -1046,6 +1047,7 @@ export default function DerivSummaryPage() {
                 <button
                   onClick={() => {
                     const allStrats = Array.from(new Set([
+                      'FOREX_15M_PRO_V1',
                       'FOREX_15M_MTF',
                       'FOREX_15M_MTF_V2',
                       'FOREX_30M_MTF_V3',
@@ -1068,6 +1070,7 @@ export default function DerivSummaryPage() {
 
             <div className="flex flex-wrap items-center gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
               {Array.from(new Set([
+                'FOREX_15M_PRO_V1',
                 'FOREX_15M_MTF',
                 'FOREX_15M_MTF_V2',
                 'FOREX_30M_MTF_V3',

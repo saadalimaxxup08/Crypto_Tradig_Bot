@@ -42,6 +42,7 @@ interface DerivTrade {
 }
 
 const STRATEGIES_LIST = [
+  { id: 'FOREX_15M_PRO_V1', name: 'v1 - Forex 15m Trend-Rejection Pro', desc: 'v1 Pro: 1H/15m Trend Tide + 5m EMA 20/50 Pullback + Wick Rejection & Color Confirmation + 15m Expiry.' },
   { id: 'FOREX_15M_MTF', name: 'v1 - Forex 15m MTF Crossover', desc: 'H1 Trend Filter + 15m EMA/ADX + 5m Stochastic crossover entry trigger.' },
   { id: 'FOREX_15M_MTF_V2', name: 'v2 - Forex 15m MTF Crossover', desc: 'v2: Adds Support/Resistance and Candlestick Filter validations for higher accuracy.' },
   { id: 'FOREX_30M_MTF_V3', name: 'v1.1 - Forex 30m MTF Crossover', desc: 'v1.1: Triple Trend (H4/H1/30m) + ATR Volatility Filter + RSI Guard + 30m contracts.' }

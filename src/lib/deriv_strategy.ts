@@ -648,3 +648,189 @@ export function analyzeForex30mStrategyV3(
     }
   };
 }
+
+/**
+ * 4. Forex 15m Trend-Pullback & Rejection Pro Strategy (v1)
+ * Optimized specifically for 15-minute binary options on Forex & Synthetics.
+ * Combines 1H & 15m Trend Alignment with 5m EMA 20/50 Value Pullback,
+ * RSI momentum health, and strict candle wick rejection anatomy.
+ */
+export function analyzeForex15mProV1Strategy(
+  candlesH1: Candle[],
+  candles15m: Candle[],
+  candles5m: Candle[]
+): {
+  direction: 'CALL' | 'PUT' | 'NEUTRAL';
+  adxValue: number;
+  nearEntry: {
+    isNear: boolean;
+    direction: 'RISE' | 'FALL' | 'NEUTRAL';
+    reason: string;
+    stochK?: number;
+    stochD?: number;
+    confirmations: {
+      macroTrend: boolean;
+      pullbackZone: boolean;
+      rsiHealth: boolean;
+      wickRejection: boolean;
+      candleColor: boolean;
+      srSafe: boolean;
+    };
+  };
+} {
+  const defaultRes = {
+    direction: 'NEUTRAL' as const,
+    adxValue: 0,
+    nearEntry: {
+      isNear: false,
+      direction: 'NEUTRAL' as const,
+      reason: 'Insufficient candle data for analysis.',
+      stochK: 50,
+      stochD: 50,
+      confirmations: {
+        macroTrend: false,
+        pullbackZone: false,
+        rsiHealth: false,
+        wickRejection: false,
+        candleColor: false,
+        srSafe: false
+      }
+    }
+  };
+
+  if (candlesH1.length < 30 || candles15m.length < 30 || candles5m.length < 30) {
+    return defaultRes;
+  }
+
+  // 1. Macro Trend (1H EMA 50 & 15m EMA 20/50 Alignment)
+  const h1Closes = candlesH1.map(c => c.close);
+  const h1Ema50 = calculateEMA(h1Closes, Math.min(50, h1Closes.length - 1));
+  const currentH1Price = h1Closes[h1Closes.length - 1];
+  const lastH1Ema50 = h1Ema50[h1Ema50.length - 1] || currentH1Price;
+
+  const m15Closes = candles15m.map(c => c.close);
+  const m15Ema20 = calculateEMA(m15Closes, 20);
+  const m15Ema50 = calculateEMA(m15Closes, Math.min(50, m15Closes.length - 1));
+  const lastM15Ema20 = m15Ema20[m15Ema20.length - 1];
+  const lastM15Ema50 = m15Ema50[m15Ema50.length - 1];
+
+  const isH1Uptrend = currentH1Price >= lastH1Ema50;
+  const isH1Downtrend = currentH1Price <= lastH1Ema50;
+
+  const is15mUptrend = lastM15Ema20 >= lastM15Ema50;
+  const is15mDowntrend = lastM15Ema20 <= lastM15Ema50;
+
+  const isMacroUptrend = isH1Uptrend && is15mUptrend;
+  const isMacroDowntrend = isH1Downtrend && is15mDowntrend;
+
+  // 2. 5m Value Zone Pullback & Dynamic EMAs
+  const m5Closes = candles5m.map(c => c.close);
+  const m5Ema20 = calculateEMA(m5Closes, 20);
+  const m5Ema50 = calculateEMA(m5Closes, Math.min(50, m5Closes.length - 1));
+  const m5Rsi = calculateRSI(m5Closes, 14);
+
+  const lastM5Ema20 = m5Ema20[m5Ema20.length - 1];
+  const lastM5Ema50 = m5Ema50[m5Ema50.length - 1];
+  const currentRsi = m5Rsi[m5Rsi.length - 1] || 50;
+
+  const currentCandle = candles5m[candles5m.length - 1];
+  const triggerCandle = candles5m[candles5m.length - 2] || currentCandle;
+
+  // Candle Anatomy Metrics on Trigger Candle
+  const candleRange = triggerCandle.high - triggerCandle.low;
+  const bodyTop = Math.max(triggerCandle.open, triggerCandle.close);
+  const bodyBottom = Math.min(triggerCandle.open, triggerCandle.close);
+  const lowerWick = bodyBottom - triggerCandle.low;
+  const upperWick = triggerCandle.high - bodyTop;
+
+  // Rejection Wick Criteria (at least 20% of range or lower wick exists)
+  const isBullishWick = candleRange > 0 ? (lowerWick / candleRange) >= 0.15 : true;
+  const isBearishWick = candleRange > 0 ? (upperWick / candleRange) >= 0.15 : true;
+
+  // Value Zone Pullback Proximity (low/high touches or near EMA 20 / EMA 50)
+  const distToEma20 = Math.abs(triggerCandle.low - lastM5Ema20) / (triggerCandle.close || 1);
+  const distToEma50 = Math.abs(triggerCandle.low - lastM5Ema50) / (triggerCandle.close || 1);
+  const isPullbackToSupport = (distToEma20 <= 0.0025 || distToEma50 <= 0.0025 || triggerCandle.low <= lastM5Ema20);
+
+  const distToEma20High = Math.abs(triggerCandle.high - lastM5Ema20) / (triggerCandle.close || 1);
+  const distToEma50High = Math.abs(triggerCandle.high - lastM5Ema50) / (triggerCandle.close || 1);
+  const isPullbackToResistance = (distToEma20High <= 0.0025 || distToEma50High <= 0.0025 || triggerCandle.high >= lastM5Ema20);
+
+  // RSI Health Zone (Not exhausted, healthy pullback)
+  const isRsiHealthyForCall = currentRsi >= 32 && currentRsi <= 58;
+  const isRsiHealthyForPut = currentRsi >= 42 && currentRsi <= 68;
+
+  // Candle Confirmation: Green for CALL, Red for PUT
+  const isCallCandleConfirmed = triggerCandle.close > triggerCandle.open && currentCandle.close >= currentCandle.open;
+  const isPutCandleConfirmed = triggerCandle.close < triggerCandle.open && currentCandle.close <= currentCandle.open;
+
+  // 3. Support / Resistance Obstacle Filter
+  const { supports, resistances } = getPivotSR(candles5m);
+  let srSafe = true;
+  let blockReason = '';
+  const currentPrice = currentCandle.close;
+  const srThreshold = 0.0015; // 0.15%
+
+  if (isMacroUptrend) {
+    for (const r of resistances) {
+      if (r > currentPrice && (r - currentPrice) / currentPrice <= srThreshold) {
+        srSafe = false;
+        blockReason = `Resistance level at ${r.toFixed(4)}. Blocking CALL.`;
+        break;
+      }
+    }
+  } else if (isMacroDowntrend) {
+    for (const s of supports) {
+      if (currentPrice > s && (currentPrice - s) / currentPrice <= srThreshold) {
+        srSafe = false;
+        blockReason = `Support level at ${s.toFixed(4)}. Blocking PUT.`;
+        break;
+      }
+    }
+  }
+
+  // 4. Execution Triggers
+  let direction: 'CALL' | 'PUT' | 'NEUTRAL' = 'NEUTRAL';
+
+  if (isMacroUptrend && isPullbackToSupport && isRsiHealthyForCall && isBullishWick && isCallCandleConfirmed && srSafe) {
+    direction = 'CALL';
+  } else if (isMacroDowntrend && isPullbackToResistance && isRsiHealthyForPut && isBearishWick && isPutCandleConfirmed && srSafe) {
+    direction = 'PUT';
+  }
+
+  // 5. Watchlist Diagnostics (nearEntry)
+  let isNear = false;
+  let nearReason = '';
+
+  if (isMacroUptrend) {
+    if (currentRsi <= 58 && !isCallCandleConfirmed) {
+      isNear = true;
+      nearReason = `Bullish Trend (H1/15m) • Pullback in progress (RSI ${currentRsi.toFixed(0)}) • Waiting for Green Rejection Candle at EMA`;
+    }
+  } else if (isMacroDowntrend) {
+    if (currentRsi >= 42 && !isPutCandleConfirmed) {
+      isNear = true;
+      nearReason = `Bearish Trend (H1/15m) • Pullback in progress (RSI ${currentRsi.toFixed(0)}) • Waiting for Red Rejection Candle at EMA`;
+    }
+  }
+
+  return {
+    direction,
+    adxValue: currentRsi,
+    nearEntry: {
+      isNear,
+      direction: isMacroUptrend ? 'RISE' : isMacroDowntrend ? 'FALL' : 'NEUTRAL',
+      reason: direction !== 'NEUTRAL' ? 'Entry setup fully triggered.' : nearReason || blockReason || 'Scanning for EMA pullback.',
+      stochK: currentRsi,
+      stochD: currentRsi,
+      confirmations: {
+        macroTrend: isMacroUptrend || isMacroDowntrend,
+        pullbackZone: isMacroUptrend ? isPullbackToSupport : isMacroDowntrend ? isPullbackToResistance : false,
+        rsiHealth: isMacroUptrend ? isRsiHealthyForCall : isMacroDowntrend ? isRsiHealthyForPut : false,
+        wickRejection: isMacroUptrend ? isBullishWick : isMacroDowntrend ? isBearishWick : false,
+        candleColor: isMacroUptrend ? isCallCandleConfirmed : isMacroDowntrend ? isPutCandleConfirmed : false,
+        srSafe
+      }
+    }
+  };
+}
