@@ -251,9 +251,15 @@ export function analyzeForex15mStrategy(
   // Execution Signal Trigger Rules
   let direction: 'CALL' | 'PUT' | 'NEUTRAL' = 'NEUTRAL';
 
-  if (isH1Uptrend && is15mUptrend && isADXStrong && isStochCallCrossover) {
+  // Candle Momentum Confirmation Rule (Require bullish/bearish candle color)
+  const currentCandle5m = candles5m[candles5m.length - 1];
+  const lastClosedCandle5m = candles5m[candles5m.length - 2] || currentCandle5m;
+  const isCallCandleConfirmed = lastClosedCandle5m.close > lastClosedCandle5m.open && currentCandle5m.close >= currentCandle5m.open;
+  const isPutCandleConfirmed = lastClosedCandle5m.close < lastClosedCandle5m.open && currentCandle5m.close <= currentCandle5m.open;
+
+  if (isH1Uptrend && is15mUptrend && isADXStrong && isStochCallCrossover && isCallCandleConfirmed) {
     direction = 'CALL';
-  } else if (isH1Downtrend && is15mDowntrend && isADXStrong && isStochPutCrossover) {
+  } else if (isH1Downtrend && is15mDowntrend && isADXStrong && isStochPutCrossover && isPutCandleConfirmed) {
     direction = 'PUT';
   }
 
@@ -350,8 +356,9 @@ export function analyzeForex15mStrategyV2(
     };
   }
 
-  const currentPrice = candles5m[candles5m.length - 1].close;
-  const lastCandle = candles5m[candles5m.length - 2] || candles5m[candles5m.length - 1];
+  const currentCandle = candles5m[candles5m.length - 1];
+  const currentPrice = currentCandle.close;
+  const lastCandle = candles5m[candles5m.length - 2] || currentCandle;
 
   // 1. Support & Resistance Filter
   const { supports, resistances } = getPivotSR(candles5m);
@@ -377,17 +384,17 @@ export function analyzeForex15mStrategyV2(
     }
   }
 
-  // 2. Candlestick Confirmation Filter (Trigger candle body direction)
+  // 2. Candlestick Confirmation Filter (Both trigger candle and live candle must confirm momentum)
   let candleSafe = true;
   if (base.direction === 'CALL') {
-    if (lastCandle.close <= lastCandle.open) {
+    if (lastCandle.close <= lastCandle.open || currentCandle.close < currentCandle.open) {
       candleSafe = false;
-      blockReason = 'Trigger candle is not bullish. Blocking CALL.';
+      blockReason = 'Candle confirmation failed (not bullish). Blocking CALL.';
     }
   } else if (base.direction === 'PUT') {
-    if (lastCandle.close >= lastCandle.open) {
+    if (lastCandle.close >= lastCandle.open || currentCandle.close > currentCandle.open) {
       candleSafe = false;
-      blockReason = 'Trigger candle is not bearish. Blocking PUT.';
+      blockReason = 'Candle confirmation failed (not bearish). Blocking PUT.';
     }
   }
 
@@ -579,18 +586,19 @@ export function analyzeForex30mStrategyV3(
     }
   }
 
-  // Trigger Candle Bullish/Bearish confirmation check
-  const lastCandle = candles10m[candles10m.length - 2] || candles10m[candles10m.length - 1];
+  // Trigger Candle Bullish/Bearish confirmation check (both closed and live 10m candle)
+  const currentCandle10m = candles10m[candles10m.length - 1];
+  const lastCandle = candles10m[candles10m.length - 2] || currentCandle10m;
   let candleSafe = true;
   if (initialDirection === 'CALL') {
-    if (lastCandle.close <= lastCandle.open) {
+    if (lastCandle.close <= lastCandle.open || currentCandle10m.close < currentCandle10m.open) {
       candleSafe = false;
-      blockReason = 'Trigger candle is not bullish.';
+      blockReason = 'Candle confirmation failed (not bullish).';
     }
   } else if (initialDirection === 'PUT') {
-    if (lastCandle.close >= lastCandle.open) {
+    if (lastCandle.close >= lastCandle.open || currentCandle10m.close > currentCandle10m.open) {
       candleSafe = false;
-      blockReason = 'Trigger candle is not bearish.';
+      blockReason = 'Candle confirmation failed (not bearish).';
     }
   }
 
