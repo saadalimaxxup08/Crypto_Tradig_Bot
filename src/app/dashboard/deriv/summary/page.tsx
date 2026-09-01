@@ -20,6 +20,8 @@ interface Trade {
   strategy?: string;
   is_paper?: boolean;
   deriv_status?: 'WON' | 'LOST' | 'OPEN';
+  duration?: number;
+  duration_unit?: string;
 }
 
 const STRATEGY_NAMES: Record<string, string> = {
@@ -84,6 +86,7 @@ export default function DerivSummaryPage() {
   const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
   const [showPaperTrades, setShowPaperTrades] = useState(true);
+  const [timeframeFilter, setTimeframeFilter] = useState<'all' | '1m' | '5m' | '15m' | '30m'>('all');
 
   // Default date ranges setup
   useEffect(() => {
@@ -109,6 +112,14 @@ export default function DerivSummaryPage() {
     // 3. Filter by selected Strategies (if any are selected)
     if (selectedStrategies.length > 0) {
       filteredTrades = filteredTrades.filter((t) => t.strategy && selectedStrategies.includes(t.strategy));
+    }
+
+    // 3.5 Filter by timeframe / duration
+    if (timeframeFilter !== 'all') {
+      filteredTrades = filteredTrades.filter((t) => {
+        const durStr = `${t.duration || 15}${t.duration_unit || 'm'}`;
+        return durStr === timeframeFilter;
+      });
     }
 
     // 4. Filter by date/hours cutoff
@@ -148,23 +159,38 @@ export default function DerivSummaryPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         const rawList = data.detailedTrades || [];
-        const detailedTrades: Trade[] = rawList.map((t: any) => ({
-          id: t.id,
-          timestamp: t.created_at,
-          pair: t.symbol,
-          direction: t.contract_type === 'CALL' ? 'LONG' : 'SHORT',
-          entry_price: t.entry_price || 0,
-          exit_price: t.exit_price || 0,
-          amount: t.stake || 1.0,
-          status: t.status === 'OPEN' ? 'OPEN' : 'CLOSED',
-          pnl: t.pnl || 0,
-          closed_at: t.closed_at,
-          leverage: 1,
-          margin: t.stake || 1.0,
-          strategy: t.strategy,
-          is_paper: t.is_paper,
-          deriv_status: t.status
-        }));
+        const detailedTrades: Trade[] = rawList.map((t: any) => {
+          let dur = t.duration;
+          let unit = t.duration_unit || 'm';
+
+          if (!dur && t.created_at && t.closed_at) {
+            const diffMs = new Date(t.closed_at).getTime() - new Date(t.created_at).getTime();
+            const mins = Math.round(diffMs / 60000);
+            dur = mins > 0 ? mins : 15;
+          } else if (!dur) {
+            dur = 15;
+          }
+
+          return {
+            id: t.id,
+            timestamp: t.created_at,
+            pair: t.symbol,
+            direction: t.contract_type === 'CALL' ? 'LONG' : 'SHORT',
+            entry_price: t.entry_price || 0,
+            exit_price: t.exit_price || 0,
+            amount: t.stake || 1.0,
+            status: t.status === 'OPEN' ? 'OPEN' : 'CLOSED',
+            pnl: t.pnl || 0,
+            closed_at: t.closed_at,
+            leverage: 1,
+            margin: t.stake || 1.0,
+            strategy: t.strategy,
+            is_paper: t.is_paper,
+            deriv_status: t.status,
+            duration: dur,
+            duration_unit: unit
+          };
+        });
         setRawTrades(detailedTrades);
         setLivePrices(data.livePrices || {});
         applyFilters(detailedTrades);
@@ -182,7 +208,7 @@ export default function DerivSummaryPage() {
 
   useEffect(() => {
     applyFilters(rawTrades);
-  }, [startDate, endDate, hourlyFilter, selectedPairs, selectedStrategies, showPaperTrades, rawTrades]);
+  }, [startDate, endDate, hourlyFilter, selectedPairs, selectedStrategies, showPaperTrades, rawTrades, timeframeFilter]);
 
   // Set quick ranges
   const setRangeQuick = (rangeType: 'today' | 'yesterday' | '2days' | '3days' | '5days' | 'week' | 'month') => {
@@ -418,13 +444,14 @@ export default function DerivSummaryPage() {
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(80, 80, 85);
-    doc.text("Close Time", 17, currentY);
-    doc.text("Pair / Asset", 54, currentY);
-    doc.text("Type", 90, currentY);
-    doc.text("Entry spot", 110, currentY);
-    doc.text("Exit spot", 132, currentY);
-    doc.text("Stake", 154, currentY);
-    doc.text("Net return", 175, currentY);
+    doc.text("Close Time", 16, currentY);
+    doc.text("Pair / Asset", 48, currentY);
+    doc.text("Type", 82, currentY);
+    doc.text("Duration", 100, currentY);
+    doc.text("Entry spot", 118, currentY);
+    doc.text("Exit spot", 138, currentY);
+    doc.text("Stake", 158, currentY);
+    doc.text("Net return", 176, currentY);
     
     currentY += 4;
 
@@ -438,38 +465,40 @@ export default function DerivSummaryPage() {
       }
       const closeTime = new Date(t.closed_at).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false });
       const displayName = getDisplaySymbolName(t.pair).split(' (')[0];
+      const durStr = `${t.duration || 15}${t.duration_unit || 'm'}`;
 
       doc.setTextColor(30, 30, 35);
-      doc.text(closeTime, 17, currentY);
-      doc.text(displayName, 54, currentY);
+      doc.text(closeTime, 16, currentY);
+      doc.text(displayName, 48, currentY);
       
       if (t.direction === 'LONG') {
         doc.setTextColor(16, 185, 129);
         doc.setFont('helvetica', 'bold');
-        doc.text("CALL", 90, currentY);
+        doc.text("CALL", 82, currentY);
       } else {
         doc.setTextColor(239, 68, 68);
         doc.setFont('helvetica', 'bold');
-        doc.text("PUT", 90, currentY);
+        doc.text("PUT", 82, currentY);
       }
       doc.setFont('helvetica', 'normal');
 
       doc.setTextColor(80, 80, 85);
-      doc.text(t.entry_price.toFixed(4), 110, currentY);
-      doc.text(t.exit_price ? t.exit_price.toFixed(4) : 'N/A', 132, currentY);
-      doc.text(`$${t.amount.toFixed(1)}`, 154, currentY);
+      doc.text(durStr, 100, currentY);
+      doc.text(t.entry_price.toFixed(4), 118, currentY);
+      doc.text(t.exit_price ? t.exit_price.toFixed(4) : 'N/A', 138, currentY);
+      doc.text(`$${t.amount.toFixed(1)}`, 158, currentY);
 
       if (t.pnl > 0) {
         doc.setTextColor(16, 185, 129);
         doc.setFont('helvetica', 'bold');
-        doc.text(`+${t.pnl.toFixed(2)} USD`, 175, currentY);
+        doc.text(`+${t.pnl.toFixed(2)} USD`, 176, currentY);
       } else if (t.pnl < 0) {
         doc.setTextColor(239, 68, 68);
         doc.setFont('helvetica', 'bold');
-        doc.text(`${t.pnl.toFixed(2)} USD`, 175, currentY);
+        doc.text(`${t.pnl.toFixed(2)} USD`, 176, currentY);
       } else {
         doc.setTextColor(120, 120, 125);
-        doc.text("0.00 USD", 175, currentY);
+        doc.text("0.00 USD", 176, currentY);
       }
       doc.setFont('helvetica', 'normal');
 
@@ -1098,6 +1127,71 @@ export default function DerivSummaryPage() {
         </div>
       </div>
 
+      {/* Timeframe Performance Breakdown Grid */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+            <span>⏱️ Timeframe Performance Breakdown</span>
+          </span>
+          <span className="text-[10px] text-zinc-500 font-medium">Results separated by trade duration (Click to filter)</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 no-print">
+          {[
+            { label: '1 Minute', value: '1m', badgeColor: 'border-blue-500/30 text-blue-400 bg-blue-950/10' },
+            { label: '5 Minutes', value: '5m', badgeColor: 'border-cyan-500/30 text-cyan-400 bg-cyan-950/10' },
+            { label: '15 Minutes', value: '15m', badgeColor: 'border-emerald-500/30 text-emerald-400 bg-emerald-950/10' },
+            { label: '30 Minutes', value: '30m', badgeColor: 'border-purple-500/30 text-purple-400 bg-purple-950/10' },
+          ].map(({ label, value, badgeColor }) => {
+            const tfTrades = rawTrades.filter(t => {
+              if (t.status !== 'CLOSED') return false;
+              const durStr = `${t.duration || 15}${t.duration_unit || 'm'}`;
+              return durStr === value;
+            });
+            const tfWins = tfTrades.filter(t => (t.pnl || 0) > 0).length;
+            const tfLosses = tfTrades.filter(t => (t.pnl || 0) <= 0).length;
+            const tfTotal = tfTrades.length;
+            const tfWr = tfTotal > 0 ? (tfWins / tfTotal) * 100 : 0;
+            const tfPnl = tfTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+            const isSelected = timeframeFilter === value;
+
+            return (
+              <div
+                key={value}
+                onClick={() => setTimeframeFilter(isSelected ? 'all' : (value as any))}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                  isSelected
+                    ? 'bg-zinc-900 border-emerald-500 shadow-md shadow-emerald-500/10 scale-[1.02]'
+                    : 'bg-[#0c0c0f]/60 backdrop-blur-xl border-zinc-800/80 hover:border-zinc-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase ${badgeColor}`}>
+                    {label}
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-mono font-medium">
+                    {tfTotal} trade(s)
+                  </span>
+                </div>
+
+                <div className="mt-3 flex items-baseline justify-between">
+                  <div>
+                    <span className="text-lg font-extrabold text-zinc-200">{tfTotal > 0 ? `${tfWr.toFixed(1)}%` : '0%'}</span>
+                    <span className="text-[9px] text-zinc-500 block">Win Rate ({tfWins}W - {tfLosses}L)</span>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-sm font-bold font-mono ${tfPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {tfPnl >= 0 ? '+' : ''}{tfPnl.toFixed(2)}
+                    </span>
+                    <span className="text-[9px] text-zinc-500 block">Net P&L (USD)</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Active Running Positions Section */}
       <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4 print-card">
         <h3 className="text-md font-bold text-zinc-200 pb-2 border-b border-zinc-800/50 flex items-center justify-between">
@@ -1180,9 +1274,75 @@ export default function DerivSummaryPage() {
         )}
       </div>
 
-      {/* Detailed Ledger List */}
+      {/* Detailed Ledger List with Timeframe Separation */}
       <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4 print-card">
-        <h3 className="text-md font-bold text-zinc-200 pb-2 border-b border-zinc-800/50">Trades Execution Ledger</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-800/50">
+          <div>
+            <h3 className="text-md font-bold text-zinc-200">Trades Execution Ledger</h3>
+            <p className="text-[11px] text-zinc-500 font-medium mt-0.5">
+              Showing {trades.length} trade(s) {timeframeFilter !== 'all' ? `• Filtered to ${timeframeFilter} Timeframe` : '• All Timeframes'}
+            </p>
+          </div>
+
+          {/* Timeframe Separation Filter Tabs */}
+          <div className="flex items-center gap-1.5 p-1 bg-zinc-950/60 border border-zinc-800/80 rounded-2xl no-print overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setTimeframeFilter('all')}
+              className={`px-3 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                timeframeFilter === 'all'
+                  ? 'bg-zinc-800 text-white shadow-sm'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              All Timeframes
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeframeFilter('1m')}
+              className={`px-3 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                timeframeFilter === '1m'
+                  ? 'bg-emerald-500 text-zinc-950 shadow-sm shadow-emerald-500/20'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              1 min
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeframeFilter('5m')}
+              className={`px-3 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                timeframeFilter === '5m'
+                  ? 'bg-emerald-500 text-zinc-950 shadow-sm shadow-emerald-500/20'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              5 min
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeframeFilter('15m')}
+              className={`px-3 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                timeframeFilter === '15m'
+                  ? 'bg-emerald-500 text-zinc-950 shadow-sm shadow-emerald-500/20'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              15 min
+            </button>
+            <button
+              type="button"
+              onClick={() => setTimeframeFilter('30m')}
+              className={`px-3 py-1 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                timeframeFilter === '30m'
+                  ? 'bg-emerald-500 text-zinc-950 shadow-sm shadow-emerald-500/20'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              30 min
+            </button>
+          </div>
+        </div>
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
@@ -1202,6 +1362,7 @@ export default function DerivSummaryPage() {
                   <th className="pb-3">Close Time</th>
                   <th className="pb-3">Pair / Asset</th>
                   <th className="pb-3 text-center">Direction</th>
+                  <th className="pb-3 text-center">Duration</th>
                   <th className="pb-3 text-right">Entry Price</th>
                   <th className="pb-3 text-right">Exit Price</th>
                   <th className="pb-3 text-right">Stake (USD)</th>
@@ -1225,6 +1386,11 @@ export default function DerivSummaryPage() {
                           }`}
                         >
                           {t.direction === 'LONG' ? 'RISE (CALL)' : 'FALL (PUT)'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 text-center">
+                        <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded-md bg-zinc-900 border border-zinc-800 text-zinc-300">
+                          {t.duration ? `${t.duration}${t.duration_unit || 'm'}` : '15m'}
                         </span>
                       </td>
                       <td className="py-3.5 text-right font-mono text-zinc-400">{t.entry_price.toFixed(4)}</td>

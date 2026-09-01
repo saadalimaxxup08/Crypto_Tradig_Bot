@@ -40,6 +40,7 @@ export async function POST(request: Request) {
       {
         method: 'POST',
         body: telegramFormData,
+        cache: 'no-store'
       }
     );
 
