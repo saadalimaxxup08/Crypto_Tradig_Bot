@@ -288,7 +288,8 @@ export default function DerivSummaryPage() {
     doc.setTextColor(160, 160, 165);
     doc.text("Performance Summary Report & Verified Options Ledger (Jeddah Time)", 14, 19);
     
-    const dateRangeStr = `Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}`;
+    const tfLabel = timeframeFilter !== 'all' ? ` | Timeframe: ${timeframeFilter}` : '';
+    const dateRangeStr = `Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}${tfLabel}`;
     doc.text(dateRangeStr, 196, 19, { align: 'right' });
 
     // 2. Metrics Bounding Box Cards Grid
@@ -626,8 +627,9 @@ export default function DerivSummaryPage() {
       }
     }
 
+    const tfFilePart = timeframeFilter !== 'all' ? `_${timeframeFilter}` : '';
     if (download) {
-      doc.save(`Deriv_Report_${startDate}_to_${endDate}.pdf`);
+      doc.save(`Deriv_Report_${startDate}_to_${endDate}${tfFilePart}.pdf`);
       return null;
     } else {
       return doc.output('blob');
@@ -650,7 +652,8 @@ export default function DerivSummaryPage() {
         return;
       }
 
-      const file = new File([pdfBlob], `Deriv_Report_${startDate}_to_${endDate}.pdf`, {
+      const tfFilePart = timeframeFilter !== 'all' ? `_${timeframeFilter}` : '';
+      const file = new File([pdfBlob], `Deriv_Report_${startDate}_to_${endDate}${tfFilePart}.pdf`, {
         type: 'application/pdf',
       });
 
@@ -658,6 +661,7 @@ export default function DerivSummaryPage() {
       formData.append('file', file);
       formData.append('startDate', startDate);
       formData.append('endDate', endDate);
+      formData.append('timeframe', timeframeFilter);
 
       const res = await fetch('/api/deriv/trades/report/send-file', {
         method: 'POST',

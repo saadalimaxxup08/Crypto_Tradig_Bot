@@ -9,6 +9,7 @@ export async function POST(request: Request) {
     const file = formData.get('file') as File;
     const startDate = formData.get('startDate') as string;
     const endDate = formData.get('endDate') as string;
+    const timeframe = formData.get('timeframe') as string;
 
     if (!file) {
       return NextResponse.json({ error: 'No PDF file received' }, { status: 400 });
@@ -28,10 +29,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Telegram credentials not configured in settings!' }, { status: 400 });
     }
 
+    const tfCaption = timeframe && timeframe !== 'all' ? `\n⏱️ <b>Timeframe:</b> ${timeframe}` : '\n⏱️ <b>Timeframe:</b> All Timeframes';
+
     // 2. Prepare payload to send to Telegram sendDocument API
     const telegramFormData = new FormData();
     telegramFormData.append('chat_id', telegramChatId);
-    telegramFormData.append('caption', `📊 <b>Deriv Options Performance PDF Report</b>\nPeriod: ${startDate} to ${endDate}`);
+    telegramFormData.append('caption', `📊 <b>Deriv Options Performance PDF Report</b>\n📅 <b>Period:</b> ${startDate} to ${endDate}${tfCaption}`);
     telegramFormData.append('parse_mode', 'HTML');
     telegramFormData.append('document', file);
 
