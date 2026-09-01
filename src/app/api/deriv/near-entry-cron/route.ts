@@ -285,13 +285,16 @@ export async function GET() {
 
                       await supabase.from('deriv_trades').insert([newTrade]);
                       
+                      const chartLink = `https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair}&trade_type=rise_fall`;
                       const signalMsg = `🔔 <b>DERIV SIGNAL EXECUTED</b>\n\n` +
                         `Asset: <b>${getDisplaySymbolName(pair)}</b>\n` +
                         `Strategy: <b>${stratName}</b>\n` +
                         `Direction: ${strategyResultObj.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
                         `Timeframe: ${tradeDuration}m\n` +
                         `Account: ${tradingMode}\n` +
-                        `Stake: $${derivStakeAmount.toFixed(2)}`;
+                        `Stake: $${derivStakeAmount.toFixed(2)}\n\n` +
+                        `📈 <b>Live Chart:</b> <a href="${chartLink}">Open ${getDisplaySymbolName(pair).split(' (')[0]} on Deriv</a>\n` +
+                        `🔗 <b>Direct Link:</b> ${chartLink}`;
                       
                       await sendTelegramAlert(signalMsg);
                     } catch (buyErr: any) {

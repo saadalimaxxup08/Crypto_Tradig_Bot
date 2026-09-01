@@ -293,6 +293,7 @@ export async function GET(req: Request) {
 
                 // Send Telegram Signal Notification
                 const gmtTime = new Date().toUTCString();
+                const chartLink = `https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair}&trade_type=rise_fall`;
                 const signalMsg = `🚀 <b>DERIV OP-BOT SIGNAL ALERT</b> 🚀\n` +
                   `-------------------------------------\n` +
                   `<b>Asset Pair:</b> ${getDisplaySymbolName(pair)}\n` +
@@ -302,7 +303,9 @@ export async function GET(req: Request) {
                   `<b>Contract Expiry:</b> ${tradeDuration} Minutes\n` +
                   `<b>Scan Time (GMT):</b> ${gmtTime}\n` +
                   `<b>Analysis Stats:</b> H1 Trend: ${strategyResultObj.direction === 'CALL' ? 'BULLISH' : 'BEARISH'} | ADX: ${strategyResultObj.adxValue.toFixed(1)}\n` +
-                  `<b>Account Mode:</b> ${tradingMode} Sandbox`;
+                  `<b>Account Mode:</b> ${tradingMode} Sandbox\n\n` +
+                  `📈 <b>Live Chart:</b> <a href="${chartLink}">Open ${getDisplaySymbolName(pair).split(' (')[0]} on Deriv</a>\n` +
+                  `🔗 <b>Direct Link:</b> ${chartLink}`;
                 
                 await sendTelegramAlert(signalMsg);
 
