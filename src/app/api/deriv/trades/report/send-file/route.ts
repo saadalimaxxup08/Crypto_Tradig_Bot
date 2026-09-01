@@ -29,12 +29,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Telegram credentials not configured in settings!' }, { status: 400 });
     }
 
-    const tfCaption = timeframe && timeframe !== 'all' ? `\n⏱️ <b>Timeframe:</b> ${timeframe}` : '\n⏱️ <b>Timeframe:</b> All Timeframes';
+    const STRATEGY_NAMES: Record<string, string> = {
+      FOREX_15M_MTF: 'Forex 15m MTF Crossover v1',
+      FOREX_15M_MTF_V2: 'Forex 15m MTF Crossover v2',
+      FOREX_30M_MTF_V3: 'Forex 30m MTF Crossover v1.1',
+    };
+    const strategies = formData.get('strategies') as string;
+    const stratList = strategies ? strategies.split(',').filter(Boolean) : [];
+    const stratCaption = stratList.length === 1 
+      ? `\n🎯 <b>Strategy:</b> ${STRATEGY_NAMES[stratList[0]] || stratList[0]}` 
+      : stratList.length > 1 
+        ? `\n🎯 <b>Strategies:</b> ${stratList.length} selected` 
+        : '';
+
+    const tfCaption = timeframe && timeframe !== 'all' ? `\n⏱️ <b>Timeframe:</b> ${timeframe}` : '';
 
     // 2. Prepare payload to send to Telegram sendDocument API
     const telegramFormData = new FormData();
     telegramFormData.append('chat_id', telegramChatId);
-    telegramFormData.append('caption', `📊 <b>Deriv Options Performance PDF Report</b>\n📅 <b>Period:</b> ${startDate} to ${endDate}${tfCaption}`);
+    telegramFormData.append('caption', `📊 <b>Deriv Options Performance PDF Report</b>\n📅 <b>Period:</b> ${startDate} to ${endDate}${tfCaption}${stratCaption}`);
     telegramFormData.append('parse_mode', 'HTML');
     telegramFormData.append('document', file);
 

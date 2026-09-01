@@ -171,6 +171,15 @@ export default function DerivSummaryPage() {
             dur = 15;
           }
 
+          let strategy = t.strategy;
+          if (!strategy) {
+            if (dur === 30) {
+              strategy = 'FOREX_30M_MTF_V3';
+            } else {
+              strategy = 'FOREX_15M_MTF';
+            }
+          }
+
           return {
             id: t.id,
             timestamp: t.created_at,
@@ -184,7 +193,7 @@ export default function DerivSummaryPage() {
             closed_at: t.closed_at,
             leverage: 1,
             margin: t.stake || 1.0,
-            strategy: t.strategy,
+            strategy: strategy,
             is_paper: t.is_paper,
             deriv_status: t.status,
             duration: dur,
@@ -289,7 +298,12 @@ export default function DerivSummaryPage() {
     doc.text("Performance Summary Report & Verified Options Ledger (Jeddah Time)", 14, 19);
     
     const tfLabel = timeframeFilter !== 'all' ? ` | Timeframe: ${timeframeFilter}` : '';
-    const dateRangeStr = `Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}${tfLabel}`;
+    const stratLabel = selectedStrategies.length === 1 
+      ? ` | Strategy: ${STRATEGY_NAMES[selectedStrategies[0]] || selectedStrategies[0]}` 
+      : selectedStrategies.length > 1 
+        ? ` | ${selectedStrategies.length} Strats` 
+        : '';
+    const dateRangeStr = `Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}${tfLabel}${stratLabel}`;
     doc.text(dateRangeStr, 196, 19, { align: 'right' });
 
     // 2. Metrics Bounding Box Cards Grid
@@ -628,8 +642,9 @@ export default function DerivSummaryPage() {
     }
 
     const tfFilePart = timeframeFilter !== 'all' ? `_${timeframeFilter}` : '';
+    const stratFilePart = selectedStrategies.length === 1 ? `_${selectedStrategies[0]}` : selectedStrategies.length > 1 ? `_${selectedStrategies.length}strats` : '';
     if (download) {
-      doc.save(`Deriv_Report_${startDate}_to_${endDate}${tfFilePart}.pdf`);
+      doc.save(`Deriv_Report_${startDate}_to_${endDate}${tfFilePart}${stratFilePart}.pdf`);
       return null;
     } else {
       return doc.output('blob');
@@ -653,7 +668,8 @@ export default function DerivSummaryPage() {
       }
 
       const tfFilePart = timeframeFilter !== 'all' ? `_${timeframeFilter}` : '';
-      const file = new File([pdfBlob], `Deriv_Report_${startDate}_to_${endDate}${tfFilePart}.pdf`, {
+      const stratFilePart = selectedStrategies.length === 1 ? `_${selectedStrategies[0]}` : selectedStrategies.length > 1 ? `_${selectedStrategies.length}strats` : '';
+      const file = new File([pdfBlob], `Deriv_Report_${startDate}_to_${endDate}${tfFilePart}${stratFilePart}.pdf`, {
         type: 'application/pdf',
       });
 
@@ -662,6 +678,7 @@ export default function DerivSummaryPage() {
       formData.append('startDate', startDate);
       formData.append('endDate', endDate);
       formData.append('timeframe', timeframeFilter);
+      formData.append('strategies', selectedStrategies.join(','));
 
       const res = await fetch('/api/deriv/trades/report/send-file', {
         method: 'POST',
@@ -1027,7 +1044,15 @@ export default function DerivSummaryPage() {
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setSelectedStrategies(Array.from(new Set(rawTrades.filter(t => showPaperTrades ? true : !t.is_paper).map(t => t.strategy).filter(Boolean))) as string[])}
+                  onClick={() => {
+                    const allStrats = Array.from(new Set([
+                      'FOREX_15M_MTF',
+                      'FOREX_15M_MTF_V2',
+                      'FOREX_30M_MTF_V3',
+                      ...rawTrades.filter(t => showPaperTrades ? true : !t.is_paper).map(t => t.strategy).filter(Boolean)
+                    ])) as string[];
+                    setSelectedStrategies(allStrats);
+                  }}
                   className="text-[10px] text-zinc-400 hover:text-zinc-200 uppercase tracking-wider font-semibold border border-zinc-800 bg-zinc-950/20 px-2 py-1 rounded-lg transition-all cursor-pointer"
                 >
                   Select All
@@ -1042,9 +1067,16 @@ export default function DerivSummaryPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2 max-h-[160px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
-              {Array.from(new Set(rawTrades.filter(t => showPaperTrades ? true : !t.is_paper).map((t) => t.strategy).filter(Boolean))).sort().map((strategy) => {
+              {Array.from(new Set([
+                'FOREX_15M_MTF',
+                'FOREX_15M_MTF_V2',
+                'FOREX_30M_MTF_V3',
+                ...rawTrades.filter(t => showPaperTrades ? true : !t.is_paper).map((t) => t.strategy).filter(Boolean)
+              ])).map((strategy) => {
                 const isSelected = selectedStrategies.includes(strategy as string);
                 const displayName = STRATEGY_NAMES[strategy as string] || strategy;
+                const stratTradesCount = rawTrades.filter(t => (showPaperTrades ? true : !t.is_paper) && t.strategy === strategy).length;
+
                 return (
                   <button
                     key={strategy}
@@ -1055,9 +1087,9 @@ export default function DerivSummaryPage() {
                         setSelectedStrategies([...selectedStrategies, strategy as string]);
                       }
                     }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all duration-150 cursor-pointer ${
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider border transition-all duration-150 cursor-pointer ${
                       isSelected
-                        ? 'bg-blue-950/20 border-blue-500/40 text-blue-400 font-extrabold shadow-md'
+                        ? 'bg-blue-950/40 border-blue-500 text-blue-400 font-extrabold shadow-md shadow-blue-500/10'
                         : 'bg-zinc-900 border-zinc-850 text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
@@ -1065,9 +1097,12 @@ export default function DerivSummaryPage() {
                       type="checkbox"
                       checked={isSelected}
                       readOnly
-                      className="w-3 h-3 pointer-events-none accent-blue-500 rounded border-zinc-700 focus:ring-0"
+                      className="w-3.5 h-3.5 pointer-events-none accent-blue-500 rounded border-zinc-700 focus:ring-0"
                     />
-                    <span className="truncate max-w-[180px]">{displayName}</span>
+                    <span className="truncate max-w-[200px]">{displayName}</span>
+                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400">
+                      {stratTradesCount}
+                    </span>
                   </button>
                 );
               })}
@@ -1366,6 +1401,7 @@ export default function DerivSummaryPage() {
                   <th className="pb-3">Close Time</th>
                   <th className="pb-3">Pair / Asset</th>
                   <th className="pb-3 text-center">Direction</th>
+                  <th className="pb-3 text-center">Strategy</th>
                   <th className="pb-3 text-center">Duration</th>
                   <th className="pb-3 text-right">Entry Price</th>
                   <th className="pb-3 text-right">Exit Price</th>
@@ -1390,6 +1426,11 @@ export default function DerivSummaryPage() {
                           }`}
                         >
                           {t.direction === 'LONG' ? 'RISE (CALL)' : 'FALL (PUT)'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 text-center">
+                        <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-blue-950/30 border border-blue-900/50 text-blue-300">
+                          {STRATEGY_NAMES[t.strategy || ''] || t.strategy || 'Forex MTF'}
                         </span>
                       </td>
                       <td className="py-3.5 text-center">
