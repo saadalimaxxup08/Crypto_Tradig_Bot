@@ -154,6 +154,42 @@ export async function sendTelegramAlert(message: string) {
   }
 }
 
+// Fetch live Deriv account balances (demo and real)
+export async function fetchDerivBalances(): Promise<{ demoBalance: number; realBalance: number }> {
+  try {
+    const { data: settings } = await supabase.from('settings').select('*').eq('id', 1).single();
+    const appId = settings?.deriv_app_id || process.env.DERIV_APP_ID || '';
+    const token = settings?.deriv_api_token || process.env.DERIV_API_TOKEN || '';
+
+    if (appId && token) {
+      const response = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
+        method: 'GET',
+        headers: {
+          'Deriv-App-ID': appId,
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        cache: 'no-store'
+      });
+
+      if (response.status === 200) {
+        const resData = await response.json();
+        if (resData && resData.data) {
+          const demo = resData.data.find((a: any) => a.account_type === 'demo');
+          const real = resData.data.find((a: any) => a.account_type === 'real');
+          return {
+            demoBalance: demo ? parseFloat(demo.balance) : 0.00,
+            realBalance: real ? parseFloat(real.balance) : 0.00
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch Deriv balances:', err);
+  }
+  return { demoBalance: 0.00, realBalance: 0.00 };
+}
+
 // Save Deriv specific scan logs to settings pair_overrides JSON object
 export async function saveDerivScanLogs(existingOverrides: any, scanLogs: string[], nearEntryPairs?: any[]) {
   try {
@@ -327,6 +363,22 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
                     console.error('Failed to generate trade PDF:', pdfErr);
                   }
 
+                  // Fetch updated live Deriv balance
+                  let balanceLine = '';
+                  let docBalLine = '';
+                  try {
+                    const balances = await fetchDerivBalances();
+                    const isDemo = matchingTrade.is_paper !== false;
+                    const balToDisplay = isDemo ? balances.demoBalance : (balances.realBalance || balances.demoBalance);
+                    const balLabel = isDemo ? 'Demo Balance' : 'Real Balance';
+                    if (balToDisplay > 0) {
+                      balanceLine = `\n<b>${balLabel}:</b> $${balToDisplay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+                      docBalLine = `\n${balLabel}: $${balToDisplay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+                    }
+                  } catch (balErr) {
+                    console.error('Failed to fetch balance for outcome alert:', balErr);
+                  }
+
                   // 3. Send Telegram Notification
                   const outcomeMsg = `🔔 <b>DERIV CONTRACT COMPLETED</b> 🔔\n` +
                     `-------------------------------------\n` +
@@ -335,14 +387,15 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
                     `<b>Outcome:</b> ${status === 'WON' ? '🟢 WIN (WON)' : '🔴 LOSS (LOST)'}\n` +
                     `<b>Profit/Loss:</b> ${pnl > 0 ? '+' : ''}${pnl.toFixed(2)} USD\n` +
                     `<b>Entry Price:</b> $${entryPrice}\n` +
-                    `<b>Exit Price:</b> $${exitPrice || 'N/A'}`;
+                    `<b>Exit Price:</b> $${exitPrice || 'N/A'}` +
+                    balanceLine;
                   
                   await sendTelegramAlert(outcomeMsg);
 
                   // 4. Send PDF Document to Telegram
                   if (pdfBuffer) {
                     const filename = `Trade_Report_${matchingTrade.contract_id}.pdf`;
-                    const docCaption = `📊 <b>Trade Report: ${getDisplaySymbolName(matchingTrade.symbol)}</b>\nOutcome: ${status === 'WON' ? '🏆 WIN' : '❌ LOSS'} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USD)`;
+                    const docCaption = `📊 <b>Trade Report: ${getDisplaySymbolName(matchingTrade.symbol)}</b>\nOutcome: ${status === 'WON' ? '🏆 WIN' : '❌ LOSS'} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USD)${docBalLine}`;
                     await sendTelegramDocument(pdfBuffer, filename, docCaption);
                   }
                 } catch (err: any) {
