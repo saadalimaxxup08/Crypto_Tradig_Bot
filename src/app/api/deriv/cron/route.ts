@@ -85,41 +85,7 @@ export async function GET(req: Request) {
     const cooldownFilterEnabled = existingOverrides.deriv_cooldown_filter_enabled !== false;
     const dailyLimitEnabled = existingOverrides.deriv_daily_limit_enabled !== false;
 
-    // 2. Filter: Session Check
-    if (sessionFilterEnabled && isAsianSessionBlocked()) {
-      scanLogs.push('⏳ Session Filter: Asian session block active (21:00 - 23:59 GMT). Skipping trade scans.');
-      await saveDerivScanLogs(existingOverrides, scanLogs);
-      return NextResponse.json({ success: true, message: 'Asian session block', logs: scanLogs });
-    }
-
-    // 3. Filter: Risk Controls Check
-    const derivMaxTrades = existingOverrides.deriv_max_trades || 10;
-    const { data: openTrades, error: countErr } = await supabase
-      .from('deriv_trades')
-      .select('*')
-      .eq('status', 'OPEN');
-
-    const openTradesCount = openTrades ? openTrades.length : 0;
-
-    if (!countErr && openTradesCount >= derivMaxTrades) {
-      scanLogs.push(`⚠️ Halted execution: Open trades count (${openTradesCount}) reached the maximum limit of ${derivMaxTrades}. Skipping.`);
-      await saveDerivScanLogs(existingOverrides, scanLogs);
-      return NextResponse.json({ success: true, message: 'Max trades limit reached', logs: scanLogs });
-    }
-
-    const riskControls = await getRiskControlsStatus();
-    if (dailyLimitEnabled && riskControls.isDailyLimitBlocked) {
-      scanLogs.push(`🚨 Risk Control: Daily limit of 10 trades reached (${riskControls.dailyTradesCount} trades today). Skipping.`);
-      await saveDerivScanLogs(existingOverrides, scanLogs);
-      return NextResponse.json({ success: true, message: 'Daily limit reached', logs: scanLogs });
-    }
-    if (cooldownFilterEnabled && riskControls.isCooldownBlocked) {
-      scanLogs.push('🚨 Risk Control: 2 consecutive losses detected. Cooldown period (60m) active. Skipping.');
-      await saveDerivScanLogs(existingOverrides, scanLogs);
-      return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
-    }
-
-    // 4. Connect WebSocket using OTP endpoint with robust retry logic
+    // 2. Connect WebSocket using OTP endpoint with robust retry logic
     const wsUrl = await fetchOTP(appId, token, activeAccount);
     
     const host = req.headers.get('host') || 'cryptotradigbot-production.up.railway.app';
@@ -166,10 +132,43 @@ export async function GET(req: Request) {
     // Increase WebSocket MaxListeners to avoid warnings during parallel scans
     (socket as any).setMaxListeners?.(200);
 
-    // Sync any open trades on the backend and alert Telegram on close
+    // 3. ALWAYS Sync open trades and report outcomes to Telegram FIRST
+    const { data: openTrades, error: countErr } = await supabase
+      .from('deriv_trades')
+      .select('*')
+      .eq('status', 'OPEN');
+
     if (openTrades && openTrades.length > 0) {
       scanLogs.push(`ℹ️ Syncing ${openTrades.length} open trade(s) on the backend...`);
       await syncOpenTrades(socket, openTrades);
+    }
+
+    // 4. Now evaluate Risk Controls & Filters for placing NEW trades
+    const openTradesCount = openTrades ? openTrades.length : 0;
+    const derivMaxTrades = existingOverrides.deriv_max_trades || 10;
+
+    if (!countErr && openTradesCount >= derivMaxTrades) {
+      scanLogs.push(`⚠️ Halted execution: Open trades count (${openTradesCount}) reached the maximum limit of ${derivMaxTrades}. Skipping new trades.`);
+      await saveDerivScanLogs(existingOverrides, scanLogs);
+      return NextResponse.json({ success: true, message: 'Max trades limit reached', logs: scanLogs });
+    }
+
+    if (sessionFilterEnabled && isAsianSessionBlocked()) {
+      scanLogs.push('⏳ Session Filter: Asian session block active (21:00 - 23:59 GMT). Skipping new trade scans.');
+      await saveDerivScanLogs(existingOverrides, scanLogs);
+      return NextResponse.json({ success: true, message: 'Asian session block', logs: scanLogs });
+    }
+
+    const riskControls = await getRiskControlsStatus();
+    if (dailyLimitEnabled && riskControls.isDailyLimitBlocked) {
+      scanLogs.push(`🚨 Risk Control: Daily limit of 10 trades reached (${riskControls.dailyTradesCount} trades today). Skipping new trades.`);
+      await saveDerivScanLogs(existingOverrides, scanLogs);
+      return NextResponse.json({ success: true, message: 'Daily limit reached', logs: scanLogs });
+    }
+    if (cooldownFilterEnabled && riskControls.isCooldownBlocked) {
+      scanLogs.push('🚨 Risk Control: 2 consecutive losses detected. Cooldown period (60m) active. Skipping new trades.');
+      await saveDerivScanLogs(existingOverrides, scanLogs);
+      return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
     }
 
     const pairsToTrade = existingOverrides.deriv_selected_pairs || ['frxEURUSD', 'frxGBPUSD', 'frxUSDJPY'];
