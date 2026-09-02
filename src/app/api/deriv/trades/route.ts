@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getSessionUser } from '@/lib/auth';
 import WebSocket from 'ws';
+import { syncOpenTrades } from '@/lib/deriv_api_helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -83,97 +84,25 @@ export async function GET(request: Request) {
           const wsUrl = await fetchOTP(appId, token, activeAccount);
           const socket = new WebSocket(wsUrl);
 
-          const syncPromises = openTrades.map(trade => {
-            return new Promise<void>((resolve) => {
-              const handleMessage = async (event: any) => {
-                try {
-                  const msg = JSON.parse(event.data);
-                  if (msg.error) {
-                    resolve();
-                    return;
-                  }
-
-                  if (msg.msg_type === 'proposal_open_contract' && msg.proposal_open_contract) {
-                    const contract = msg.proposal_open_contract;
-                    const contractId = contract.contract_id;
-
-                    if (contractId === trade.contract_id) {
-                      const isExpired = contract.is_expired;
-                      const status = isExpired
-                        ? (contract.profit > 0 ? 'WON' : 'LOST')
-                        : 'OPEN';
-
-                      const pnl = parseFloat(contract.profit || 0);
-                      const exitPrice = contract.exit_tick ? parseFloat(contract.exit_tick) : (contract.exit_spot ? parseFloat(contract.exit_spot) : null);
-                      const entryPrice = contract.entry_tick ? parseFloat(contract.entry_tick) : (contract.entry_spot ? parseFloat(contract.entry_spot) : trade.entry_price);
-                      const currentSpot = contract.current_spot ? parseFloat(contract.current_spot) : entryPrice;
-
-                      // Track live price for UI summary
-                      livePrices[trade.symbol] = currentSpot;
-
-                      // Update local trade record reference
-                      trade.status = status;
-                      trade.pnl = pnl;
-                      trade.exit_price = exitPrice;
-                      trade.entry_price = entryPrice;
-                      if (isExpired) {
-                        trade.closed_at = new Date().toISOString();
-                      }
-
-                      // Persist to Supabase if not fallback
-                      if (!useFallback) {
-                        await supabase
-                          .from('deriv_trades')
-                          .update({
-                            status,
-                            pnl,
-                            exit_price: exitPrice,
-                            entry_price: entryPrice,
-                            closed_at: isExpired ? new Date().toISOString() : null
-                          })
-                          .eq('id', trade.id);
-                      } else {
-                        // Update in fallback array
-                        const index = fallbackTrades.findIndex(t => t.id === trade.id);
-                        if (index !== -1) {
-                          fallbackTrades[index] = { ...trade };
-                        }
-                      }
-                      resolve();
-                    }
-                  }
-                } catch (e) {
-                  resolve();
-                }
-              };
-
-              socket.on('message', handleMessage);
-
-              // Query contract details
-              if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({
-                  proposal_open_contract: 1,
-                  contract_id: trade.contract_id
-                }));
-              } else {
-                socket.on('open', () => {
-                  socket.send(JSON.stringify({
-                    proposal_open_contract: 1,
-                    contract_id: trade.contract_id
-                  }));
-                });
-              }
-
-              // Safety timeout
-              setTimeout(() => {
-                socket.off('message', handleMessage);
-                resolve();
-              }, 4000);
-            });
+          await new Promise<void>((res) => {
+            if (socket.readyState === WebSocket.OPEN) res();
+            else socket.on('open', () => res());
           });
 
-          await Promise.all(syncPromises);
+          await syncOpenTrades(socket, openTrades);
           socket.close();
+
+          // Refetch updated trades so dashboard has the freshly synced statuses
+          if (!useFallback) {
+            const { data: refreshed } = await supabase
+              .from('deriv_trades')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(5000);
+            if (refreshed) {
+              detailedTrades = refreshed;
+            }
+          }
         } catch (syncErr) {
           console.error('Error syncing Deriv contracts inside trades endpoint:', syncErr);
         }
