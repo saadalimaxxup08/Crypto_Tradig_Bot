@@ -48,7 +48,7 @@ const STRATEGIES_LIST = [
   { id: 'FOREX_30M_MTF_V3', name: 'v1.1 - Forex 30m MTF Crossover', desc: 'v1.1: Triple Trend (H4/H1/30m) + ATR Volatility Filter + RSI Guard + 30m contracts.' }
 ];
 
-// 1. Derived Markets (Synthetics, Step, Jump, Volatilities, Boom/Crash, Range Break, Stock Indices)
+// 1. Derived Markets (Synthetics, Step, Jump, Volatilities, Daily Reset) - Rise/Fall Supported
 const DERIVED_PAIRS_LIST = [
   // Step Indices
   { id: 'stpRNG', name: 'Step 100 Index', desc: 'Step sizing 0.1 average' },
@@ -64,7 +64,9 @@ const DERIVED_PAIRS_LIST = [
   { id: 'R_100', name: 'Volatility 100 Index', desc: 'Constant volatility 100%' },
   { id: '1HZ10V', name: 'Volatility 10 (1s) Index', desc: 'Volatility 10% (1-sec tick)' },
   { id: '1HZ15V', name: 'Volatility 15 (1s) Index', desc: 'Volatility 15% (1-sec tick)' },
+  { id: '1HZ25V', name: 'Volatility 25 (1s) Index', desc: 'Volatility 25% (1-sec tick)' },
   { id: '1HZ30V', name: 'Volatility 30 (1s) Index', desc: 'Volatility 30% (1-sec tick)' },
+  { id: '1HZ50V', name: 'Volatility 50 (1s) Index', desc: 'Volatility 50% (1-sec tick)' },
   { id: '1HZ75V', name: 'Volatility 75 (1s) Index', desc: 'Volatility 75% (1-sec tick)' },
   { id: '1HZ90V', name: 'Volatility 90 (1s) Index', desc: 'Volatility 90% (1-sec tick)' },
   { id: '1HZ100V', name: 'Volatility 100 (1s) Index', desc: 'Volatility 100% (1-sec tick)' },
@@ -76,42 +78,10 @@ const DERIVED_PAIRS_LIST = [
   { id: 'JD100', name: 'Jump 100 Index', desc: 'Jump volatility 100%' },
   // Daily Reset Indices
   { id: 'RDBULL', name: 'Bull Market Index', desc: 'Constant bull trend' },
-  { id: 'RDBEAR', name: 'Bear Market Index', desc: 'Constant bear trend' },
-  // Boom Indices
-  { id: 'BOOM500', name: 'Boom 500 Index', desc: 'Spike average every 500 ticks' },
-  { id: 'BOOM1000', name: 'Boom 1000 Index', desc: 'Spike average every 1000 ticks' },
-  { id: 'BOOM50', name: 'Boom 50 Index', desc: 'Spike average every 50 ticks' },
-  { id: 'BOOM150N', name: 'Boom 150 Index', desc: 'Spike average every 150 ticks' },
-  { id: 'BOOM300N', name: 'Boom 300 Index', desc: 'Spike average every 300 ticks' },
-  { id: 'BOOM600', name: 'Boom 600 Index', desc: 'Spike average every 600 ticks' },
-  { id: 'BOOM900', name: 'Boom 900 Index', desc: 'Spike average every 900 ticks' },
-  // Crash Indices
-  { id: 'CRASH500', name: 'Crash 500 Index', desc: 'Drop average every 500 ticks' },
-  { id: 'CRASH1000', name: 'Crash 1000 Index', desc: 'Drop average every 1000 ticks' },
-  { id: 'CRASH50', name: 'Crash 50 Index', desc: 'Drop average every 50 ticks' },
-  { id: 'CRASH150N', name: 'Crash 150 Index', desc: 'Drop average every 150 ticks' },
-  { id: 'CRASH300N', name: 'Crash 300 Index', desc: 'Drop average every 300 ticks' },
-  { id: 'CRASH600', name: 'Crash 600 Index', desc: 'Drop average every 600 ticks' },
-  { id: 'CRASH900', name: 'Crash 900 Index', desc: 'Drop average every 900 ticks' },
-  // Range Break Indices
-  { id: 'RB100', name: 'Range Break 100', desc: 'Range Break 100 ticks' },
-  { id: 'RB200', name: 'Range Break 200', desc: 'Range Break 200 ticks' },
-  // Global Stock Indices
-  { id: 'OTC_SPC', name: 'US 500', desc: 'US 500 OTC' },
-  { id: 'OTC_DJI', name: 'Wall Street 30', desc: 'Wall Street 30 OTC' },
-  { id: 'OTC_NDX', name: 'US Tech 100', desc: 'US Tech 100 OTC' },
-  { id: 'OTC_N225', name: 'Japan 225', desc: 'Japan 225 OTC' },
-  { id: 'OTC_HSI', name: 'Hong Kong 50', desc: 'Hong Kong 50 OTC' },
-  { id: 'OTC_AS51', name: 'Australia 200', desc: 'Australia 200 OTC' },
-  { id: 'OTC_AEX', name: 'Netherlands 25', desc: 'Netherlands 25 OTC' },
-  { id: 'OTC_SX5E', name: 'Euro 50', desc: 'Euro 50 OTC' },
-  { id: 'OTC_GDAXI', name: 'Germany 40', desc: 'Germany 40 OTC' },
-  { id: 'OTC_SSMI', name: 'Swiss 20', desc: 'Swiss 20 OTC' },
-  { id: 'OTC_FCHI', name: 'France 40', desc: 'France 40 OTC' },
-  { id: 'OTC_FTSE', name: 'UK 100', desc: 'UK 100 OTC' }
+  { id: 'RDBEAR', name: 'Bear Market Index', desc: 'Constant bear trend' }
 ];
 
-// 2. Forex Markets (Major pairs, Minor pairs, Currency Baskets)
+// 2. Forex Markets (Major pairs, Minor pairs, Currency Baskets) - Rise/Fall Supported
 const FOREX_PAIRS_LIST = [
   // Major Pairs
   { id: 'frxEURUSD', name: 'EUR/USD', desc: 'Euro / US Dollar' },
@@ -147,13 +117,26 @@ const FOREX_PAIRS_LIST = [
   { id: 'WLDUSD', name: 'USD Basket', desc: 'USD Currency Basket' }
 ];
 
-// 3. Cryptocurrencies
-const CRYPTO_PAIRS_LIST = [
-  { id: 'cryBTCUSD', name: 'BTC/USD', desc: 'Bitcoin' },
-  { id: 'cryETHUSD', name: 'ETH/USD', desc: 'Ethereum' }
+// 3. Stocks & Indices (American, Asian, European) - Rise/Fall Supported
+const STOCKS_INDICES_PAIRS_LIST = [
+  // American Indices
+  { id: 'OTC_SPC', name: 'US 500', desc: 'US 500 OTC' },
+  { id: 'OTC_DJI', name: 'Wall Street 30', desc: 'Wall Street 30 OTC' },
+  { id: 'OTC_NDX', name: 'US Tech 100', desc: 'US Tech 100 OTC' },
+  // Asian Indices
+  { id: 'OTC_N225', name: 'Japan 225', desc: 'Japan 225 OTC' },
+  { id: 'OTC_HSI', name: 'Hong Kong 50', desc: 'Hong Kong 50 OTC' },
+  { id: 'OTC_AS51', name: 'Australia 200', desc: 'Australia 200 OTC' },
+  // European Indices
+  { id: 'OTC_AEX', name: 'Netherlands 25', desc: 'Netherlands 25 OTC' },
+  { id: 'OTC_SX5E', name: 'Euro 50', desc: 'Euro 50 OTC' },
+  { id: 'OTC_GDAXI', name: 'Germany 40', desc: 'Germany 40 OTC' },
+  { id: 'OTC_SSMI', name: 'Swiss 20', desc: 'Swiss 20 OTC' },
+  { id: 'OTC_FCHI', name: 'France 40', desc: 'France 40 OTC' },
+  { id: 'OTC_FTSE', name: 'UK 100', desc: 'UK 100 OTC' }
 ];
 
-// 4. Commodities & Metals
+// 4. Commodities & Metals - Rise/Fall Supported
 const COMMODITIES_PAIRS_LIST = [
   { id: 'frxXAUUSD', name: 'Gold / USD', desc: 'Spot Gold' },
   { id: 'frxXAGUSD', name: 'Silver / USD', desc: 'Spot Silver' },
@@ -220,9 +203,9 @@ export default function DerivDashboard() {
   const [isSavingRiskToggles, setIsSavingRiskToggles] = useState(false);
 
   const getPairDisplayName = (symbolId: string) => {
-    const allPairs = [...DERIVED_PAIRS_LIST, ...FOREX_PAIRS_LIST, ...CRYPTO_PAIRS_LIST, ...COMMODITIES_PAIRS_LIST];
+    const allPairs = [...DERIVED_PAIRS_LIST, ...FOREX_PAIRS_LIST, ...STOCKS_INDICES_PAIRS_LIST, ...COMMODITIES_PAIRS_LIST];
     const match = allPairs.find(p => p.id === symbolId);
-    return match ? match.name : symbolId.replace('frx', '').replace('cry', '');
+    return match ? match.name : symbolId.replace('frx', '').replace('cry', '').replace('OTC_', '');
   };
 
   // Strategy list selectors
@@ -231,11 +214,11 @@ export default function DerivDashboard() {
   const [isSavingStrategies, setIsSavingStrategies] = useState(false);
   const [searchEnginesQuery, setSearchEnginesQuery] = useState('');
 
-  // 4 Market Categories states
-  const [activeMarketTab, setActiveMarketTab] = useState<'derived' | 'forex' | 'crypto' | 'commodities'>('derived');
+  // 4 Verified Rise/Fall Market Categories states
+  const [activeMarketTab, setActiveMarketTab] = useState<'derived' | 'forex' | 'stocks' | 'commodities'>('derived');
   const [searchDerivedQuery, setSearchDerivedQuery] = useState('');
   const [searchForexQuery, setSearchForexQuery] = useState('');
-  const [searchCryptoQuery, setSearchCryptoQuery] = useState('');
+  const [searchStocksQuery, setSearchStocksQuery] = useState('');
   const [searchCommoditiesQuery, setSearchCommoditiesQuery] = useState('');
 
   // Trades states
@@ -770,12 +753,12 @@ export default function DerivDashboard() {
   const filteredStrategies = STRATEGIES_LIST.filter(s => s.name.toLowerCase().includes(searchEnginesQuery.toLowerCase()) || s.desc.toLowerCase().includes(searchEnginesQuery.toLowerCase()));
   const filteredDerivedPairs = DERIVED_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchDerivedQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchDerivedQuery.toLowerCase()));
   const filteredForexPairs = FOREX_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchForexQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchForexQuery.toLowerCase()));
-  const filteredCryptoPairs = CRYPTO_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchCryptoQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchCryptoQuery.toLowerCase()));
+  const filteredStocksPairs = STOCKS_INDICES_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchStocksQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchStocksQuery.toLowerCase()));
   const filteredCommoditiesPairs = COMMODITIES_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchCommoditiesQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchCommoditiesQuery.toLowerCase()));
 
   const derivedTickedCount = draftPairs.filter(id => DERIVED_PAIRS_LIST.some(p => p.id === id)).length;
   const forexTickedCount = draftPairs.filter(id => FOREX_PAIRS_LIST.some(p => p.id === id)).length;
-  const cryptoTickedCount = draftPairs.filter(id => CRYPTO_PAIRS_LIST.some(p => p.id === id)).length;
+  const stocksTickedCount = draftPairs.filter(id => STOCKS_INDICES_PAIRS_LIST.some(p => p.id === id)).length;
   const commoditiesTickedCount = draftPairs.filter(id => COMMODITIES_PAIRS_LIST.some(p => p.id === id)).length;
 
   return (
@@ -1050,16 +1033,16 @@ export default function DerivDashboard() {
 
               <button
                 type="button"
-                onClick={() => setActiveMarketTab('crypto')}
+                onClick={() => setActiveMarketTab('stocks')}
                 className={`py-1.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
-                  activeMarketTab === 'crypto'
+                  activeMarketTab === 'stocks'
                     ? 'bg-amber-950/50 text-amber-300 border border-amber-800/50 shadow-sm'
                     : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
                 }`}
               >
-                <span>🪙 Crypto</span>
+                <span>📈 Stocks & Indices</span>
                 <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-zinc-900 border border-zinc-800">
-                  {cryptoTickedCount}
+                  {stocksTickedCount}
                 </span>
               </button>
 
@@ -1203,26 +1186,26 @@ export default function DerivDashboard() {
               </div>
             )}
 
-            {/* Category 3: Cryptocurrencies Content */}
-            {activeMarketTab === 'crypto' && (
+            {/* Category 3: Stocks & Indices Content */}
+            {activeMarketTab === 'stocks' && (
               <div className="space-y-3">
                 <input
                   type="text"
-                  placeholder="🔍 Search cryptocurrencies..."
-                  value={searchCryptoQuery}
-                  onChange={(e) => setSearchCryptoQuery(e.target.value)}
+                  placeholder="🔍 Search stocks & indices (US 500, Wall St, Tech 100, Japan 225)..."
+                  value={searchStocksQuery}
+                  onChange={(e) => setSearchStocksQuery(e.target.value)}
                   className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
                 />
 
-                {filteredCryptoPairs.length > 0 && (
+                {filteredStocksPairs.length > 0 && (
                   <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
-                    <span className="uppercase tracking-wider">Select All Crypto ({filteredCryptoPairs.length})</span>
+                    <span className="uppercase tracking-wider">Select All Stocks & Indices ({filteredStocksPairs.length})</span>
                     <input
                       type="checkbox"
-                      checked={filteredCryptoPairs.every(p => draftPairs.includes(p.id))}
+                      checked={filteredStocksPairs.every(p => draftPairs.includes(p.id))}
                       onChange={() => {
-                        const allChecked = filteredCryptoPairs.every(p => draftPairs.includes(p.id));
-                        const filteredIds = filteredCryptoPairs.map(p => p.id);
+                        const allChecked = filteredStocksPairs.every(p => draftPairs.includes(p.id));
+                        const filteredIds = filteredStocksPairs.map(p => p.id);
                         if (allChecked) {
                           setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
                         } else {
@@ -1235,7 +1218,7 @@ export default function DerivDashboard() {
                 )}
 
                 <div className="space-y-1 max-h-[190px] overflow-y-auto pr-1">
-                  {filteredCryptoPairs.map((pair) => {
+                  {filteredStocksPairs.map((pair) => {
                     const isTicked = draftPairs.includes(pair.id);
                     const isSelected = selectedPairs.includes(pair.id);
                     return (
@@ -1258,8 +1241,8 @@ export default function DerivDashboard() {
                       </div>
                     );
                   })}
-                  {filteredCryptoPairs.length === 0 && (
-                    <p className="text-[9px] text-zinc-650 text-center py-2">No crypto pairs found.</p>
+                  {filteredStocksPairs.length === 0 && (
+                    <p className="text-[9px] text-zinc-650 text-center py-2">No stocks or indices found.</p>
                   )}
                 </div>
               </div>
