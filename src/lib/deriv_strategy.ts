@@ -184,7 +184,7 @@ export function analyzeForex15mStrategy(
   }
 } {
   
-  if (candles5m.length < 30 || candles15m.length < 40 || candlesH1.length < 210) {
+  if (candles5m.length < 30 || candles15m.length < 40 || candlesH1.length < 50) {
     return { 
       direction: 'NEUTRAL', 
       adxValue: 0, 
@@ -199,13 +199,14 @@ export function analyzeForex15mStrategy(
     };
   }
 
-  // A. H1 Trend (EMA 200)
+  // A. H1 Trend (EMA 200, or adaptive EMA 100/50 if broker returns fewer candles)
   const h1Closes = candlesH1.map(c => c.close);
-  const h1Ema200 = calculateEMA(h1Closes, 200);
-  const currentH1Ema200 = h1Ema200[h1Ema200.length - 1];
+  const h1Period = h1Closes.length >= 200 ? 200 : (h1Closes.length >= 100 ? 100 : 50);
+  const h1Ema = calculateEMA(h1Closes, h1Period);
+  const currentH1Ema = h1Ema[h1Ema.length - 1];
   const currentH1Price = h1Closes[h1Closes.length - 1];
-  const isH1Uptrend = currentH1Price > currentH1Ema200;
-  const isH1Downtrend = currentH1Price < currentH1Ema200;
+  const isH1Uptrend = currentH1Price > currentH1Ema;
+  const isH1Downtrend = currentH1Price < currentH1Ema;
 
   // B. 15m Trend & Strength (EMA 50 & ADX 14)
   const closes15m = candles15m.map(c => c.close);
@@ -457,7 +458,7 @@ export function analyzeForex30mStrategyV3(
   }
 } {
   // 1. Data sanity checks
-  if (candles10m.length < 30 || candles30m.length < 40 || candlesH1.length < 110 || candlesH4.length < 210) {
+  if (candles10m.length < 30 || candles30m.length < 40 || candlesH1.length < 50 || candlesH4.length < 40) {
     return {
       direction: 'NEUTRAL',
       adxValue: 0,
@@ -480,13 +481,14 @@ export function analyzeForex30mStrategyV3(
     };
   }
 
-  // A. H4 Trend Check (EMA 200)
+  // A. H4 Trend Check (EMA 200, or adaptive EMA 100/50)
   const h4Closes = candlesH4.map(c => c.close);
-  const h4Ema200 = calculateEMA(h4Closes, 200);
-  const currentH4Ema200 = h4Ema200[h4Ema200.length - 1];
+  const h4Period = h4Closes.length >= 200 ? 200 : (h4Closes.length >= 100 ? 100 : 50);
+  const h4Ema = calculateEMA(h4Closes, h4Period);
+  const currentH4Ema = h4Ema[h4Ema.length - 1];
   const currentH4Price = h4Closes[h4Closes.length - 1];
-  const isH4Uptrend = currentH4Price > currentH4Ema200;
-  const isH4Downtrend = currentH4Price < currentH4Ema200;
+  const isH4Uptrend = currentH4Price > currentH4Ema;
+  const isH4Downtrend = currentH4Price < currentH4Ema;
 
   // B. H1 Trend Check (EMA 100)
   const h1Closes = candlesH1.map(c => c.close);
