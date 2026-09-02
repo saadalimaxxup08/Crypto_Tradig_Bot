@@ -48,7 +48,72 @@ const STRATEGIES_LIST = [
   { id: 'FOREX_30M_MTF_V3', name: 'v1.1 - Forex 30m MTF Crossover', desc: 'v1.1: Triple Trend (H4/H1/30m) + ATR Volatility Filter + RSI Guard + 30m contracts.' }
 ];
 
-const GLOBAL_PAIRS_LIST = [
+// 1. Derived Markets (Synthetics, Step, Jump, Volatilities, Boom/Crash, Range Break, Stock Indices)
+const DERIVED_PAIRS_LIST = [
+  // Step Indices
+  { id: 'stpRNG', name: 'Step 100 Index', desc: 'Step sizing 0.1 average' },
+  { id: 'stpRNG2', name: 'Step 200 Index', desc: 'Step average sizing 0.2' },
+  { id: 'stpRNG3', name: 'Step 300 Index', desc: 'Step average sizing 0.3' },
+  { id: 'stpRNG4', name: 'Step 400 Index', desc: 'Step average sizing 0.4' },
+  { id: 'stpRNG5', name: 'Step 500 Index', desc: 'Step average sizing 0.5' },
+  // Volatility Indices
+  { id: 'R_10', name: 'Volatility 10 Index', desc: 'Constant volatility 10%' },
+  { id: 'R_25', name: 'Volatility 25 Index', desc: 'Constant volatility 25%' },
+  { id: 'R_50', name: 'Volatility 50 Index', desc: 'Constant volatility 50%' },
+  { id: 'R_75', name: 'Volatility 75 Index', desc: 'Constant volatility 75%' },
+  { id: 'R_100', name: 'Volatility 100 Index', desc: 'Constant volatility 100%' },
+  { id: '1HZ10V', name: 'Volatility 10 (1s) Index', desc: 'Volatility 10% (1-sec tick)' },
+  { id: '1HZ15V', name: 'Volatility 15 (1s) Index', desc: 'Volatility 15% (1-sec tick)' },
+  { id: '1HZ30V', name: 'Volatility 30 (1s) Index', desc: 'Volatility 30% (1-sec tick)' },
+  { id: '1HZ75V', name: 'Volatility 75 (1s) Index', desc: 'Volatility 75% (1-sec tick)' },
+  { id: '1HZ90V', name: 'Volatility 90 (1s) Index', desc: 'Volatility 90% (1-sec tick)' },
+  { id: '1HZ100V', name: 'Volatility 100 (1s) Index', desc: 'Volatility 100% (1-sec tick)' },
+  // Jump Indices
+  { id: 'JD10', name: 'Jump 10 Index', desc: 'Jump volatility 10%' },
+  { id: 'JD25', name: 'Jump 25 Index', desc: 'Jump volatility 25%' },
+  { id: 'JD50', name: 'Jump 50 Index', desc: 'Jump volatility 50%' },
+  { id: 'JD75', name: 'Jump 75 Index', desc: 'Jump volatility 75%' },
+  { id: 'JD100', name: 'Jump 100 Index', desc: 'Jump volatility 100%' },
+  // Daily Reset Indices
+  { id: 'RDBULL', name: 'Bull Market Index', desc: 'Constant bull trend' },
+  { id: 'RDBEAR', name: 'Bear Market Index', desc: 'Constant bear trend' },
+  // Boom Indices
+  { id: 'BOOM500', name: 'Boom 500 Index', desc: 'Spike average every 500 ticks' },
+  { id: 'BOOM1000', name: 'Boom 1000 Index', desc: 'Spike average every 1000 ticks' },
+  { id: 'BOOM50', name: 'Boom 50 Index', desc: 'Spike average every 50 ticks' },
+  { id: 'BOOM150N', name: 'Boom 150 Index', desc: 'Spike average every 150 ticks' },
+  { id: 'BOOM300N', name: 'Boom 300 Index', desc: 'Spike average every 300 ticks' },
+  { id: 'BOOM600', name: 'Boom 600 Index', desc: 'Spike average every 600 ticks' },
+  { id: 'BOOM900', name: 'Boom 900 Index', desc: 'Spike average every 900 ticks' },
+  // Crash Indices
+  { id: 'CRASH500', name: 'Crash 500 Index', desc: 'Drop average every 500 ticks' },
+  { id: 'CRASH1000', name: 'Crash 1000 Index', desc: 'Drop average every 1000 ticks' },
+  { id: 'CRASH50', name: 'Crash 50 Index', desc: 'Drop average every 50 ticks' },
+  { id: 'CRASH150N', name: 'Crash 150 Index', desc: 'Drop average every 150 ticks' },
+  { id: 'CRASH300N', name: 'Crash 300 Index', desc: 'Drop average every 300 ticks' },
+  { id: 'CRASH600', name: 'Crash 600 Index', desc: 'Drop average every 600 ticks' },
+  { id: 'CRASH900', name: 'Crash 900 Index', desc: 'Drop average every 900 ticks' },
+  // Range Break Indices
+  { id: 'RB100', name: 'Range Break 100', desc: 'Range Break 100 ticks' },
+  { id: 'RB200', name: 'Range Break 200', desc: 'Range Break 200 ticks' },
+  // Global Stock Indices
+  { id: 'OTC_SPC', name: 'US 500', desc: 'US 500 OTC' },
+  { id: 'OTC_DJI', name: 'Wall Street 30', desc: 'Wall Street 30 OTC' },
+  { id: 'OTC_NDX', name: 'US Tech 100', desc: 'US Tech 100 OTC' },
+  { id: 'OTC_N225', name: 'Japan 225', desc: 'Japan 225 OTC' },
+  { id: 'OTC_HSI', name: 'Hong Kong 50', desc: 'Hong Kong 50 OTC' },
+  { id: 'OTC_AS51', name: 'Australia 200', desc: 'Australia 200 OTC' },
+  { id: 'OTC_AEX', name: 'Netherlands 25', desc: 'Netherlands 25 OTC' },
+  { id: 'OTC_SX5E', name: 'Euro 50', desc: 'Euro 50 OTC' },
+  { id: 'OTC_GDAXI', name: 'Germany 40', desc: 'Germany 40 OTC' },
+  { id: 'OTC_SSMI', name: 'Swiss 20', desc: 'Swiss 20 OTC' },
+  { id: 'OTC_FCHI', name: 'France 40', desc: 'France 40 OTC' },
+  { id: 'OTC_FTSE', name: 'UK 100', desc: 'UK 100 OTC' }
+];
+
+// 2. Forex Markets (Major pairs, Minor pairs, Currency Baskets)
+const FOREX_PAIRS_LIST = [
+  // Major Pairs
   { id: 'frxEURUSD', name: 'EUR/USD', desc: 'Euro / US Dollar' },
   { id: 'frxGBPUSD', name: 'GBP/USD', desc: 'Great British Pound / US Dollar' },
   { id: 'frxUSDJPY', name: 'USD/JPY', desc: 'US Dollar / Japanese Yen' },
@@ -58,38 +123,12 @@ const GLOBAL_PAIRS_LIST = [
   { id: 'frxAUDJPY', name: 'AUD/JPY', desc: 'Australian Dollar / Japanese Yen' },
   { id: 'frxEURJPY', name: 'EUR/JPY', desc: 'Euro / Japanese Yen' },
   { id: 'frxGBPJPY', name: 'GBP/JPY', desc: 'Great British Pound / Japanese Yen' },
-  { id: 'frxXAUUSD', name: 'Gold / USD', desc: 'Spot Gold' },
-  { id: 'frxXAGUSD', name: 'Silver / USD', desc: 'Spot Silver' },
-  { id: 'cryBTCUSD', name: 'BTC/USD', desc: 'Bitcoin' },
-  { id: 'cryETHUSD', name: 'ETH/USD', desc: 'Ethereum' }
-];
-
-const SYNTHETIC_PAIRS_LIST = [
-  { id: 'R_10', name: 'Volatility 10 Index', desc: 'Constant volatility 10%' },
-  { id: 'R_25', name: 'Volatility 25 Index', desc: 'Constant volatility 25%' },
-  { id: 'R_50', name: 'Volatility 50 Index', desc: 'Constant volatility 50%' },
-  { id: 'R_75', name: 'Volatility 75 Index', desc: 'Constant volatility 75%' },
-  { id: 'R_100', name: 'Volatility 100 Index', desc: 'Constant volatility 100%' },
-  { id: '1HZ10V', name: 'Volatility 10 (1s) Index', desc: 'Volatility 10% (1-sec tick)' },
-  { id: '1HZ75V', name: 'Volatility 75 (1s) Index', desc: 'Volatility 75% (1-sec tick)' },
-  { id: '1HZ100V', name: 'Volatility 100 (1s) Index', desc: 'Volatility 100% (1-sec tick)' },
-  { id: 'BOOM500', name: 'Boom 500 Index', desc: 'Spike average every 500 ticks' },
-  { id: 'BOOM1000', name: 'Boom 1000 Index', desc: 'Spike average every 1000 ticks' },
-  { id: 'CRASH500', name: 'Crash 500 Index', desc: 'Drop average every 500 ticks' },
-  { id: 'CRASH1000', name: 'Crash 1000 Index', desc: 'Drop average every 1000 ticks' },
-  { id: 'JD50', name: 'Jump 50 Index', desc: 'Jump volatility 50%' },
-  { id: 'stpRNG', name: 'Step Index 100', desc: 'Step sizing 0.1 average' },
-  { id: 'RB100', name: 'Range Break 100', desc: 'Range Break 100 ticks' },
-  { id: 'RB200', name: 'Range Break 200', desc: 'Range Break 200 ticks' }
-];
-
-const UNUSUAL_PAIRS_LIST = [
-  // Forex Minor & Exotics
-  { id: 'frxEURGBP', name: 'EUR/GBP', desc: 'Euro / Great British Pound' },
   { id: 'frxEURAUD', name: 'EUR/AUD', desc: 'Euro / Australian Dollar' },
   { id: 'frxEURCAD', name: 'EUR/CAD', desc: 'Euro / Canadian Dollar' },
   { id: 'frxEURCHF', name: 'EUR/CHF', desc: 'Euro / Swiss Franc' },
+  { id: 'frxEURGBP', name: 'EUR/GBP', desc: 'Euro / Great British Pound' },
   { id: 'frxGBPAUD', name: 'GBP/AUD', desc: 'Great British Pound / Australian Dollar' },
+  // Minor & Exotic Pairs
   { id: 'frxAUDCAD', name: 'AUD/CAD', desc: 'Australian Dollar / Canadian Dollar' },
   { id: 'frxAUDCHF', name: 'AUD/CHF', desc: 'Australian Dollar / Swiss Franc' },
   { id: 'frxAUDNZD', name: 'AUD/NZD', desc: 'Australian Dollar / New Zealand Dollar' },
@@ -101,51 +140,26 @@ const UNUSUAL_PAIRS_LIST = [
   { id: 'frxNZDUSD', name: 'NZD/USD', desc: 'New Zealand Dollar / US Dollar' },
   { id: 'frxUSDMXN', name: 'USD/MXN', desc: 'USD / Mexican Peso' },
   { id: 'frxUSDPLN', name: 'USD/PLN', desc: 'USD / Polish Zloty' },
-  // Exotic Metals
-  { id: 'frxXPDUSD', name: 'Palladium / USD', desc: 'Palladium Spot' },
-  { id: 'frxXPTUSD', name: 'Platinum / USD', desc: 'Platinum Spot' },
-  // Stock Indices OTC
-  { id: 'OTC_NDX', name: 'US Tech 100', desc: 'US Tech 100 OTC' },
-  { id: 'OTC_SPC', name: 'US 500', desc: 'US 500 OTC' },
-  { id: 'OTC_DJI', name: 'Wall Street 30', desc: 'Wall Street 30 OTC' },
-  { id: 'OTC_FTSE', name: 'UK 100', desc: 'UK 100 OTC' },
-  { id: 'OTC_GDAXI', name: 'Germany 40', desc: 'Germany 40 OTC' },
-  { id: 'OTC_FCHI', name: 'France 40', desc: 'France 40 OTC' },
-  { id: 'OTC_SX5E', name: 'Euro 50', desc: 'Euro 50 OTC' },
-  { id: 'OTC_N225', name: 'Japan 225', desc: 'Japan 225 OTC' },
-  { id: 'OTC_HSI', name: 'Hong Kong 50', desc: 'Hong Kong 50 OTC' },
-  { id: 'OTC_AS51', name: 'Australia 200', desc: 'Australia 200 OTC' },
-  { id: 'OTC_AEX', name: 'Netherlands 25', desc: 'Netherlands 25 OTC' },
-  { id: 'OTC_SSMI', name: 'Swiss 20', desc: 'Swiss 20 OTC' },
-  // Daily & Baskets
-  { id: 'WLDAUD', name: 'AUD Basket', desc: 'AUD index' },
-  { id: 'WLDEUR', name: 'EUR Basket', desc: 'EUR index' },
-  { id: 'WLDGBP', name: 'GBP Basket', desc: 'GBP index' },
-  { id: 'WLDUSD', name: 'USD Basket', desc: 'USD index' },
-  { id: 'WLDXAU', name: 'Gold Basket', desc: 'Gold index' },
-  { id: 'RDBEAR', name: 'Bear Market Index', desc: 'Constant bear trend' },
-  { id: 'RDBULL', name: 'Bull Market Index', desc: 'Constant bull trend' },
-  // Non-standard synthetics variants
-  { id: '1HZ15V', name: 'Volatility 15 (1s) Index', desc: 'Volatility 15% (1-sec tick)' },
-  { id: '1HZ30V', name: 'Volatility 30 (1s) Index', desc: 'Volatility 30% (1-sec tick)' },
-  { id: '1HZ90V', name: 'Volatility 90 (1s) Index', desc: 'Volatility 90% (1-sec tick)' },
-  { id: 'BOOM50', name: 'Boom 50 Index', desc: 'Spike average every 50 ticks' },
-  { id: 'BOOM150N', name: 'Boom 150 Index', desc: 'Spike average every 150 ticks' },
-  { id: 'BOOM300N', name: 'Boom 300 Index', desc: 'Spike average every 300 ticks' },
-  { id: 'BOOM600', name: 'Boom 600 Index', desc: 'Spike average every 600 ticks' },
-  { id: 'BOOM900', name: 'Boom 900 Index', desc: 'Spike average every 900 ticks' },
-  { id: 'CRASH50', name: 'Crash 50 Index', desc: 'Drop average every 50 ticks' },
-  { id: 'CRASH150N', name: 'Crash 150 Index', desc: 'Drop average every 150 ticks' },
-  { id: 'CRASH300N', name: 'Crash 300 Index', desc: 'Drop average every 300 ticks' },
-  { id: 'CRASH600', name: 'Crash 600 Index', desc: 'Drop average every 600 ticks' },
-  { id: 'CRASH900', name: 'Crash 900 Index', desc: 'Drop average every 900 ticks' },
-  { id: 'JD10', name: 'Jump 10 Index', desc: 'Jump volatility 10%' },
-  { id: 'JD25', name: 'Jump 25 Index', desc: 'Jump volatility 25%' },
-  { id: 'JD100', name: 'Jump 100 Index', desc: 'Jump volatility 100%' },
-  { id: 'stpRNG2', name: 'Step Index 200', desc: 'Step average sizing 0.2' },
-  { id: 'stpRNG3', name: 'Step Index 300', desc: 'Step average sizing 0.3' },
-  { id: 'stpRNG4', name: 'Step Index 400', desc: 'Step average sizing 0.4' },
-  { id: 'stpRNG5', name: 'Step Index 500', desc: 'Step average sizing 0.5' }
+  // Forex Baskets
+  { id: 'WLDAUD', name: 'AUD Basket', desc: 'AUD Currency Basket' },
+  { id: 'WLDEUR', name: 'EUR Basket', desc: 'EUR Currency Basket' },
+  { id: 'WLDGBP', name: 'GBP Basket', desc: 'GBP Currency Basket' },
+  { id: 'WLDUSD', name: 'USD Basket', desc: 'USD Currency Basket' }
+];
+
+// 3. Cryptocurrencies
+const CRYPTO_PAIRS_LIST = [
+  { id: 'cryBTCUSD', name: 'BTC/USD', desc: 'Bitcoin' },
+  { id: 'cryETHUSD', name: 'ETH/USD', desc: 'Ethereum' }
+];
+
+// 4. Commodities & Metals
+const COMMODITIES_PAIRS_LIST = [
+  { id: 'frxXAUUSD', name: 'Gold / USD', desc: 'Spot Gold' },
+  { id: 'frxXAGUSD', name: 'Silver / USD', desc: 'Spot Silver' },
+  { id: 'frxXPTUSD', name: 'Platinum / USD', desc: 'Spot Platinum' },
+  { id: 'frxXPDUSD', name: 'Palladium / USD', desc: 'Spot Palladium' },
+  { id: 'WLDXAU', name: 'Gold Basket', desc: 'Gold Commodity Basket' }
 ];
 
 export default function DerivDashboard() {
@@ -206,7 +220,7 @@ export default function DerivDashboard() {
   const [isSavingRiskToggles, setIsSavingRiskToggles] = useState(false);
 
   const getPairDisplayName = (symbolId: string) => {
-    const allPairs = [...GLOBAL_PAIRS_LIST, ...SYNTHETIC_PAIRS_LIST, ...UNUSUAL_PAIRS_LIST];
+    const allPairs = [...DERIVED_PAIRS_LIST, ...FOREX_PAIRS_LIST, ...CRYPTO_PAIRS_LIST, ...COMMODITIES_PAIRS_LIST];
     const match = allPairs.find(p => p.id === symbolId);
     return match ? match.name : symbolId.replace('frx', '').replace('cry', '');
   };
@@ -216,9 +230,13 @@ export default function DerivDashboard() {
   const [draftStrategies, setDraftStrategies] = useState<string[]>(['FOREX_15M_MTF']);
   const [isSavingStrategies, setIsSavingStrategies] = useState(false);
   const [searchEnginesQuery, setSearchEnginesQuery] = useState('');
-  const [searchGlobalQuery, setSearchGlobalQuery] = useState('');
-  const [searchSyntheticQuery, setSearchSyntheticQuery] = useState('');
-  const [searchUnusualQuery, setSearchUnusualQuery] = useState('');
+
+  // 4 Market Categories states
+  const [activeMarketTab, setActiveMarketTab] = useState<'derived' | 'forex' | 'crypto' | 'commodities'>('derived');
+  const [searchDerivedQuery, setSearchDerivedQuery] = useState('');
+  const [searchForexQuery, setSearchForexQuery] = useState('');
+  const [searchCryptoQuery, setSearchCryptoQuery] = useState('');
+  const [searchCommoditiesQuery, setSearchCommoditiesQuery] = useState('');
 
   // Trades states
   const [trades, setTrades] = useState<DerivTrade[]>([]);
@@ -750,9 +768,15 @@ export default function DerivDashboard() {
     JSON.stringify(selectedPairs.sort()) !== JSON.stringify(draftPairs.sort());
 
   const filteredStrategies = STRATEGIES_LIST.filter(s => s.name.toLowerCase().includes(searchEnginesQuery.toLowerCase()) || s.desc.toLowerCase().includes(searchEnginesQuery.toLowerCase()));
-  const filteredGlobalPairs = GLOBAL_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchGlobalQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchGlobalQuery.toLowerCase()));
-  const filteredSyntheticPairs = SYNTHETIC_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchSyntheticQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchSyntheticQuery.toLowerCase()));
-  const filteredUnusualPairs = UNUSUAL_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchUnusualQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchUnusualQuery.toLowerCase()));
+  const filteredDerivedPairs = DERIVED_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchDerivedQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchDerivedQuery.toLowerCase()));
+  const filteredForexPairs = FOREX_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchForexQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchForexQuery.toLowerCase()));
+  const filteredCryptoPairs = CRYPTO_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchCryptoQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchCryptoQuery.toLowerCase()));
+  const filteredCommoditiesPairs = COMMODITIES_PAIRS_LIST.filter(p => p.name.toLowerCase().includes(searchCommoditiesQuery.toLowerCase()) || p.desc.toLowerCase().includes(searchCommoditiesQuery.toLowerCase()));
+
+  const derivedTickedCount = draftPairs.filter(id => DERIVED_PAIRS_LIST.some(p => p.id === id)).length;
+  const forexTickedCount = draftPairs.filter(id => FOREX_PAIRS_LIST.some(p => p.id === id)).length;
+  const cryptoTickedCount = draftPairs.filter(id => CRYPTO_PAIRS_LIST.some(p => p.id === id)).length;
+  const commoditiesTickedCount = draftPairs.filter(id => COMMODITIES_PAIRS_LIST.some(p => p.id === id)).length;
 
   return (
     <div className="space-y-6">
@@ -980,247 +1004,340 @@ export default function DerivDashboard() {
             )}
           </div>
 
-          {/* 2. Global Markets Box */}
+          {/* 2. Standardized Market Pairs Terminal (4 Categories: Derived, Forex, Cryptocurrencies, Commodities) */}
           <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4 shadow-sm">
             <div>
-              <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Global Markets</h3>
-              <p className="text-[8px] text-zinc-500 leading-tight">Forex, Gold & Cryptocurrencies</p>
+              <div className="flex items-center justify-between">
+                <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Market Pairs</h3>
+                <span className="text-[8px] font-mono text-emerald-400 font-bold bg-emerald-950/30 border border-emerald-800/40 px-2 py-0.5 rounded-full">
+                  {draftPairs.length} Active Total
+                </span>
+              </div>
+              <p className="text-[8px] text-zinc-500 leading-tight mt-0.5">Filter by category to activate and trade pairs.</p>
             </div>
 
-            {/* Search Box */}
-            <input
-              type="text"
-              placeholder="🔍 Search pairs..."
-              value={searchGlobalQuery}
-              onChange={(e) => setSearchGlobalQuery(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
-            />
+            {/* 4 Category Selector Tabs */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-zinc-950/80 border border-zinc-850 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setActiveMarketTab('derived')}
+                className={`py-1.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
+                  activeMarketTab === 'derived'
+                    ? 'bg-blue-950/50 text-blue-300 border border-blue-800/50 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
+                }`}
+              >
+                <span>⚡ Derived</span>
+                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-zinc-900 border border-zinc-800">
+                  {derivedTickedCount}
+                </span>
+              </button>
 
-            {/* Select All Checkbox */}
-            {filteredGlobalPairs.length > 0 && (
-              <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
-                <span className="uppercase tracking-wider">Select All Filtered</span>
+              <button
+                type="button"
+                onClick={() => setActiveMarketTab('forex')}
+                className={`py-1.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
+                  activeMarketTab === 'forex'
+                    ? 'bg-emerald-950/50 text-emerald-300 border border-emerald-800/50 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
+                }`}
+              >
+                <span>🌐 Forex</span>
+                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-zinc-900 border border-zinc-800">
+                  {forexTickedCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveMarketTab('crypto')}
+                className={`py-1.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
+                  activeMarketTab === 'crypto'
+                    ? 'bg-amber-950/50 text-amber-300 border border-amber-800/50 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
+                }`}
+              >
+                <span>🪙 Crypto</span>
+                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-zinc-900 border border-zinc-800">
+                  {cryptoTickedCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveMarketTab('commodities')}
+                className={`py-1.5 px-2 rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer ${
+                  activeMarketTab === 'commodities'
+                    ? 'bg-purple-950/50 text-purple-300 border border-purple-800/50 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/50'
+                }`}
+              >
+                <span>🥇 Commodities</span>
+                <span className="text-[8px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-zinc-900 border border-zinc-800">
+                  {commoditiesTickedCount}
+                </span>
+              </button>
+            </div>
+
+            {/* Category 1: Derived Content */}
+            {activeMarketTab === 'derived' && (
+              <div className="space-y-3">
                 <input
-                  type="checkbox"
-                  checked={filteredGlobalPairs.every(p => draftPairs.includes(p.id))}
-                  onChange={() => {
-                    const allChecked = filteredGlobalPairs.every(p => draftPairs.includes(p.id));
-                    const filteredIds = filteredGlobalPairs.map(p => p.id);
-                    if (allChecked) {
-                      setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
-                    } else {
-                      setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
-                    }
-                  }}
-                  className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                  type="text"
+                  placeholder="🔍 Search derived (Step, Vol, Jump, Boom/Crash)..."
+                  value={searchDerivedQuery}
+                  onChange={(e) => setSearchDerivedQuery(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
                 />
+
+                {filteredDerivedPairs.length > 0 && (
+                  <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
+                    <span className="uppercase tracking-wider">Select All Derived ({filteredDerivedPairs.length})</span>
+                    <input
+                      type="checkbox"
+                      checked={filteredDerivedPairs.every(p => draftPairs.includes(p.id))}
+                      onChange={() => {
+                        const allChecked = filteredDerivedPairs.every(p => draftPairs.includes(p.id));
+                        const filteredIds = filteredDerivedPairs.map(p => p.id);
+                        if (allChecked) {
+                          setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
+                        } else {
+                          setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
+                        }
+                      }}
+                      className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-blue-500 checked:border-blue-500 accent-blue-500 cursor-pointer"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1 max-h-[190px] overflow-y-auto pr-1">
+                  {filteredDerivedPairs.map((pair) => {
+                    const isTicked = draftPairs.includes(pair.id);
+                    const isSelected = selectedPairs.includes(pair.id);
+                    return (
+                      <div
+                        key={pair.id}
+                        className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
+                          isSelected
+                            ? 'bg-blue-950/20 text-blue-300 font-extrabold border border-blue-500/15'
+                            : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                        }`}
+                        title={pair.desc}
+                      >
+                        <span className="truncate max-w-[130px]">{pair.name}</span>
+                        <input
+                          type="checkbox"
+                          checked={isTicked}
+                          onChange={() => handleTogglePairDraft(pair.id)}
+                          className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-blue-500 checked:border-blue-500 accent-blue-500 cursor-pointer"
+                        />
+                      </div>
+                    );
+                  })}
+                  {filteredDerivedPairs.length === 0 && (
+                    <p className="text-[9px] text-zinc-650 text-center py-2">No derived pairs found.</p>
+                  )}
+                </div>
               </div>
             )}
 
-            {/* Items List */}
-            <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
-              {filteredGlobalPairs.map((pair) => {
-                const isTicked = draftPairs.includes(pair.id);
-                const isSelected = selectedPairs.includes(pair.id);
-                return (
-                  <div
-                    key={pair.id}
-                    className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
-                      isSelected
-                        ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
-                        : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
-                    }`}
-                    title={pair.desc}
-                  >
-                    <span>{pair.name}</span>
+            {/* Category 2: Forex Content */}
+            {activeMarketTab === 'forex' && (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="🔍 Search forex (EUR, GBP, JPY, AUD, Baskets)..."
+                  value={searchForexQuery}
+                  onChange={(e) => setSearchForexQuery(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
+                />
+
+                {filteredForexPairs.length > 0 && (
+                  <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
+                    <span className="uppercase tracking-wider">Select All Forex ({filteredForexPairs.length})</span>
                     <input
                       type="checkbox"
-                      checked={isTicked}
-                      onChange={() => handleTogglePairDraft(pair.id)}
+                      checked={filteredForexPairs.every(p => draftPairs.includes(p.id))}
+                      onChange={() => {
+                        const allChecked = filteredForexPairs.every(p => draftPairs.includes(p.id));
+                        const filteredIds = filteredForexPairs.map(p => p.id);
+                        if (allChecked) {
+                          setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
+                        } else {
+                          setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
+                        }
+                      }}
                       className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
                     />
                   </div>
-                );
-              })}
-              {filteredGlobalPairs.length === 0 && (
-                <p className="text-[9px] text-zinc-650 text-center py-2">No assets found.</p>
-              )}
-            </div>
+                )}
 
-            {/* Save Button */}
+                <div className="space-y-1 max-h-[190px] overflow-y-auto pr-1">
+                  {filteredForexPairs.map((pair) => {
+                    const isTicked = draftPairs.includes(pair.id);
+                    const isSelected = selectedPairs.includes(pair.id);
+                    return (
+                      <div
+                        key={pair.id}
+                        className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
+                          isSelected
+                            ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/15'
+                            : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                        }`}
+                        title={pair.desc}
+                      >
+                        <span className="truncate max-w-[130px]">{pair.name}</span>
+                        <input
+                          type="checkbox"
+                          checked={isTicked}
+                          onChange={() => handleTogglePairDraft(pair.id)}
+                          className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
+                        />
+                      </div>
+                    );
+                  })}
+                  {filteredForexPairs.length === 0 && (
+                    <p className="text-[9px] text-zinc-650 text-center py-2">No forex pairs found.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Category 3: Cryptocurrencies Content */}
+            {activeMarketTab === 'crypto' && (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="🔍 Search cryptocurrencies..."
+                  value={searchCryptoQuery}
+                  onChange={(e) => setSearchCryptoQuery(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
+                />
+
+                {filteredCryptoPairs.length > 0 && (
+                  <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
+                    <span className="uppercase tracking-wider">Select All Crypto ({filteredCryptoPairs.length})</span>
+                    <input
+                      type="checkbox"
+                      checked={filteredCryptoPairs.every(p => draftPairs.includes(p.id))}
+                      onChange={() => {
+                        const allChecked = filteredCryptoPairs.every(p => draftPairs.includes(p.id));
+                        const filteredIds = filteredCryptoPairs.map(p => p.id);
+                        if (allChecked) {
+                          setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
+                        } else {
+                          setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
+                        }
+                      }}
+                      className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-amber-500 checked:border-amber-500 accent-amber-500 cursor-pointer"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1 max-h-[190px] overflow-y-auto pr-1">
+                  {filteredCryptoPairs.map((pair) => {
+                    const isTicked = draftPairs.includes(pair.id);
+                    const isSelected = selectedPairs.includes(pair.id);
+                    return (
+                      <div
+                        key={pair.id}
+                        className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
+                          isSelected
+                            ? 'bg-amber-950/20 text-amber-300 font-extrabold border border-amber-500/15'
+                            : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                        }`}
+                        title={pair.desc}
+                      >
+                        <span className="truncate max-w-[130px]">{pair.name}</span>
+                        <input
+                          type="checkbox"
+                          checked={isTicked}
+                          onChange={() => handleTogglePairDraft(pair.id)}
+                          className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-amber-500 checked:border-amber-500 accent-amber-500 cursor-pointer"
+                        />
+                      </div>
+                    );
+                  })}
+                  {filteredCryptoPairs.length === 0 && (
+                    <p className="text-[9px] text-zinc-650 text-center py-2">No crypto pairs found.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Category 4: Commodities Content */}
+            {activeMarketTab === 'commodities' && (
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="🔍 Search commodities (Gold, Silver, Metals)..."
+                  value={searchCommoditiesQuery}
+                  onChange={(e) => setSearchCommoditiesQuery(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
+                />
+
+                {filteredCommoditiesPairs.length > 0 && (
+                  <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
+                    <span className="uppercase tracking-wider">Select All Commodities ({filteredCommoditiesPairs.length})</span>
+                    <input
+                      type="checkbox"
+                      checked={filteredCommoditiesPairs.every(p => draftPairs.includes(p.id))}
+                      onChange={() => {
+                        const allChecked = filteredCommoditiesPairs.every(p => draftPairs.includes(p.id));
+                        const filteredIds = filteredCommoditiesPairs.map(p => p.id);
+                        if (allChecked) {
+                          setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
+                        } else {
+                          setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
+                        }
+                      }}
+                      className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-purple-500 checked:border-purple-500 accent-purple-500 cursor-pointer"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-1 max-h-[190px] overflow-y-auto pr-1">
+                  {filteredCommoditiesPairs.map((pair) => {
+                    const isTicked = draftPairs.includes(pair.id);
+                    const isSelected = selectedPairs.includes(pair.id);
+                    return (
+                      <div
+                        key={pair.id}
+                        className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
+                          isSelected
+                            ? 'bg-purple-950/20 text-purple-300 font-extrabold border border-purple-500/15'
+                            : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
+                        }`}
+                        title={pair.desc}
+                      >
+                        <span className="truncate max-w-[130px]">{pair.name}</span>
+                        <input
+                          type="checkbox"
+                          checked={isTicked}
+                          onChange={() => handleTogglePairDraft(pair.id)}
+                          className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-purple-500 checked:border-purple-500 accent-purple-500 cursor-pointer"
+                        />
+                      </div>
+                    );
+                  })}
+                  {filteredCommoditiesPairs.length === 0 && (
+                    <p className="text-[9px] text-zinc-650 text-center py-2">No commodities found.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Master Save Button for Market Pairs */}
             {JSON.stringify(selectedPairs.sort()) !== JSON.stringify(draftPairs.sort()) && (
               <div className="pt-2 border-t border-zinc-800/60">
                 <button
                   type="button"
                   onClick={handleSaveActiveStrategies}
                   disabled={isSavingStrategies}
-                  className="w-full py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer"
+                  className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[9px] font-black uppercase tracking-wider rounded-xl transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* 3. Synthetic Markets Box */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4 shadow-sm">
-            <div>
-              <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Synthetic Markets</h3>
-              <p className="text-[8px] text-zinc-500 leading-tight">Volatility, Boom & Crash indices</p>
-            </div>
-
-            {/* Search Box */}
-            <input
-              type="text"
-              placeholder="🔍 Search synthetics..."
-              value={searchSyntheticQuery}
-              onChange={(e) => setSearchSyntheticQuery(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
-            />
-
-            {/* Select All Checkbox */}
-            {filteredSyntheticPairs.length > 0 && (
-              <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
-                <span className="uppercase tracking-wider">Select All Filtered</span>
-                <input
-                  type="checkbox"
-                  checked={filteredSyntheticPairs.every(p => draftPairs.includes(p.id))}
-                  onChange={() => {
-                    const allChecked = filteredSyntheticPairs.every(p => draftPairs.includes(p.id));
-                    const filteredIds = filteredSyntheticPairs.map(p => p.id);
-                    if (allChecked) {
-                      setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
-                    } else {
-                      setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
-                    }
-                  }}
-                  className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
-                />
-              </div>
-            )}
-
-            {/* Items List */}
-            <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
-              {filteredSyntheticPairs.map((pair) => {
-                const isTicked = draftPairs.includes(pair.id);
-                const isSelected = selectedPairs.includes(pair.id);
-                return (
-                  <div
-                    key={pair.id}
-                    className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
-                      isSelected
-                        ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
-                        : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
-                    }`}
-                    title={pair.desc}
-                  >
-                    <span className="truncate max-w-[120px]">{pair.name}</span>
-                    <input
-                      type="checkbox"
-                      checked={isTicked}
-                      onChange={() => handleTogglePairDraft(pair.id)}
-                      className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
-                    />
-                  </div>
-                );
-              })}
-              {filteredSyntheticPairs.length === 0 && (
-                <p className="text-[9px] text-zinc-650 text-center py-2">No assets found.</p>
-              )}
-            </div>
-
-            {/* Save Button */}
-            {JSON.stringify(selectedPairs.sort()) !== JSON.stringify(draftPairs.sort()) && (
-              <div className="pt-2 border-t border-zinc-800/60">
-                <button
-                  type="button"
-                  onClick={handleSaveActiveStrategies}
-                  disabled={isSavingStrategies}
-                  className="w-full py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer"
-                >
-                  {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* 4. Unusual Markets Box */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 space-y-4 shadow-sm">
-            <div>
-              <h3 className="text-[10px] font-black text-zinc-300 uppercase tracking-widest">Unusual Markets</h3>
-              <p className="text-[8px] text-zinc-500 leading-tight">Exotics, Baskets, Minor indices & Vol (1s) variants</p>
-            </div>
-
-            {/* Search Box */}
-            <input
-              type="text"
-              placeholder="🔍 Search exotics..."
-              value={searchUnusualQuery}
-              onChange={(e) => setSearchUnusualQuery(e.target.value)}
-              className="w-full px-2.5 py-1.5 bg-zinc-950/80 hover:bg-zinc-900 border border-zinc-850 rounded-xl text-[9px] text-zinc-300 placeholder-zinc-650 focus:outline-none focus:border-zinc-700 transition-all font-mono"
-            />
-
-            {/* Select All Checkbox */}
-            {filteredUnusualPairs.length > 0 && (
-              <div className="flex items-center justify-between px-2 py-1 rounded-lg bg-zinc-900/30 border border-zinc-850/40 text-[9px] font-black text-zinc-400">
-                <span className="uppercase tracking-wider">Select All Filtered</span>
-                <input
-                  type="checkbox"
-                  checked={filteredUnusualPairs.every(p => draftPairs.includes(p.id))}
-                  onChange={() => {
-                    const allChecked = filteredUnusualPairs.every(p => draftPairs.includes(p.id));
-                    const filteredIds = filteredUnusualPairs.map(p => p.id);
-                    if (allChecked) {
-                      setDraftPairs(draftPairs.filter(id => !filteredIds.includes(id)));
-                    } else {
-                      setDraftPairs(draftPairs.concat(filteredIds.filter(id => !draftPairs.includes(id))));
-                    }
-                  }}
-                  className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
-                />
-              </div>
-            )}
-
-            {/* Items List */}
-            <div className="space-y-1 max-h-[160px] overflow-y-auto pr-1">
-              {filteredUnusualPairs.map((pair) => {
-                const isTicked = draftPairs.includes(pair.id);
-                const isSelected = selectedPairs.includes(pair.id);
-                return (
-                  <div
-                    key={pair.id}
-                    className={`flex items-center justify-between px-2 py-1 rounded-lg text-[9px] font-bold ${
-                      isSelected
-                        ? 'bg-emerald-950/20 text-emerald-400 font-extrabold border border-emerald-500/10'
-                        : 'text-zinc-400 hover:bg-zinc-900/40 hover:text-zinc-200'
-                    }`}
-                    title={pair.desc}
-                  >
-                    <span className="truncate max-w-[120px]">{pair.name}</span>
-                    <input
-                      type="checkbox"
-                      checked={isTicked}
-                      onChange={() => handleTogglePairDraft(pair.id)}
-                      className="w-3 h-3 border border-zinc-700 rounded bg-zinc-950 checked:bg-emerald-500 checked:border-emerald-500 accent-emerald-500 cursor-pointer"
-                    />
-                  </div>
-                );
-              })}
-              {filteredUnusualPairs.length === 0 && (
-                <p className="text-[9px] text-zinc-650 text-center py-2">No assets found.</p>
-              )}
-            </div>
-
-            {/* Save Button */}
-            {JSON.stringify(selectedPairs.sort()) !== JSON.stringify(draftPairs.sort()) && (
-              <div className="pt-2 border-t border-zinc-800/60">
-                <button
-                  type="button"
-                  onClick={handleSaveActiveStrategies}
-                  disabled={isSavingStrategies}
-                  className="w-full py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-[9px] font-black uppercase tracking-wider rounded-lg transition-all duration-300 shadow-md shadow-emerald-500/10 cursor-pointer"
-                >
-                  {isSavingStrategies ? 'Saving...' : 'Save Configuration'}
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{isSavingStrategies ? 'Saving...' : 'Save Configuration'}</span>
                 </button>
               </div>
             )}
