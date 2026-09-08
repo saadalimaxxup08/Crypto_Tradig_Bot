@@ -11,39 +11,73 @@ interface TerminalLine {
 }
 
 const SYMBOL_NAMES: Record<string, string> = {
+  // Forex Majors, Minors & Metals
   frxEURUSD: 'EUR/USD',
   frxGBPUSD: 'GBP/USD',
   frxUSDJPY: 'USD/JPY',
   frxAUDUSD: 'AUD/USD',
   frxUSDCAD: 'USD/CAD',
   frxUSDCHF: 'USD/CHF',
-  frxAUDJPY: 'AUD/JPY',
+  frxNZDUSD: 'NZD/USD',
+  frxEURGBP: 'EUR/GBP',
   frxEURJPY: 'EUR/JPY',
   frxGBPJPY: 'GBP/JPY',
+  frxAUDJPY: 'AUD/JPY',
+  frxEURAUD: 'EUR/AUD',
+  frxEURCAD: 'EUR/CAD',
+  frxEURCHF: 'EUR/CHF',
+  frxGBPAUD: 'GBP/AUD',
+  frxGBPCAD: 'GBP/CAD',
+  frxGBPCHF: 'GBP/CHF',
+  frxGBPNZD: 'GBP/NZD',
+  frxAUDCAD: 'AUD/CAD',
+  frxAUDCHF: 'AUD/CHF',
+  frxAUDNZD: 'AUD/NZD',
+  frxEURNZD: 'EUR/NZD',
+  frxNZDJPY: 'NZD/JPY',
   frxXAUUSD: 'Gold / USD',
   frxXAGUSD: 'Silver / USD',
   cryBTCUSD: 'BTC/USD',
   cryETHUSD: 'ETH/USD',
+  // Synthetics Volatility Indices
   R_10: 'Volatility 10 Index',
   R_25: 'Volatility 25 Index',
   R_50: 'Volatility 50 Index',
   R_75: 'Volatility 75 Index',
   R_100: 'Volatility 100 Index',
   '1HZ10V': 'Volatility 10 (1s) Index',
+  '1HZ15V': 'Volatility 15 (1s) Index',
+  '1HZ25V': 'Volatility 25 (1s) Index',
+  '1HZ30V': 'Volatility 30 (1s) Index',
+  '1HZ50V': 'Volatility 50 (1s) Index',
   '1HZ75V': 'Volatility 75 (1s) Index',
+  '1HZ90V': 'Volatility 90 (1s) Index',
   '1HZ100V': 'Volatility 100 (1s) Index',
-  BOOM500: 'Boom 500 Index',
-  BOOM1000: 'Boom 1000 Index',
-  CRASH500: 'Crash 500 Index',
-  CRASH1000: 'Crash 1000 Index',
-  JD50: 'Jump 50 Index',
-  stpRNG: 'Step Index',
-  RB100: 'Range Break 100',
-  RB200: 'Range Break 200',
+  '1HZ150V': 'Volatility 150 (1s) Index',
+  '1HZ250V': 'Volatility 250 (1s) Index',
+  '1HZ300V': 'Volatility 300 (1s) Index',
+  // Step Indices
+  stpRNG: 'Step Index 100',
   stpRNG2: 'Step Index 200',
   stpRNG3: 'Step Index 300',
   stpRNG4: 'Step Index 400',
-  stpRNG5: 'Step Index 500'
+  stpRNG5: 'Step Index 500',
+  // Boom & Crash & Jump & Range Break
+  BOOM50: 'Boom 50 Index',
+  BOOM300N: 'Boom 300 Index',
+  BOOM500: 'Boom 500 Index',
+  BOOM1000: 'Boom 1000 Index',
+  CRASH50: 'Crash 50 Index',
+  CRASH300N: 'Crash 300 Index',
+  CRASH500: 'Crash 500 Index',
+  CRASH1000: 'Crash 1000 Index',
+  JD10: 'Jump 10 Index',
+  JD25: 'Jump 25 Index',
+  JD50: 'Jump 50 Index',
+  JD75: 'Jump 75 Index',
+  JD100: 'Jump 100 Index',
+  RB100: 'Range Break 100',
+  RB200: 'Range Break 200'
 };
 
 function getDisplaySymbolName(symbol: string) {
@@ -61,11 +95,24 @@ export default function DerivConsolePage() {
   const [connections, setConnections] = useState({ db: true, telegram: true, deriv: true });
 
   const ALL_AVAILABLE_PAIRS = useMemo(() => [
+    // Forex & Metals & Crypto
     'frxEURUSD', 'frxGBPUSD', 'frxUSDJPY', 'frxAUDUSD', 'frxUSDCAD',
-    'frxUSDCHF', 'frxAUDJPY', 'frxEURJPY', 'frxGBPJPY', 'frxXAUUSD',
-    'frxXAGUSD', 'R_10', 'R_25', 'R_50', 'R_75',
-    'R_100', '1HZ10V', '1HZ75V', '1HZ100V', 'JD50',
-    'stpRNG', 'stpRNG2', 'stpRNG3', 'stpRNG4', 'stpRNG5'
+    'frxUSDCHF', 'frxNZDUSD', 'frxEURGBP', 'frxEURJPY', 'frxGBPJPY',
+    'frxAUDJPY', 'frxEURAUD', 'frxEURCAD', 'frxEURCHF', 'frxGBPAUD',
+    'frxGBPCAD', 'frxGBPCHF', 'frxGBPNZD', 'frxAUDCAD', 'frxAUDCHF',
+    'frxAUDNZD', 'frxEURNZD', 'frxNZDJPY', 'frxXAUUSD', 'frxXAGUSD',
+    'cryBTCUSD', 'cryETHUSD',
+    // Synthetics Volatility Indices
+    'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
+    '1HZ10V', '1HZ15V', '1HZ25V', '1HZ30V', '1HZ50V',
+    '1HZ75V', '1HZ90V', '1HZ100V', '1HZ150V', '1HZ250V', '1HZ300V',
+    // Step Indices
+    'stpRNG', 'stpRNG2', 'stpRNG3', 'stpRNG4', 'stpRNG5',
+    // Boom, Crash, Jump & Range Break
+    'BOOM50', 'BOOM300N', 'BOOM500', 'BOOM1000',
+    'CRASH50', 'CRASH300N', 'CRASH500', 'CRASH1000',
+    'JD10', 'JD25', 'JD50', 'JD75', 'JD100',
+    'RB100', 'RB200'
   ], []);
 
   const [selectedPairs, setSelectedPairs] = useState<string[]>([]);
