@@ -275,8 +275,9 @@ const SYMBOL_NAMES: { [key: string]: string } = {
   CRASH1000: 'Crash 1000 Index',
   JD50: 'Jump 50 Index',
   stpRNG: 'Step Index',
-  RB100: 'Range Break 100',
-  RB200: 'Range Break 200',
+  RB100: 'Range Break 100 Index',
+  RB200: 'Range Break 200 Index',
+  JD75: 'Jump 75 Index',
   // Unusual/Others
   frxEURGBP: 'EUR/GBP',
   frxEURAUD: 'EUR/AUD',
@@ -296,18 +297,18 @@ const SYMBOL_NAMES: { [key: string]: string } = {
   frxUSDPLN: 'USD/PLN',
   frxXPDUSD: 'Palladium / USD',
   frxXPTUSD: 'Platinum / USD',
-  OTC_NDX: 'US Tech 100',
-  OTC_SPC: 'US 500',
-  OTC_DJI: 'Wall Street 30',
-  OTC_FTSE: 'UK 100',
-  OTC_GDAXI: 'Germany 40',
-  OTC_FCHI: 'France 40',
-  OTC_SX5E: 'Euro 50',
-  OTC_N225: 'Japan 225',
-  OTC_HSI: 'Hong Kong 50',
-  OTC_AS51: 'Australia 200',
-  OTC_AEX: 'Netherlands 25',
-  OTC_SSMI: 'Swiss 20',
+  OTC_NDX: 'US Tech 100 Index',
+  OTC_SPC: 'US 500 Index',
+  OTC_DJI: 'Wall Street 30 Index',
+  OTC_FTSE: 'UK 100 Index',
+  OTC_GDAXI: 'Germany 40 Index',
+  OTC_FCHI: 'France 40 Index',
+  OTC_SX5E: 'Euro 50 Index',
+  OTC_N225: 'Japan 225 Index',
+  OTC_HSI: 'Hong Kong 50 Index',
+  OTC_AS51: 'Australia 200 Index',
+  OTC_AEX: 'Netherlands 25 Index',
+  OTC_SSMI: 'Swiss 20 Index',
   WLDAUD: 'AUD Basket',
   WLDEUR: 'EUR Basket',
   WLDGBP: 'GBP Basket',
@@ -331,15 +332,15 @@ const SYMBOL_NAMES: { [key: string]: string } = {
   JD10: 'Jump 10 Index',
   JD25: 'Jump 25 Index',
   JD100: 'Jump 100 Index',
-  stpRNG2: 'Step Index 200',
-  stpRNG3: 'Step Index 300',
-  stpRNG4: 'Step Index 400',
-  stpRNG5: 'Step Index 500'
+  stpRNG2: 'Step Index 2',
+  stpRNG3: 'Step Index 3',
+  stpRNG4: 'Step Index 4',
+  stpRNG5: 'Step Index 5'
 };
 
 export function getDisplaySymbolName(symbol: string): string {
   const name = SYMBOL_NAMES[symbol];
-  return name ? `${name} (${symbol})` : symbol;
+  return name || symbol;
 }
 export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<void> {
   if (openTrades.length === 0) return Promise.resolve();
