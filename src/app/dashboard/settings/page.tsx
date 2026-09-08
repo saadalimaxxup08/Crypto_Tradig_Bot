@@ -29,6 +29,10 @@ export default function SettingsPage() {
   const [derivSessionFilterEnabled, setDerivSessionFilterEnabled] = useState(true);
   const [derivCooldownFilterEnabled, setDerivCooldownFilterEnabled] = useState(true);
   const [derivDailyLimitEnabled, setDerivDailyLimitEnabled] = useState(true);
+  const [derivProgressionEnabled, setDerivProgressionEnabled] = useState(false);
+  const [derivProgressionSteps, setDerivProgressionSteps] = useState<string[]>([
+    '0.35', '0.39', '0.83', '1.75', '3.69', '7.79', '16.45', '34.73', '73.00', '150.00'
+  ]);
 
   // Telegram States
   const [telegramToken, setTelegramToken] = useState('');
@@ -223,6 +227,10 @@ export default function SettingsPage() {
         setDerivSessionFilterEnabled(derivData.derivSessionFilterEnabled !== false);
         setDerivCooldownFilterEnabled(derivData.derivCooldownFilterEnabled !== false);
         setDerivDailyLimitEnabled(derivData.derivDailyLimitEnabled !== false);
+        setDerivProgressionEnabled(Boolean(derivData.derivProgressionEnabled));
+        if (derivData.derivProgressionSteps && Array.isArray(derivData.derivProgressionSteps) && derivData.derivProgressionSteps.length === 10) {
+          setDerivProgressionSteps(derivData.derivProgressionSteps.map((s: any) => String(s)));
+        }
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -293,6 +301,8 @@ export default function SettingsPage() {
             derivSessionFilterEnabled: derivSessionFilterEnabled,
             derivCooldownFilterEnabled: derivCooldownFilterEnabled,
             derivDailyLimitEnabled: derivDailyLimitEnabled,
+            derivProgressionEnabled: derivProgressionEnabled,
+            derivProgressionSteps: derivProgressionSteps.map(s => parseFloat(s) || 0.35)
           }),
         })
       ]);
@@ -671,6 +681,88 @@ export default function SettingsPage() {
                 />
               </label>
             </div>
+          </div>
+        </div>
+
+        {/* Custom 10-Step Progression & Martingale Table */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
+            <div>
+              <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-emerald-400" />
+                <span>Custom 10-Step Progression &amp; Recovery Table</span>
+              </h3>
+              <p className="text-xs text-zinc-400 mt-1">
+                Configure your custom 10-step stake sequence. When a trade loses, the bot advances to the next step. As soon as <b>ANY trade WINS</b>, the bot automatically resets back to Step 1!
+              </p>
+            </div>
+            
+            {/* RUN / OFF Master Switch */}
+            <div className="flex items-center gap-3 bg-[#09090b]/80 border border-zinc-800 p-2 rounded-2xl self-start sm:self-auto">
+              <span className={`text-xs font-extrabold uppercase tracking-wider ${derivProgressionEnabled ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                {derivProgressionEnabled ? 'RUN (ON)' : 'OFF (NORMAL)'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setDerivProgressionEnabled(!derivProgressionEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${
+                  derivProgressionEnabled ? 'bg-emerald-500' : 'bg-zinc-700'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                    derivProgressionEnabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {derivProgressionEnabled ? (
+            <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl text-emerald-300 text-xs flex items-center gap-2">
+              <span className="font-bold">⚡ PROGRESSION MODE ACTIVE:</span>
+              <span>Bot will execute trades using the 10 custom step amounts below. Win resets back to Step 1 automatically!</span>
+            </div>
+          ) : (
+            <div className="p-3.5 bg-zinc-900/50 border border-zinc-800 rounded-2xl text-zinc-400 text-xs flex items-center gap-2">
+              <span className="font-bold">ℹ️ NORMAL MODE ACTIVE:</span>
+              <span>Bot executes fixed stake amount ($1.00 or custom base stake). Toggle RUN above to activate step progression.</span>
+            </div>
+          )}
+
+          {/* 10 Step Inputs Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            {derivProgressionSteps.map((stepVal, idx) => (
+              <div key={idx} className="bg-[#09090b]/80 border border-zinc-800/80 rounded-2xl p-3.5 space-y-2 hover:border-zinc-700 transition-all">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold uppercase text-emerald-400 tracking-wide">
+                    Step {idx + 1}
+                  </span>
+                  {idx === 0 && (
+                    <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md">
+                      RESET TARGET
+                    </span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.35"
+                    value={stepVal}
+                    onChange={(e) => {
+                      const newSteps = [...derivProgressionSteps];
+                      newSteps[idx] = e.target.value;
+                      setDerivProgressionSteps(newSteps);
+                    }}
+                    className="w-full bg-[#0c0c0f] border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-2 px-3 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none text-xs"
+                  />
+                  <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold text-zinc-500">
+                    USD
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 

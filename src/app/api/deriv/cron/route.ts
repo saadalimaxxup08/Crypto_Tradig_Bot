@@ -22,6 +22,7 @@ import {
   getDisplaySymbolName,
   syncOpenTrades
 } from '@/lib/deriv_api_helpers';
+import { getEffectiveProgressionStake } from '@/lib/deriv_progression';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -257,16 +258,16 @@ export async function GET(req: Request) {
             // D. Fetch tick to check spread before buying
             const tick = await fetchTick(socket!, pair);
             if (tick) {
-              const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
-              if (spreadBlocked) {
-                localLogs.push(`- [${stratName}] Skip: Spread of ${pair} exceeds 2.0 pips.`);
-                continue;
+              // E. Calculate Dynamic Progression Stake
+              const { stake: effectiveStake, stepIndex, isProgressionActive } = await getEffectiveProgressionStake(existingOverrides, derivStakeAmount);
+              if (isProgressionActive) {
+                localLogs.push(`📊 [Custom Progression Mode ON] Step ${stepIndex + 1} Stake: $${effectiveStake.toFixed(2)}`);
               }
 
-              // E. Execute Trade!
-              localLogs.push(`🔥 [${stratName}] Trigger: Placing $${derivStakeAmount.toFixed(2)} ${strategyResultObj.direction} contract on ${pair} with ${tradeDuration}m expiry.`);
+              // F. Execute Trade!
+              localLogs.push(`🔥 [${stratName}] Trigger: Placing $${effectiveStake.toFixed(2)} ${strategyResultObj.direction} contract on ${pair} with ${tradeDuration}m expiry.`);
               try {
-                const result = await buyContract(socket!, pair, strategyResultObj.direction, derivStakeAmount, tradeDuration);
+                const result = await buyContract(socket!, pair, strategyResultObj.direction, effectiveStake, tradeDuration);
                 
                 const newTrade = {
                   id: crypto.randomUUID(),
@@ -275,7 +276,7 @@ export async function GET(req: Request) {
                   contract_type: strategyResultObj.direction,
                   duration: tradeDuration,
                   duration_unit: 'm',
-                  stake: derivStakeAmount,
+                  stake: effectiveStake,
                   payout: parseFloat(result.payout),
                   status: 'OPEN',
                   entry_price: parseFloat(result.buy_price),

@@ -63,6 +63,8 @@ export async function GET() {
     const derivCooldownFilterEnabled = overrides.deriv_cooldown_filter_enabled !== false;
     const derivDailyLimitEnabled = overrides.deriv_daily_limit_enabled !== false;
     const derivNearEntryPairs = overrides.deriv_near_entry_pairs || [];
+    const derivProgressionEnabled = overrides.deriv_progression_enabled === true;
+    const derivProgressionSteps = overrides.deriv_progression_steps || [0.35, 0.39, 0.83, 1.75, 3.69, 7.79, 16.45, 34.73, 73.00, 150.00];
 
     let demoBalance = 0.00;
     let realBalance = 0.00;
@@ -91,6 +93,8 @@ export async function GET() {
         derivCooldownFilterEnabled,
         derivDailyLimitEnabled,
         derivNearEntryPairs,
+        derivProgressionEnabled,
+        derivProgressionSteps,
         demoBalance,
         realBalance,
         lastScanAt,
@@ -116,6 +120,8 @@ export async function GET() {
       derivCooldownFilterEnabled,
       derivDailyLimitEnabled,
       derivNearEntryPairs,
+      derivProgressionEnabled,
+      derivProgressionSteps,
       demoBalance,
       realBalance,
       lastScanAt,
@@ -149,7 +155,9 @@ export async function POST(request: Request) {
       derivNewsFilterEnabled,
       derivSessionFilterEnabled,
       derivCooldownFilterEnabled,
-      derivDailyLimitEnabled
+      derivDailyLimitEnabled,
+      derivProgressionEnabled,
+      derivProgressionSteps
     } = body;
 
     // Fetch existing overrides to merge them
@@ -171,7 +179,9 @@ export async function POST(request: Request) {
       deriv_news_filter_enabled: derivNewsFilterEnabled !== undefined ? derivNewsFilterEnabled : existingOverrides.deriv_news_filter_enabled,
       deriv_session_filter_enabled: derivSessionFilterEnabled !== undefined ? derivSessionFilterEnabled : existingOverrides.deriv_session_filter_enabled,
       deriv_cooldown_filter_enabled: derivCooldownFilterEnabled !== undefined ? derivCooldownFilterEnabled : existingOverrides.deriv_cooldown_filter_enabled,
-      deriv_daily_limit_enabled: derivDailyLimitEnabled !== undefined ? derivDailyLimitEnabled : existingOverrides.deriv_daily_limit_enabled
+      deriv_daily_limit_enabled: derivDailyLimitEnabled !== undefined ? derivDailyLimitEnabled : existingOverrides.deriv_daily_limit_enabled,
+      deriv_progression_enabled: derivProgressionEnabled !== undefined ? derivProgressionEnabled : existingOverrides.deriv_progression_enabled,
+      deriv_progression_steps: derivProgressionSteps !== undefined ? derivProgressionSteps : (existingOverrides.deriv_progression_steps || [0.35, 0.39, 0.83, 1.75, 3.69, 7.79, 16.45, 34.73, 73.00, 150.00])
     };
 
     const updatePayload: any = {

@@ -21,6 +21,7 @@ import {
   getDisplaySymbolName,
   syncOpenTrades
 } from '@/lib/deriv_api_helpers';
+import { getEffectiveProgressionStake } from '@/lib/deriv_progression';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -259,9 +260,15 @@ export async function GET() {
                       continue;
                     }
 
-                    localLogs.push(`🔥 [${stratName}] Trigger! Buying $${derivStakeAmount.toFixed(2)} ${strategyResultObj.direction} contract.`);
+                    // Dynamic Progression Stake Calculation
+                    const { stake: effectiveStake, stepIndex, isProgressionActive } = await getEffectiveProgressionStake(existingOverrides, derivStakeAmount);
+                    if (isProgressionActive) {
+                      localLogs.push(`📊 [Custom Progression Mode ON] Step ${stepIndex + 1} Stake: $${effectiveStake.toFixed(2)}`);
+                    }
+
+                    localLogs.push(`🔥 [${stratName}] Trigger! Buying $${effectiveStake.toFixed(2)} ${strategyResultObj.direction} contract.`);
                     try {
-                      const result = await buyContract(socket, pair, strategyResultObj.direction, derivStakeAmount, tradeDuration);
+                      const result = await buyContract(socket, pair, strategyResultObj.direction, effectiveStake, tradeDuration);
                       executionSuccess = true;
                       
                       const newTrade = {
@@ -271,7 +278,7 @@ export async function GET() {
                         contract_type: strategyResultObj.direction,
                         duration: tradeDuration,
                         duration_unit: 'm',
-                        stake: derivStakeAmount,
+                        stake: effectiveStake,
                         payout: parseFloat(result.payout),
                         status: 'OPEN',
                         entry_price: parseFloat(result.buy_price),
@@ -292,7 +299,7 @@ export async function GET() {
                         `Direction: ${strategyResultObj.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
                         `Timeframe: ${tradeDuration}m\n` +
                         `Account: ${tradingMode}\n` +
-                        `Stake: $${derivStakeAmount.toFixed(2)}\n\n` +
+                        `Stake: $${effectiveStake.toFixed(2)}\n\n` +
                         `📈 <b>Live Chart:</b> <a href="${chartLink}">Open ${getDisplaySymbolName(pair).split(' (')[0]} on Deriv</a>\n` +
                         `🔗 <b>Direct Link:</b> ${chartLink}`;
                       
