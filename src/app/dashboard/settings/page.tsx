@@ -805,7 +805,7 @@ export default function SettingsPage() {
           <div className="flex justify-end pt-2 border-t border-zinc-800/50">
             <button
               type="button"
-              onClick={handleSaveSettings}
+              onClick={(e) => handleSave(e)}
               disabled={isSaving}
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-5 rounded-xl shadow-lg shadow-emerald-950/40 transition-all duration-200 active:scale-95 disabled:opacity-50"
             >
