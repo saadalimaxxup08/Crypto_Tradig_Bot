@@ -179,20 +179,7 @@ export async function GET(req: Request) {
       const localLogs: string[] = [`Scanning ${getDisplaySymbolName(pair)}...`];
       let nearEntryObj: any = null;
       try {
-        // A. Check if trade already open for this symbol (Max 1 active trade per pair)
-        const { data: openTrades, error: checkErr } = await supabase
-          .from('deriv_trades')
-          .select('*')
-          .eq('symbol', pair)
-          .eq('status', 'OPEN');
-
-        if (!checkErr && openTrades && openTrades.length > 0) {
-          localLogs.push(`- Skip: A contract is already open for ${pair}.`);
-          scanResults.push({ logs: localLogs, nearEntry: null });
-          continue;
-        }
-
-        // B. Filter: Economic News Block
+        // A. Filter: Economic News Block
         const newsBlocked = newsFilterEnabled ? await isEconomicNewsBlocked(pair) : false;
         if (newsBlocked) {
           localLogs.push(`- Skip: High Impact News block is active for currencies in ${pair}.`);
@@ -200,7 +187,7 @@ export async function GET(req: Request) {
           continue;
         }
 
-        // C. Fetch Multi-Timeframe Candles
+        // B. Fetch Multi-Timeframe Candles
         const candles5m = await fetchCandles(socket!, pair, 300);
         const candles15m = await fetchCandles(socket!, pair, 900);
         const candlesH1 = await fetchCandles(socket!, pair, 3600);
@@ -236,6 +223,19 @@ export async function GET(req: Request) {
             strategyResultObj = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
             stratName = 'v1 - Forex 15m MTF Crossover';
             tradeDuration = 15;
+          }
+
+          // Per-Strategy Per-Duration Open Contract Check
+          const { data: openStratTrades, error: checkErr } = await supabase
+            .from('deriv_trades')
+            .select('*')
+            .eq('symbol', pair)
+            .eq('duration', tradeDuration)
+            .eq('status', 'OPEN');
+
+          if (!checkErr && openStratTrades && openStratTrades.length > 0) {
+            localLogs.push(`- [${stratName}] Skip: An open contract for ${pair} with ${tradeDuration}m expiry already exists.`);
+            continue;
           }
 
           localLogs.push(`- [${stratName}] ADX: ${strategyResultObj.adxValue.toFixed(1)} | Signal: ${strategyResultObj.direction}`);
