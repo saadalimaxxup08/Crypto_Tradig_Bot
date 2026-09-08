@@ -33,6 +33,9 @@ export default function SettingsPage() {
   const [derivProgressionSteps, setDerivProgressionSteps] = useState<string[]>([
     '0.35', '0.39', '0.83', '1.75', '3.69', '7.79', '16.45', '34.73', '73.00', '150.00'
   ]);
+  const [derivProgressionActiveSteps, setDerivProgressionActiveSteps] = useState<boolean[]>([
+    true, true, true, true, true, true, true, true, true, true
+  ]);
 
   // Telegram States
   const [telegramToken, setTelegramToken] = useState('');
@@ -231,6 +234,9 @@ export default function SettingsPage() {
         if (derivData.derivProgressionSteps && Array.isArray(derivData.derivProgressionSteps) && derivData.derivProgressionSteps.length === 10) {
           setDerivProgressionSteps(derivData.derivProgressionSteps.map((s: any) => String(s)));
         }
+        if (derivData.derivProgressionActiveSteps && Array.isArray(derivData.derivProgressionActiveSteps) && derivData.derivProgressionActiveSteps.length === 10) {
+          setDerivProgressionActiveSteps(derivData.derivProgressionActiveSteps.map((b: any) => Boolean(b)));
+        }
       }
     } catch (err) {
       console.error('Failed to load settings:', err);
@@ -302,7 +308,8 @@ export default function SettingsPage() {
             derivCooldownFilterEnabled: derivCooldownFilterEnabled,
             derivDailyLimitEnabled: derivDailyLimitEnabled,
             derivProgressionEnabled: derivProgressionEnabled,
-            derivProgressionSteps: derivProgressionSteps.map(s => parseFloat(s) || 0.35)
+            derivProgressionSteps: derivProgressionSteps.map(s => parseFloat(s) || 0.35),
+            derivProgressionActiveSteps: derivProgressionActiveSteps
           }),
         })
       ]);
@@ -693,7 +700,7 @@ export default function SettingsPage() {
                 <span>Custom 10-Step Progression &amp; Recovery Table</span>
               </h3>
               <p className="text-xs text-zinc-400 mt-1">
-                Configure your custom 10-step stake sequence. When a trade loses, the bot advances to the next step. As soon as <b>ANY trade WINS</b>, the bot automatically resets back to Step 1!
+                Tick the steps you want to activate. When a trade loses, the bot moves to the next <b>ticked step</b>. As soon as <b>ANY trade WINS</b>, the bot resets back to Step 1. If <b>all ticked steps lose</b>, trading is automatically HALTED for risk protection!
               </p>
             </div>
             
@@ -721,7 +728,7 @@ export default function SettingsPage() {
           {derivProgressionEnabled ? (
             <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl text-emerald-300 text-xs flex items-center gap-2">
               <span className="font-bold">⚡ PROGRESSION MODE ACTIVE:</span>
-              <span>Bot will execute trades using the 10 custom step amounts below. Win resets back to Step 1 automatically!</span>
+              <span>Bot will execute trades using ticked step inputs. If max ticked steps lose consecutively, trading automatically halts!</span>
             </div>
           ) : (
             <div className="p-3.5 bg-zinc-900/50 border border-zinc-800 rounded-2xl text-zinc-400 text-xs flex items-center gap-2">
@@ -730,39 +737,81 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {/* 10 Step Inputs Grid */}
+          {/* 10 Step Inputs Grid with Checkboxes */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {derivProgressionSteps.map((stepVal, idx) => (
-              <div key={idx} className="bg-[#09090b]/80 border border-zinc-800/80 rounded-2xl p-3.5 space-y-2 hover:border-zinc-700 transition-all">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-extrabold uppercase text-emerald-400 tracking-wide">
-                    Step {idx + 1}
-                  </span>
-                  {idx === 0 && (
-                    <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md">
-                      RESET TARGET
+            {derivProgressionSteps.map((stepVal, idx) => {
+              const isChecked = derivProgressionActiveSteps[idx] !== false;
+              return (
+                <div
+                  key={idx}
+                  className={`border rounded-2xl p-3.5 space-y-2.5 transition-all ${
+                    isChecked
+                      ? 'bg-[#09090b]/80 border-emerald-500/40 text-zinc-100'
+                      : 'bg-zinc-950/40 border-zinc-800/60 opacity-60 text-zinc-500'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const newFlags = [...derivProgressionActiveSteps];
+                          newFlags[idx] = e.target.checked;
+                          setDerivProgressionActiveSteps(newFlags);
+                        }}
+                        className="rounded border-zinc-800 text-emerald-500 focus:ring-0 accent-emerald-500 w-3.5 h-3.5 cursor-pointer"
+                      />
+                      <span className={`text-[11px] font-extrabold uppercase tracking-wide ${isChecked ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                        Step {idx + 1}
+                      </span>
+                    </label>
+
+                    {idx === 0 && (
+                      <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md">
+                        RESET
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.35"
+                      disabled={!isChecked}
+                      value={stepVal}
+                      onChange={(e) => {
+                        const newSteps = [...derivProgressionSteps];
+                        newSteps[idx] = e.target.value;
+                        setDerivProgressionSteps(newSteps);
+                      }}
+                      className={`w-full border rounded-xl py-2 px-3 font-mono text-xs focus:outline-none transition-all ${
+                        isChecked
+                          ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 text-zinc-100'
+                          : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
+                      }`}
+                    />
+                    <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold text-zinc-500">
+                      USD
                     </span>
-                  )}
+                  </div>
                 </div>
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.35"
-                    value={stepVal}
-                    onChange={(e) => {
-                      const newSteps = [...derivProgressionSteps];
-                      newSteps[idx] = e.target.value;
-                      setDerivProgressionSteps(newSteps);
-                    }}
-                    className="w-full bg-[#0c0c0f] border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-2 px-3 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none text-xs"
-                  />
-                  <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold text-zinc-500">
-                    USD
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
+          </div>
+
+          {/* Dedicated Save Button */}
+          <div className="flex justify-end pt-2 border-t border-zinc-800/50">
+            <button
+              type="button"
+              onClick={handleSaveSettings}
+              disabled={isSaving}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-5 rounded-xl shadow-lg shadow-emerald-950/40 transition-all duration-200 active:scale-95 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              <span>{isSaving ? 'Saving Table...' : 'Save Progression Table'}</span>
+            </button>
           </div>
         </div>
 

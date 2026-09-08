@@ -259,7 +259,11 @@ export async function GET(req: Request) {
             const tick = await fetchTick(socket!, pair);
             if (tick) {
               // E. Calculate Dynamic Progression Stake
-              const { stake: effectiveStake, stepIndex, isProgressionActive } = await getEffectiveProgressionStake(existingOverrides, derivStakeAmount);
+              const { stake: effectiveStake, stepIndex, isProgressionActive, isHalted, haltReason } = await getEffectiveProgressionStake(existingOverrides, derivStakeAmount);
+              if (isHalted) {
+                localLogs.push(`🛑 [Progression Limit Reached] ${haltReason || 'All active progression steps lost. Trading paused for protection.'}`);
+                continue;
+              }
               if (isProgressionActive) {
                 localLogs.push(`📊 [Custom Progression Mode ON] Step ${stepIndex + 1} Stake: $${effectiveStake.toFixed(2)}`);
               }

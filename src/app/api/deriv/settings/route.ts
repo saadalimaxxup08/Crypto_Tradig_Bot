@@ -65,6 +65,7 @@ export async function GET() {
     const derivNearEntryPairs = overrides.deriv_near_entry_pairs || [];
     const derivProgressionEnabled = overrides.deriv_progression_enabled === true;
     const derivProgressionSteps = overrides.deriv_progression_steps || [0.35, 0.39, 0.83, 1.75, 3.69, 7.79, 16.45, 34.73, 73.00, 150.00];
+    const derivProgressionActiveSteps = overrides.deriv_progression_active_steps || [true, true, true, true, true, true, true, true, true, true];
 
     let demoBalance = 0.00;
     let realBalance = 0.00;
@@ -95,6 +96,7 @@ export async function GET() {
         derivNearEntryPairs,
         derivProgressionEnabled,
         derivProgressionSteps,
+        derivProgressionActiveSteps,
         demoBalance,
         realBalance,
         lastScanAt,
@@ -122,6 +124,7 @@ export async function GET() {
       derivNearEntryPairs,
       derivProgressionEnabled,
       derivProgressionSteps,
+      derivProgressionActiveSteps,
       demoBalance,
       realBalance,
       lastScanAt,
@@ -157,7 +160,8 @@ export async function POST(request: Request) {
       derivCooldownFilterEnabled,
       derivDailyLimitEnabled,
       derivProgressionEnabled,
-      derivProgressionSteps
+      derivProgressionSteps,
+      derivProgressionActiveSteps
     } = body;
 
     // Fetch existing overrides to merge them
@@ -181,7 +185,8 @@ export async function POST(request: Request) {
       deriv_cooldown_filter_enabled: derivCooldownFilterEnabled !== undefined ? derivCooldownFilterEnabled : existingOverrides.deriv_cooldown_filter_enabled,
       deriv_daily_limit_enabled: derivDailyLimitEnabled !== undefined ? derivDailyLimitEnabled : existingOverrides.deriv_daily_limit_enabled,
       deriv_progression_enabled: derivProgressionEnabled !== undefined ? derivProgressionEnabled : existingOverrides.deriv_progression_enabled,
-      deriv_progression_steps: derivProgressionSteps !== undefined ? derivProgressionSteps : (existingOverrides.deriv_progression_steps || [0.35, 0.39, 0.83, 1.75, 3.69, 7.79, 16.45, 34.73, 73.00, 150.00])
+      deriv_progression_steps: derivProgressionSteps !== undefined ? derivProgressionSteps : (existingOverrides.deriv_progression_steps || [0.35, 0.39, 0.83, 1.75, 3.69, 7.79, 16.45, 34.73, 73.00, 150.00]),
+      deriv_progression_active_steps: derivProgressionActiveSteps !== undefined ? derivProgressionActiveSteps : (existingOverrides.deriv_progression_active_steps || [true, true, true, true, true, true, true, true, true, true])
     };
 
     const updatePayload: any = {
