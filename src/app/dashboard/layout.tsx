@@ -63,7 +63,7 @@ export default async function DashboardLayout({
               </div>
               <div>
                 <h1 className="text-md font-bold tracking-tight bg-gradient-to-r from-emerald-400 to-blue-500 bg-clip-text text-transparent">
-                  CryptoAI Trader
+                  Deriv Options Trader
                 </h1>
                 <span className="text-[10px] text-zinc-500 font-semibold tracking-wider uppercase">
                   VIP System v1.0
@@ -88,14 +88,6 @@ export default async function DashboardLayout({
             >
               <LineChart className="w-5 h-5 text-zinc-400" />
               <span>Deriv Dashboard</span>
-            </Link>
-
-            <Link
-              href="/dashboard/binance"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <LayoutDashboard className="w-5 h-5 text-zinc-400" />
-              <span>Binance Dashboard</span>
             </Link>
 
             <Link
