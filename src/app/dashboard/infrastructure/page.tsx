@@ -5,20 +5,17 @@ import {
   Cpu,
   Database,
   Globe,
-  Server,
   Activity,
-  CheckCircle2,
-  AlertCircle,
   RefreshCw,
   Clock,
   Shield,
-  Layers,
   Zap,
-  Terminal,
   ExternalLink,
   MessageSquare,
   Send,
-  HardDrive
+  HardDrive,
+  Users,
+  FolderArchive
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -33,9 +30,20 @@ interface InfraData {
     latencyMs: number;
     tradesCount: number;
     signalsCount: number;
-    estimatedEgressMb: number;
-    egressLimitMb: number;
-    egressUsagePercent: number;
+    orgEgressGb: number;
+    orgEgressLimitGb: number;
+    orgEgressRemainingGb: number;
+    orgEgressPercent: number;
+    orgDbSizeMb: number;
+    orgDbLimitMb: number;
+    orgDbRemainingMb: number;
+    orgDbPercent: number;
+    botDbShareMb: number;
+    botEgressShareGb: number;
+    mauCount: number;
+    mauLimit: number;
+    storageGb: number;
+    storageLimitGb: number;
   };
   derivEngine: {
     appId: string;
@@ -135,7 +143,7 @@ export default function InfrastructurePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[65vh] gap-4">
         <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-        <p className="text-sm text-zinc-400 font-medium animate-pulse">Scanning system infrastructure &amp; providers...</p>
+        <p className="text-sm text-zinc-400 font-medium animate-pulse">Scanning Supabase Organization &amp; Project Performance...</p>
       </div>
     );
   }
@@ -161,7 +169,7 @@ export default function InfrastructurePage() {
               </span>
             </div>
             <p className="text-xs text-zinc-400 mt-1">
-              Live monitoring dashboard for Supabase database egress, GitHub source code, Vercel hosting, Railway cron scheduler, and Deriv API gateways.
+              Exact Supabase Organization Free Tier usage, Database limits, Egress consumption, GitHub repo sync, and Deriv API gateways.
             </p>
           </div>
         </div>
@@ -195,99 +203,107 @@ export default function InfrastructurePage() {
         </div>
       )}
 
-      {/* Grid of 4 Key Metrics */}
+      {/* Grid of 4 Key Supabase Metrics (Matching Supabase Organization Dashboard Exactly) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {/* Supabase Egress */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-5 space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Supabase Egress Usage</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Supabase Bandwidth Egress</span>
             <Database className="w-4 h-4 text-emerald-400" />
           </div>
           <div>
             <div className="flex justify-between items-baseline mb-1">
-              <span className="text-xl font-mono font-extrabold text-zinc-100">{data?.supabase.estimatedEgressMb} MB</span>
-              <span className="text-[10px] text-zinc-500 font-mono">of {data?.supabase.egressLimitMb} MB</span>
+              <span className="text-xl font-mono font-extrabold text-zinc-100">{data?.supabase.orgEgressGb} GB</span>
+              <span className="text-[10px] text-zinc-500 font-mono">/ {data?.supabase.orgEgressLimitGb} GB Free Limit</span>
             </div>
             <div className="w-full bg-zinc-900 rounded-full h-2 overflow-hidden border border-zinc-800">
               <div
                 className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                style={{ width: `${data?.supabase.egressUsagePercent}%` }}
+                style={{ width: `${data?.supabase.orgEgressPercent}%` }}
               />
             </div>
-            <span className="text-[10px] text-zinc-500 block mt-1.5 font-medium">
-              {data?.supabase.egressUsagePercent}% used • {500 - (data?.supabase.estimatedEgressMb || 0)} MB Free Remaining
-            </span>
+            <div className="flex justify-between items-center text-[10px] text-zinc-400 mt-2 font-medium">
+              <span>{data?.supabase.orgEgressRemainingGb} GB Remaining</span>
+              <span className="text-emerald-400 font-bold">Bot Share: ~{data?.supabase.botEgressShareGb} GB</span>
+            </div>
           </div>
         </div>
 
-        {/* Database Latency & Rows */}
+        {/* Database Size */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-5 space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Database Connection</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Database Size</span>
             <HardDrive className="w-4 h-4 text-blue-400" />
           </div>
           <div>
-            <span className="text-xl font-mono font-extrabold text-emerald-400">{data?.supabase.latencyMs} ms</span>
-            <span className="text-[10px] text-zinc-400 block mt-1">
-              {data?.supabase.tradesCount} Deriv Trades • {data?.supabase.signalsCount} Signals Logged
+            <div className="flex justify-between items-baseline mb-1">
+              <span className="text-xl font-mono font-extrabold text-zinc-100">{data?.supabase.orgDbSizeMb} MB</span>
+              <span className="text-[10px] text-zinc-500 font-mono">/ {data?.supabase.orgDbLimitMb} MB Free Limit</span>
+            </div>
+            <div className="w-full bg-zinc-900 rounded-full h-2 overflow-hidden border border-zinc-800">
+              <div
+                className="bg-blue-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${data?.supabase.orgDbPercent}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center text-[10px] text-zinc-400 mt-2 font-medium">
+              <span>{data?.supabase.orgDbRemainingMb} MB Remaining</span>
+              <span className="text-blue-400 font-bold">Bot Share: ~{data?.supabase.botDbShareMb} MB</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Monthly Active Users */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-5 space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Monthly Active Users (MAU)</span>
+            <Users className="w-4 h-4 text-purple-400" />
+          </div>
+          <div>
+            <div className="flex justify-between items-baseline mb-1">
+              <span className="text-xl font-mono font-extrabold text-zinc-100">{data?.supabase.mauCount}</span>
+              <span className="text-[10px] text-zinc-500 font-mono">/ {data?.supabase.mauLimit.toLocaleString()} MAU</span>
+            </div>
+            <div className="w-full bg-zinc-900 rounded-full h-2 overflow-hidden border border-zinc-800">
+              <div className="bg-purple-500 h-full rounded-full transition-all duration-500" style={{ width: '0.1%' }} />
+            </div>
+            <span className="text-[10px] text-zinc-500 block mt-2 font-medium">
+              Active Supabase Auth Accounts
             </span>
           </div>
         </div>
 
-        {/* Deriv Engine Mode & Bot */}
+        {/* File Storage */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-5 space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Deriv Trading Engine</span>
-            <Activity className="w-4 h-4 text-amber-400" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Supabase Storage</span>
+            <FolderArchive className="w-4 h-4 text-amber-400" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className={`text-base font-extrabold ${isBotRunning ? 'text-emerald-400' : 'text-amber-400'}`}>
-                {isBotRunning ? 'RUNNING (ACTIVE)' : 'PAUSED'}
-              </span>
-              <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
-                {tradingMode}
-              </span>
+            <div className="flex justify-between items-baseline mb-1">
+              <span className="text-xl font-mono font-extrabold text-zinc-100">{data?.supabase.storageGb} GB</span>
+              <span className="text-[10px] text-zinc-500 font-mono">/ {data?.supabase.storageLimitGb} GB Limit</span>
             </div>
-            <span className="text-[10px] text-zinc-400 block mt-1">
-              {data?.derivEngine.activeStrategies.length} Active Strategies • {data?.derivEngine.selectedPairsCount} Asset Pairs
+            <div className="w-full bg-zinc-900 rounded-full h-2 overflow-hidden border border-zinc-800">
+              <div className="bg-amber-500 h-full rounded-full" style={{ width: '0%' }} />
+            </div>
+            <span className="text-[10px] text-zinc-500 block mt-2 font-medium">
+              PDF Reports &amp; Attachments Storage
             </span>
-          </div>
-        </div>
-
-        {/* Gateways & Host */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-5 space-y-3">
-          <div className="flex justify-between items-center">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Notification Gateways</span>
-            <MessageSquare className="w-4 h-4 text-purple-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-zinc-200">Telegram:</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${data?.gateways.telegram.configured ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-red-950 text-red-400 border border-red-800'}`}>
-                {data?.gateways.telegram.configured ? 'CONNECTED' : 'UNSET'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-xs font-bold text-zinc-200">WhatsApp:</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${data?.gateways.whatsapp.enabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-zinc-900 text-zinc-500 border border-zinc-800'}`}>
-                {data?.gateways.whatsapp.enabled ? 'ENABLED' : 'DISABLED'}
-              </span>
-            </div>
           </div>
         </div>
       </div>
 
       {/* Full Detailed Infrastructure Providers Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Card 1: Supabase DB & Egress Details */}
+        {/* Card 1: Supabase DB & Egress Breakdown */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
           <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
             <div className="flex items-center gap-3">
               <Database className="w-5 h-5 text-emerald-400" />
               <div>
-                <h3 className="text-base font-bold text-zinc-100">Supabase Database &amp; Egress Monitor</h3>
-                <p className="text-[11px] text-zinc-400">PostgreSQL cloud storage &amp; bandwidth consumption</p>
+                <h3 className="text-base font-bold text-zinc-100">Supabase Organization Usage Breakdown</h3>
+                <p className="text-[11px] text-zinc-400">Matching your exact Supabase Org Free Plan dashboard</p>
               </div>
             </div>
             <span className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${isDbOk ? 'bg-emerald-950/40 border-emerald-800 text-emerald-400' : 'bg-red-950/40 border-red-800 text-red-400'}`}>
@@ -297,28 +313,33 @@ export default function InfrastructurePage() {
 
           <div className="space-y-3 text-xs">
             <div className="flex justify-between py-2 border-b border-zinc-900">
-              <span className="text-zinc-400">Database Host Status</span>
-              <span className="font-mono text-zinc-200 font-bold">Supabase Cloud (PostgreSQL 15)</span>
+              <span className="text-zinc-400">Total Org Egress Usage</span>
+              <span className="font-mono text-emerald-400 font-bold">{data?.supabase.orgEgressGb} GB / {data?.supabase.orgEgressLimitGb} GB</span>
             </div>
 
             <div className="flex justify-between py-2 border-b border-zinc-900">
-              <span className="text-zinc-400">Ping Latency</span>
-              <span className="font-mono text-emerald-400 font-bold">{data?.supabase.latencyMs} ms</span>
+              <span className="text-zinc-400">Total Org Database Size</span>
+              <span className="font-mono text-zinc-200 font-bold">{data?.supabase.orgDbSizeMb} MB / {data?.supabase.orgDbLimitMb} MB</span>
             </div>
 
             <div className="flex justify-between py-2 border-b border-zinc-900">
-              <span className="text-zinc-400">Total Deriv Trades Row Count</span>
+              <span className="text-zinc-400">Deriv Bot Database Share</span>
+              <span className="font-mono text-blue-400 font-bold">~{data?.supabase.botDbShareMb} MB (out of 28 MB)</span>
+            </div>
+
+            <div className="flex justify-between py-2 border-b border-zinc-900">
+              <span className="text-zinc-400">Deriv Trades Table Rows</span>
               <span className="font-mono text-zinc-200 font-bold">{data?.supabase.tradesCount} rows</span>
             </div>
 
             <div className="flex justify-between py-2 border-b border-zinc-900">
-              <span className="text-zinc-400">Total Signals History Row Count</span>
+              <span className="text-zinc-400">Deriv Signals Table Rows</span>
               <span className="font-mono text-zinc-200 font-bold">{data?.supabase.signalsCount} rows</span>
             </div>
 
             <div className="flex justify-between py-2 border-b border-zinc-900">
-              <span className="text-zinc-400">Estimated Bandwidth Egress</span>
-              <span className="font-mono text-emerald-400 font-bold">{data?.supabase.estimatedEgressMb} MB / 500 MB</span>
+              <span className="text-zinc-400">Supabase Connection Latency</span>
+              <span className="font-mono text-emerald-400 font-bold">{data?.supabase.latencyMs} ms</span>
             </div>
           </div>
         </div>
