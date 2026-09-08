@@ -29,7 +29,7 @@ const supabase = createClient(supabaseUrl || '', supabaseKey || '');
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.WHATSAPP_PORT || 3001;
 
 let sock = null;
 let latestQr = null;
