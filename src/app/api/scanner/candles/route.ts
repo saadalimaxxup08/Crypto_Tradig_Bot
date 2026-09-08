@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
 import { getSessionUser } from '@/lib/auth';
-import { getBinanceClient } from '@/lib/binance';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,54 +9,10 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  try {
-    const { data: settings } = await supabase
-      .from('settings')
-      .select('pairs, binance_api_key, binance_secret_key, active_strategy')
-      .eq('id', 1)
-      .single();
-
-    const pairs = settings?.pairs || [
-      'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT',
-      'DOGEUSDT', 'ADAUSDT', 'TONUSDT', 'SHIBUSDT', 'TRXUSDT',
-      'AVAXUSDT', 'DOTUSDT', 'MATICUSDT', 'LTCUSDT', 'LINKUSDT',
-      'ATOMUSDT', 'XLMUSDT', 'BCHUSDT', 'OPUSDT', 'ARBUSDT'
-    ];
-
-    const currentStrategy = settings?.active_strategy || 'RSI_MACD';
-    let timeframe = '1m';
-    if (currentStrategy === 'DOUBLE_EMA_5M') {
-      timeframe = '5m';
-    } else if (currentStrategy === 'DOUBLE_EMA_15M') {
-      timeframe = '15m';
-    }
-
-    const apiKey = settings?.binance_api_key || process.env.BINANCE_API_KEY || '';
-    const secretKey = settings?.binance_secret_key || process.env.BINANCE_SECRET_KEY || '';
-
-    // If no credentials, we can fetch public data using ccxt's public client
-    const exchange = getBinanceClient(
-      apiKey || 'test',
-      secretKey || 'test'
-    );
-
-    // Fetch last 30 candles for all pairs concurrently
-    const candlesData: { [symbol: string]: number[] } = {};
-
-    await Promise.all(
-      pairs.map(async (pair: string) => {
-        try {
-          const ohlcv = await exchange.fetchOHLCV(pair, timeframe, undefined, 35);
-          candlesData[pair] = ohlcv.map((c: any) => c[4]); // close prices
-        } catch (err) {
-          console.error(`Failed to fetch candles for ${pair}:`, err);
-          candlesData[pair] = [];
-        }
-      })
-    );
-
-    return NextResponse.json({ success: true, candles: candlesData, timeframe });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
-  }
+  return NextResponse.json({
+    success: true,
+    candles: {},
+    timeframe: '15m',
+    message: 'Live Deriv scanner uses WebSocket ticker streaming.'
+  });
 }

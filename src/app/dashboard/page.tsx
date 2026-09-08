@@ -1521,7 +1521,7 @@ export default function DerivDashboard() {
         {/* Right Column Panel */}
         <div className="lg:col-span-4 space-y-8">
           
-          {/* Active Engine Toggle Banner (Matches Binance Dashboard Header perfectly) */}
+          {/* Active Engine Toggle Banner (Matches Deriv Dashboard Header) */}
           <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6 shadow-md">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="flex items-center gap-4">

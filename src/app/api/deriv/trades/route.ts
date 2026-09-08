@@ -109,7 +109,7 @@ export async function GET(request: Request) {
       }
     }
 
-    // 4. Return same data structure as Binance trades endpoint
+    // 4. Return formatted trades data structure
     return NextResponse.json({
       success: true,
       trades: detailedTrades,
