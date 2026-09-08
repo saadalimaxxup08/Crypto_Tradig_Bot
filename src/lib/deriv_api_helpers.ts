@@ -133,7 +133,43 @@ export function buyContract(socket: WebSocket, symbol: string, direction: 'CALL'
   });
 }
 
-// Send telegram alert helper
+// Send WhatsApp alert helper
+export async function sendWhatsAppAlert(message: string) {
+  try {
+    const { data: settings } = await supabase.from('settings').select('whatsapp_config').eq('id', 1).single();
+    const config = settings?.whatsapp_config;
+    if (!config || !config.whatsapp_enabled) return;
+
+    const recipients: string[] = config.whatsapp_recipients || [];
+    if (recipients.length === 0) return;
+
+    const bridgeUrl = process.env.WHATSAPP_BRIDGE_URL || process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL || 'http://127.0.0.1:3001';
+
+    // Convert HTML tags to WhatsApp Markdown formatting
+    const formattedMsg = message
+      .replace(/<b>(.*?)<\/b>/gi, '*$1*')
+      .replace(/<i>(.*?)<\/i>/gi, '_$1_')
+      .replace(/<a href="(.*?)">(.*?)<\/a>/gi, '$2 ($1)')
+      .replace(/<br\s*\/?>/gi, '\n');
+
+    for (const recipient of recipients) {
+      try {
+        await fetch(`${bridgeUrl}/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: recipient, message: formattedMsg }),
+          cache: 'no-store'
+        });
+      } catch (err) {
+        console.error(`Failed to send WhatsApp alert to ${recipient}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error('Error in sendWhatsAppAlert:', err);
+  }
+}
+
+// Send telegram alert helper (and mirror to WhatsApp)
 export async function sendTelegramAlert(message: string) {
   try {
     const { data: settings } = await supabase.from('settings').select('telegram_token, telegram_chat_id').eq('id', 1).single();
@@ -149,6 +185,9 @@ export async function sendTelegramAlert(message: string) {
         cache: 'no-store'
       });
     }
+
+    // Mirror alert to WhatsApp recipients as well
+    await sendWhatsAppAlert(message);
   } catch (err) {
     console.error('Error sending Telegram message:', err);
   }
