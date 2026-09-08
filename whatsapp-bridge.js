@@ -136,16 +136,15 @@ async function connectToWhatsApp() {
 
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 403 || statusCode === 440;
-        const shouldReconnect = !isLoggedOut;
-        console.log(`WhatsApp connection closed (Status Code: ${statusCode}). Reconnecting: ${shouldReconnect}`);
+        // ONLY clear session if user explicitly unlinks or receives DisconnectReason.loggedOut
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+        console.log(`WhatsApp connection closed (Status Code: ${statusCode}). Reconnecting: ${!isLoggedOut}`);
         
-        connectionState = 'disconnected';
-        linkedUser = null;
-        latestQr = null;
-        
+        connectionState = isLoggedOut ? 'disconnected' : 'connecting';
         if (isLoggedOut) {
-          console.log('Session credentials expired, invalid or logged out. Clearing authentication states...');
+          linkedUser = null;
+          latestQr = null;
+          console.log('Session credentials explicitly logged out. Clearing authentication states...');
           // 1. Clear database session key in Supabase
           try {
             await supabase
@@ -171,8 +170,9 @@ async function connectToWhatsApp() {
           // Restart fresh immediately to generate new QR/Pairing code
           setTimeout(connectToWhatsApp, 1000);
         } else {
-          // Reconnect with exponential backup
-          setTimeout(connectToWhatsApp, 5000);
+          // Automatic seamless reconnection using saved credentials from Supabase/disk
+          console.log('Re-establishing WhatsApp Web socket session using persistent credentials...');
+          setTimeout(connectToWhatsApp, 3000);
         }
       }
 

@@ -3,7 +3,9 @@ import { spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
-const BRIDGE_URL = process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL || 'http://localhost:3001';
+function getBridgeUrl() {
+  return process.env.WHATSAPP_BRIDGE_URL || process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL || 'http://localhost:3001';
+}
 
 function autoSpawnBridge() {
   try {
@@ -18,7 +20,6 @@ function autoSpawnBridge() {
       const stat = fs.statSync(lockPath);
       const ageMs = Date.now() - stat.mtimeMs;
       if (ageMs < 15000) {
-        console.log('WhatsApp Bridge was spawned recently (lock active). Skipping duplicate spawn.');
         return;
       }
     }
@@ -41,13 +42,13 @@ function autoSpawnBridge() {
 }
 
 export async function GET() {
+  const bridgeUrl = getBridgeUrl();
   try {
-    const res = await fetch(`${BRIDGE_URL}/status`, {
+    const res = await fetch(`${bridgeUrl}/status`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      // Prevent Next.js from caching the response
-      next: { revalidate: 0 },
-    } as any);
+      cache: 'no-store'
+    });
 
     if (!res.ok) {
       throw new Error(`WhatsApp Bridge returned status ${res.status}`);
@@ -56,23 +57,24 @@ export async function GET() {
     const data = await res.json();
     return NextResponse.json(data);
   } catch (err: any) {
-    console.log('WhatsApp Bridge port 3001 is offline. Auto-spawning bridge process...');
     autoSpawnBridge();
     
     return NextResponse.json({
       status: 'connecting',
       user: null,
       qr: null,
-      error: `WhatsApp Bridge is booting up in the background. Please wait...`,
+      error: `WhatsApp Bridge is booting up in the background. Please wait 10-15 seconds...`,
     });
   }
 }
 
 export async function POST() {
+  const bridgeUrl = getBridgeUrl();
   try {
-    const res = await fetch(`${BRIDGE_URL}/unlink`, {
+    const res = await fetch(`${bridgeUrl}/unlink`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store'
     });
 
     if (!res.ok) {

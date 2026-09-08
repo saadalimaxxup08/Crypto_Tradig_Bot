@@ -7,20 +7,21 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Recipient is required' }, { status: 400 });
     }
 
-    const bridgeUrl = process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL || 'http://localhost:3001';
-    const testMessage = `🔔 *[TEST]* This is a manual WhatsApp configuration test from your Crypto Trading Bot dashboard. If you receive this, it means notifications are working perfectly for your contact!`;
+    const bridgeUrl = process.env.WHATSAPP_BRIDGE_URL || process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL || 'http://localhost:3001';
+    const testMessage = `🔔 *[TEST]* This is a manual WhatsApp configuration test from your Deriv Trading Bot dashboard. If you receive this, it means notifications are working perfectly for your contact!`;
 
     const res = await fetch(`${bridgeUrl}/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to: recipient, message: testMessage }),
+      cache: 'no-store'
     });
 
     const contentType = res.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       return NextResponse.json({
         success: false,
-        error: `WhatsApp service is deploying or offline on Render (HTTP ${res.status}). Please wait a minute and try again!`
+        error: `WhatsApp service is booting up (HTTP ${res.status}). Please wait 15 seconds and try again!`
       }, { status: 502 });
     }
 
@@ -31,6 +32,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    return NextResponse.json({
+      success: false,
+      error: 'WhatsApp service is initializing. Please wait 10-15 seconds and try again.'
+    }, { status: 503 });
   }
 }
