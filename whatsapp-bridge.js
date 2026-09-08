@@ -318,8 +318,8 @@ app.post('/pair', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Standalone WhatsApp Bridge Microservice is listening on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Standalone WhatsApp Bridge Microservice is listening on 0.0.0.0:${PORT}`);
   
   // Clear the spawn lock file on successful startup
   try {
