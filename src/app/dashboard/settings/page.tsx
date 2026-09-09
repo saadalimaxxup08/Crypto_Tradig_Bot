@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Settings, Save, AlertTriangle, HelpCircle, Eye, EyeOff, Shield, Sliders, CheckSquare } from 'lucide-react';
+import Link from 'next/link';
+import { Settings, Save, AlertTriangle, HelpCircle, Eye, EyeOff, Shield, Sliders, CheckSquare, TrendingUp, ArrowRight } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function SettingsPage() {
@@ -691,128 +692,24 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Custom 10-Step Progression & Martingale Table */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
-            <div>
-              <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-emerald-400" />
-                <span>Custom 10-Step Progression &amp; Recovery Table</span>
-              </h3>
-              <p className="text-xs text-zinc-400 mt-1">
-                Tick the steps you want to activate. When a trade loses, the bot moves to the next <b>ticked step</b>. As soon as <b>ANY trade WINS</b>, the bot resets back to Step 1. If <b>all ticked steps lose</b>, trading is automatically HALTED for risk protection!
-              </p>
-            </div>
-            
-            {/* RUN / OFF Master Switch */}
-            <div className="flex items-center gap-3 bg-[#09090b]/80 border border-zinc-800 p-2 rounded-2xl self-start sm:self-auto">
-              <span className={`text-xs font-extrabold uppercase tracking-wider ${derivProgressionEnabled ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                {derivProgressionEnabled ? 'RUN (ON)' : 'OFF (NORMAL)'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setDerivProgressionEnabled(!derivProgressionEnabled)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none ${
-                  derivProgressionEnabled ? 'bg-emerald-500' : 'bg-zinc-700'
-                }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                    derivProgressionEnabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
+        {/* Dedicated Martingale Strategy Engine Banner Link */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-md font-bold text-zinc-200 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
+              <span>Martingale Strategy Engine &amp; 10-Step Progression Table</span>
+            </h3>
+            <p className="text-xs text-zinc-400">
+              Martingale progression steps, capital pool allocation ($20.00), pair filters, and active guards are managed on its dedicated dashboard.
+            </p>
           </div>
-
-          {derivProgressionEnabled ? (
-            <div className="p-3.5 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl text-emerald-300 text-xs flex items-center gap-2">
-              <span className="font-bold">⚡ PROGRESSION MODE ACTIVE:</span>
-              <span>Bot will execute trades using ticked step inputs. If max ticked steps lose consecutively, trading automatically halts!</span>
-            </div>
-          ) : (
-            <div className="p-3.5 bg-zinc-900/50 border border-zinc-800 rounded-2xl text-zinc-400 text-xs flex items-center gap-2">
-              <span className="font-bold">ℹ️ NORMAL MODE ACTIVE:</span>
-              <span>Bot executes fixed stake amount ($1.00 or custom base stake). Toggle RUN above to activate step progression.</span>
-            </div>
-          )}
-
-          {/* 10 Step Inputs Grid with Checkboxes */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-            {derivProgressionSteps.map((stepVal, idx) => {
-              const isChecked = derivProgressionActiveSteps[idx] !== false;
-              return (
-                <div
-                  key={idx}
-                  className={`border rounded-2xl p-3.5 space-y-2.5 transition-all ${
-                    isChecked
-                      ? 'bg-[#09090b]/80 border-emerald-500/40 text-zinc-100'
-                      : 'bg-zinc-950/40 border-zinc-800/60 opacity-60 text-zinc-500'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-1.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(e) => {
-                          const newFlags = [...derivProgressionActiveSteps];
-                          newFlags[idx] = e.target.checked;
-                          setDerivProgressionActiveSteps(newFlags);
-                        }}
-                        className="rounded border-zinc-800 text-emerald-500 focus:ring-0 accent-emerald-500 w-3.5 h-3.5 cursor-pointer"
-                      />
-                      <span className={`text-[11px] font-extrabold uppercase tracking-wide ${isChecked ? 'text-emerald-400' : 'text-zinc-500'}`}>
-                        Step {idx + 1}
-                      </span>
-                    </label>
-
-                    {idx === 0 && (
-                      <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md">
-                        RESET
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.35"
-                      disabled={!isChecked}
-                      value={stepVal}
-                      onChange={(e) => {
-                        const newSteps = [...derivProgressionSteps];
-                        newSteps[idx] = e.target.value;
-                        setDerivProgressionSteps(newSteps);
-                      }}
-                      className={`w-full border rounded-xl py-2 px-3 font-mono text-xs focus:outline-none transition-all ${
-                        isChecked
-                          ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 text-zinc-100'
-                          : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
-                      }`}
-                    />
-                    <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold text-zinc-500">
-                      USD
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Dedicated Save Button */}
-          <div className="flex justify-end pt-2 border-t border-zinc-800/50">
-            <button
-              type="button"
-              onClick={(e) => handleSave(e)}
-              disabled={isSaving}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2.5 px-5 rounded-xl shadow-lg shadow-emerald-950/40 transition-all duration-200 active:scale-95 disabled:opacity-50"
-            >
-              <Save className="w-4 h-4" />
-              <span>{isSaving ? 'Saving Table...' : 'Save Progression Table'}</span>
-            </button>
-          </div>
+          <Link
+            href="/dashboard/martingale"
+            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-5 py-3 rounded-2xl shadow-lg shadow-emerald-950/40 transition-all shrink-0 active:scale-95 cursor-pointer"
+          >
+            <span>Open Martingale Dashboard</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
 
         {/* Telegram API configurations */}
