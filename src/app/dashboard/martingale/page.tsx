@@ -268,6 +268,7 @@ export default function MartingaleStrategyPage() {
           colors: ['#10b981', '#3b82f6']
         });
         fetchMartingaleData();
+        setTimeout(() => setStatusMsg({ type: '', text: '' }), 4000);
       } else {
         setStatusMsg({ type: 'error', text: data.error || 'Failed to save settings.' });
       }
@@ -661,20 +662,11 @@ export default function MartingaleStrategyPage() {
           })}
         </div>
 
-        {/* Progression Table Bottom Quick Save Bar */}
+        {/* Progression Table Active Steps Summary Bar */}
         <div className="flex items-center justify-between border-t border-zinc-800/50 pt-4">
           <span className="text-xs text-zinc-400">
-            Active Steps Enabled: <b>{activeSteps.filter(Boolean).length} / 10</b>
+            Active Steps Enabled: <b className="text-emerald-400">{activeSteps.filter(Boolean).length} / 10</b>
           </span>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold py-2 px-4 rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
-          >
-            <Save className="w-3.5 h-3.5" />
-            <span>{isSaving ? 'Saving...' : 'Save Progression Table'}</span>
-          </button>
         </div>
       </div>
 
