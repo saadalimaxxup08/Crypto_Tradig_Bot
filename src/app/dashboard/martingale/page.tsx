@@ -1087,11 +1087,15 @@ export default function MartingaleStrategyPage() {
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {progressionSteps.map((stepVal, idx) => {
             const isChecked = activeSteps[idx] !== false;
+            const isActiveStep = idx === (stats.currentStepIndex ?? 0);
+
             return (
               <div
                 key={idx}
-                className={`border rounded-2xl p-3.5 space-y-2.5 transition-all ${
-                  isChecked
+                className={`border rounded-2xl p-3.5 space-y-2.5 transition-all relative ${
+                  isActiveStep
+                    ? 'bg-amber-950/30 border-amber-400/90 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/50 animate-pulse text-amber-100'
+                    : isChecked
                     ? 'bg-[#09090b]/80 border-emerald-500/40 text-zinc-100'
                     : 'bg-zinc-950/40 border-zinc-800/60 opacity-60 text-zinc-500'
                 }`}
@@ -1108,16 +1112,22 @@ export default function MartingaleStrategyPage() {
                       }}
                       className="rounded border-zinc-800 text-emerald-500 focus:ring-0 accent-emerald-500 w-3.5 h-3.5 cursor-pointer"
                     />
-                    <span className={`text-[11px] font-extrabold uppercase tracking-wide ${isChecked ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                    <span className={`text-[11px] font-extrabold uppercase tracking-wide ${
+                      isActiveStep ? 'text-amber-300' : isChecked ? 'text-emerald-400' : 'text-zinc-500'
+                    }`}>
                       Step {idx + 1}
                     </span>
                   </label>
 
-                  {idx === 0 && (
+                  {isActiveStep ? (
+                    <span className="text-[9px] font-black bg-amber-400 text-black px-1.5 py-0.5 rounded-md tracking-wider flex items-center gap-0.5 shadow-sm">
+                      ⚡ NEXT TRADE
+                    </span>
+                  ) : idx === 0 ? (
                     <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md">
                       RESET
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 <div className="relative">
@@ -1133,12 +1143,16 @@ export default function MartingaleStrategyPage() {
                       setProgressionSteps(newSteps);
                     }}
                     className={`w-full border rounded-xl py-2 px-3 font-mono text-xs focus:outline-none transition-all ${
-                      isChecked
+                      isActiveStep
+                        ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
+                        : isChecked
                         ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 text-zinc-100'
                         : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
                     }`}
                   />
-                  <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold text-zinc-500">
+                  <span className={`absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold ${
+                    isActiveStep ? 'text-amber-400' : 'text-zinc-500'
+                  }`}>
                     USD
                   </span>
                 </div>
@@ -1148,9 +1162,15 @@ export default function MartingaleStrategyPage() {
         </div>
 
         {/* Progression Table Active Steps Summary Bar */}
-        <div className="flex items-center justify-between border-t border-zinc-800/50 pt-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-t border-zinc-800/50 pt-4 gap-2">
           <span className="text-xs text-zinc-400">
             Active Steps Enabled: <b className="text-emerald-400">{activeSteps.filter(Boolean).length} / 10</b>
+          </span>
+          <span className="text-xs font-mono font-bold text-amber-400 flex items-center gap-1.5 bg-amber-950/40 border border-amber-500/30 px-3 py-1.5 rounded-xl animate-pulse">
+            <span>⚡ Next Trade Execution Stake:</span>
+            <b className="text-amber-300 underline font-black">
+              Step {(stats.currentStepIndex ?? 0) + 1} (${stats.nextStake !== undefined ? Number(stats.nextStake).toFixed(2) : (progressionSteps[stats.currentStepIndex ?? 0] || '0.35')})
+            </b>
           </span>
         </div>
       </div>

@@ -95,6 +95,29 @@ export async function GET() {
       }
     });
 
+    // Calculate current consecutive losses on Martingale engine
+    let consecutiveLosses = 0;
+    for (const t of tradesList) {
+      if (t.status === 'OPEN') continue;
+      if (t.status === 'LOST' || (t.pnl !== null && parseFloat(t.pnl) < 0)) {
+        consecutiveLosses++;
+      } else {
+        break; // WIN resets streak
+      }
+    }
+
+    const activeStepFlags = config.progression_active_steps || [];
+    const activeIndices: number[] = [];
+    activeStepFlags.forEach((active: boolean, idx: number) => {
+      if (active) activeIndices.push(idx);
+    });
+
+    let currentStepIndex = 0;
+    if (activeIndices.length > 0) {
+      const activePos = Math.min(consecutiveLosses, activeIndices.length - 1);
+      currentStepIndex = activeIndices[activePos];
+    }
+
     const winRate = (wonCount + lostCount) > 0 ? (wonCount / (wonCount + lostCount)) * 100 : 0;
 
     const riskFilters = {
@@ -120,6 +143,9 @@ export async function GET() {
         openCount,
         totalPnL,
         winRate,
+        consecutiveLosses,
+        currentStepIndex,
+        nextStake: (config.progression_steps && config.progression_steps[currentStepIndex]) || 0.35,
         allocatedCapital: config.allocated_capital || 20.00,
         demoBalance,
         realBalance,
