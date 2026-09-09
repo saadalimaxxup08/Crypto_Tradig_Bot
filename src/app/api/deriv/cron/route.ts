@@ -284,7 +284,6 @@ export async function GET(req: Request) {
                   barrier: null,
                   pnl: 0,
                   is_paper: tradingMode === 'DEMO',
-                  strategy_engine: 'MAIN_SCANNER',
                   created_at: new Date().toISOString(),
                   closed_at: null
                 };
@@ -340,7 +339,7 @@ export async function GET(req: Request) {
     // Also trigger Martingale background scanner cycle automatically
     try {
       await fetch(`${originUrl}/api/deriv/martingale-cron`, {
-        signal: AbortSignal.timeout(12000)
+        signal: AbortSignal.timeout(30000)
       });
     } catch (mErr: any) {
       console.error('Martingale background cron trigger error:', mErr);

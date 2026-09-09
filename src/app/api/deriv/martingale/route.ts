@@ -73,7 +73,7 @@ export async function GET() {
     const { data: martingaleTrades } = await supabase
       .from('deriv_trades')
       .select('*')
-      .eq('strategy_engine', 'MARTINGALE_ENGINE')
+      .lt('stake', 0.99)
       .order('created_at', { ascending: false });
 
     const tradesList = martingaleTrades || [];

@@ -370,7 +370,7 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
               
               const p = (async () => {
                 try {
-                  // Update database first
+                  // 1. Update database first
                   await supabase
                     .from('deriv_trades')
                     .update({
@@ -382,28 +382,7 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
                     })
                     .eq('id', matchingTrade.id);
 
-                  // 1. Fetch candles for the closed trade duration
-                  let candles: any[] = [];
-                  try {
-                    const startEpoch = contract.date_start;
-                    const endEpoch = contract.exit_tick_time || contract.date_expiry || contract.exit_spot_time;
-                    if (startEpoch && endEpoch) {
-                      candles = await fetchClosedTradeCandles(socket, matchingTrade.symbol, startEpoch, endEpoch);
-                    }
-                  } catch (candleErr) {
-                    console.error('Failed to fetch closed trade candles for PDF:', candleErr);
-                  }
-
-                  // 2. Generate PDF Report containing the candlestick chart
-                  let pdfBuffer: Buffer | null = null;
-                  try {
-                    const tradeCopy = { ...matchingTrade, status, entry_price: entryPrice, exit_price: exitPrice };
-                    pdfBuffer = await generateTradePDF(tradeCopy, contract, candles);
-                  } catch (pdfErr) {
-                    console.error('Failed to generate trade PDF:', pdfErr);
-                  }
-
-                  // Fetch updated live Deriv balance
+                  // 2. Fetch live Deriv balance for outcome notification
                   let balanceLine = '';
                   let docBalLine = '';
                   try {
@@ -419,12 +398,14 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
                     console.error('Failed to fetch balance for outcome alert:', balErr);
                   }
 
-                  // 3. Send Telegram Notification
-                  const outcomeMsg = `🔔 <b>DERIV CONTRACT COMPLETED</b> 🔔\n` +
+                  // 3. Send Telegram Outcome Alert IMMEDIATELY
+                  const engineLabel = matchingTrade.strategy_engine === 'MARTINGALE_ENGINE' ? 'MARTINGALE' : 'MAIN SCANNER';
+                  const outcomeMsg = `🔔 <b>DERIV CONTRACT COMPLETED (${engineLabel})</b> 🔔\n` +
                     `-------------------------------------\n` +
                     `<b>Asset Pair:</b> ${getDisplaySymbolName(matchingTrade.symbol)}\n` +
                     `<b>Type:</b> ${matchingTrade.contract_type === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
                     `<b>Outcome:</b> ${status === 'WON' ? '🟢 WIN (WON)' : '🔴 LOSS (LOST)'}\n` +
+                    `<b>Stake Amount:</b> $${matchingTrade.stake.toFixed(2)}\n` +
                     `<b>Profit/Loss:</b> ${pnl > 0 ? '+' : ''}${pnl.toFixed(2)} USD\n` +
                     `<b>Entry Price:</b> $${entryPrice}\n` +
                     `<b>Exit Price:</b> $${exitPrice || 'N/A'}` +
@@ -432,12 +413,25 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
                   
                   await sendTelegramAlert(outcomeMsg);
 
-                  // 4. Send PDF Document to Telegram
-                  if (pdfBuffer) {
-                    const filename = `Trade_Report_${matchingTrade.contract_id}.pdf`;
-                    const docCaption = `📊 <b>Trade Report: ${getDisplaySymbolName(matchingTrade.symbol)}</b>\nOutcome: ${status === 'WON' ? '🏆 WIN' : '❌ LOSS'} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USD)${docBalLine}`;
-                    await sendTelegramDocument(pdfBuffer, filename, docCaption);
+                  // 4. Try fetching closed trade candles & PDF report safely in background
+                  try {
+                    const startEpoch = contract.date_start;
+                    const endEpoch = contract.exit_tick_time || contract.date_expiry || contract.exit_spot_time;
+                    let candles: any[] = [];
+                    if (startEpoch && endEpoch && socket.readyState === WebSocket.OPEN) {
+                      candles = await fetchClosedTradeCandles(socket, matchingTrade.symbol, startEpoch, endEpoch);
+                    }
+                    const tradeCopy = { ...matchingTrade, status, entry_price: entryPrice, exit_price: exitPrice };
+                    const pdfBuffer = await generateTradePDF(tradeCopy, contract, candles);
+                    if (pdfBuffer) {
+                      const filename = `Trade_Report_${matchingTrade.contract_id}.pdf`;
+                      const docCaption = `📊 <b>Trade Report: ${getDisplaySymbolName(matchingTrade.symbol)}</b>\nOutcome: ${status === 'WON' ? '🏆 WIN' : '❌ LOSS'} (${pnl >= 0 ? '+' : ''}${pnl.toFixed(2)} USD)${docBalLine}`;
+                      await sendTelegramDocument(pdfBuffer, filename, docCaption);
+                    }
+                  } catch (pdfErr: any) {
+                    console.warn(`PDF generation skipped for trade ${contractId}:`, pdfErr.message);
                   }
+
                 } catch (err: any) {
                   console.error(`Error processing sync for trade ${contractId}:`, err.message);
                 }
@@ -470,13 +464,13 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
       }));
     }
 
-    // Safety timeout
+    // Safety timeout (25 seconds)
     setTimeout(() => {
       socket.removeEventListener('message', handleMsg);
       Promise.all(promises).then(() => {
         resolve();
       });
-    }, 10000);
+    }, 25000);
   });
 }
 
