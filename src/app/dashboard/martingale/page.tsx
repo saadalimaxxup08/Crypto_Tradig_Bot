@@ -116,12 +116,22 @@ const SYMBOL_DISPLAY_MAP: Record<string, string> = {
   RDBULL: 'Bull Market Index'
 };
 
+const MARTINGALE_STRATEGIES_LIST = [
+  { id: 'FOREX_15M_PRO_V1', name: 'v1 - Forex 15m Trend-Rejection Pro', desc: '1H/15m Trend Tide + 5m EMA 20/50 Pullback + Wick Rejection & Color Confirmation + 15m Expiry.' },
+  { id: 'FOREX_15M_MTF', name: 'v1 - Forex 15m MTF Crossover', desc: 'H1 Trend Filter + 15m EMA/ADX + 5m Stochastic crossover entry trigger.' },
+  { id: 'FOREX_15M_MTF_V2', name: 'v2 - Forex 15m MTF Crossover', desc: 'Adds Support/Resistance and Candlestick Filter validations for higher accuracy.' },
+  { id: 'FOREX_30M_MTF_V3', name: 'v1.1 - Forex 30m MTF Crossover', desc: 'Triple Trend (H4/H1/30m) + ATR Volatility Filter + RSI Guard + 30m contracts.' }
+];
+
 const ALL_AVAILABLE_PAIRS = Object.keys(SYMBOL_DISPLAY_MAP);
 
 export default function MartingaleStrategyPage() {
   const [enabled, setEnabled] = useState(false);
   const [allocatedCapital, setAllocatedCapital] = useState('20.00');
   const [executionMode, setExecutionMode] = useState<'ONE_BY_ONE' | 'ALL_CONCURRENT'>('ONE_BY_ONE');
+  const [selectedStrategies, setSelectedStrategies] = useState<string[]>([
+    'FOREX_15M_PRO_V1', 'FOREX_15M_MTF', 'FOREX_15M_MTF_V2', 'FOREX_30M_MTF_V3'
+  ]);
   const [selectedPairs, setSelectedPairs] = useState<string[]>([
     'stpRNG', 'stpRNG2', 'stpRNG3', 'stpRNG4', 'stpRNG5', '1HZ30V', 'R_100', 'JD75', 'frxUSDJPY', 'frxAUDJPY'
   ]);
@@ -173,6 +183,9 @@ export default function MartingaleStrategyPage() {
             setTradingMode(data.config.trading_mode || 'DEMO');
             setAllocatedCapital(String(data.config.allocated_capital || '20.00'));
             setExecutionMode(data.config.execution_mode || 'ONE_BY_ONE');
+            if (Array.isArray(data.config.selected_strategies)) {
+              setSelectedStrategies(data.config.selected_strategies);
+            }
             if (Array.isArray(data.config.selected_pairs)) {
               setSelectedPairs(data.config.selected_pairs);
             }
@@ -229,6 +242,22 @@ export default function MartingaleStrategyPage() {
     };
   }, []);
 
+  const toggleStrategy = (id: string) => {
+    if (selectedStrategies.includes(id)) {
+      setSelectedStrategies(selectedStrategies.filter(s => s !== id));
+    } else {
+      setSelectedStrategies([...selectedStrategies, id]);
+    }
+  };
+
+  const selectAllStrategies = () => {
+    setSelectedStrategies(MARTINGALE_STRATEGIES_LIST.map(s => s.id));
+  };
+
+  const clearAllStrategies = () => {
+    setSelectedStrategies([]);
+  };
+
   const handleTradingModeChange = async (mode: 'DEMO' | 'REAL') => {
     setTradingMode(mode);
     try {
@@ -240,6 +269,7 @@ export default function MartingaleStrategyPage() {
           trading_mode: mode,
           allocated_capital: parseFloat(allocatedCapital) || 20.00,
           execution_mode: executionMode,
+          selected_strategies: selectedStrategies,
           selected_pairs: selectedPairs,
           progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
           progression_active_steps: activeSteps,
@@ -297,6 +327,7 @@ export default function MartingaleStrategyPage() {
           trading_mode: tradingMode,
           allocated_capital: parseFloat(allocatedCapital) || 20.00,
           execution_mode: executionMode,
+          selected_strategies: selectedStrategies,
           selected_pairs: selectedPairs,
           progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
           progression_active_steps: activeSteps,
@@ -332,6 +363,7 @@ export default function MartingaleStrategyPage() {
           trading_mode: tradingMode,
           allocated_capital: parseFloat(allocatedCapital) || 20.00,
           execution_mode: mode,
+          selected_strategies: selectedStrategies,
           selected_pairs: selectedPairs,
           progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
           progression_active_steps: activeSteps,
@@ -374,6 +406,7 @@ export default function MartingaleStrategyPage() {
           trading_mode: tradingMode,
           allocated_capital: parseFloat(allocatedCapital) || 20.00,
           execution_mode: executionMode,
+          selected_strategies: selectedStrategies,
           selected_pairs: selectedPairs,
           progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
           progression_active_steps: activeSteps,
@@ -408,6 +441,7 @@ export default function MartingaleStrategyPage() {
           trading_mode: tradingMode,
           allocated_capital: parseFloat(allocatedCapital) || 20.00,
           execution_mode: executionMode,
+          selected_strategies: selectedStrategies,
           selected_pairs: selectedPairs,
           progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
           progression_active_steps: activeSteps,
@@ -1059,7 +1093,75 @@ export default function MartingaleStrategyPage() {
         </div>
       </div>
 
-      {/* Control 3: Dedicated Martingale Pair Selector */}
+      {/* Control 3: Dedicated Martingale Active Strategy Engines */}
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+              <Sliders className="w-5 h-5 text-emerald-400" />
+              <span>Dedicated Martingale Active Strategy Engines ({selectedStrategies.length} Active)</span>
+            </h3>
+            <p className="text-xs text-zinc-400 mt-1">
+              Tick whichever strategy engines you want to run for Martingale trade execution. You can tick one, multiple, or all 4 strategies.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={selectAllStrategies}
+              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold px-3 py-2 rounded-xl transition-all cursor-pointer"
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              onClick={clearAllStrategies}
+              className="text-xs bg-zinc-800/60 hover:bg-zinc-800 text-zinc-400 font-bold px-3 py-2 rounded-xl transition-all cursor-pointer"
+            >
+              Clear All
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSaving ? 'Saving...' : 'Save Strategy Configuration'}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {MARTINGALE_STRATEGIES_LIST.map((strat) => {
+            const isSelected = selectedStrategies.includes(strat.id);
+            return (
+              <div
+                key={strat.id}
+                onClick={() => toggleStrategy(strat.id)}
+                className={`p-4 rounded-2xl border cursor-pointer transition-all space-y-2 ${
+                  isSelected
+                    ? 'bg-emerald-950/20 border-emerald-500/50 text-emerald-300'
+                    : 'bg-[#09090b]/60 border-zinc-800/80 text-zinc-500 hover:border-zinc-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-zinc-100 flex items-center gap-1.5">
+                    <span>{strat.name}</span>
+                  </span>
+                  <CheckSquare className={`w-4.5 h-4.5 shrink-0 ${isSelected ? 'text-emerald-400' : 'text-zinc-700'}`} />
+                </div>
+                <p className="text-[10px] text-zinc-400 leading-relaxed">
+                  {strat.desc}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Control 4: Dedicated Martingale Pair Selector */}
       <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
           <div>

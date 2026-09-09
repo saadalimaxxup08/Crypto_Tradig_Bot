@@ -187,7 +187,7 @@ export async function GET(req: Request) {
     scanLogs.push(`📊 [Martingale Engine] Step ${freshStakeResult.stepIndex + 1} Stake: $${effectiveStake.toFixed(2)} | Account: ${tradingMode} | Mode: ${config.execution_mode}`);
 
     const nearEntryPairs: any[] = [];
-    const activeStrategies = (ov.deriv_active_strategies || ['FOREX_15M_MTF']) as string[];
+    const activeStrategies = (ov.martingale_active_strategies || ov.deriv_active_strategies || ['FOREX_15M_PRO_V1', 'FOREX_15M_MTF', 'FOREX_15M_MTF_V2', 'FOREX_30M_MTF_V3']) as string[];
 
     // Scan pairs for entry using active strategy models
     for (const pair of selectedPairs) {

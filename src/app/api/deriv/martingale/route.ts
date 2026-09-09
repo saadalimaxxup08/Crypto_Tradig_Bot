@@ -63,6 +63,7 @@ export async function GET() {
       trading_mode: ov.martingale_trading_mode || 'DEMO',
       allocated_capital: ov.martingale_allocated_capital !== undefined ? parseFloat(ov.martingale_allocated_capital) : 20.00,
       execution_mode: ov.martingale_execution_mode || 'ONE_BY_ONE',
+      selected_strategies: Array.isArray(ov.martingale_active_strategies) ? ov.martingale_active_strategies : (ov.deriv_active_strategies || ['FOREX_15M_PRO_V1', 'FOREX_15M_MTF', 'FOREX_15M_MTF_V2', 'FOREX_30M_MTF_V3']),
       selected_pairs: Array.isArray(ov.martingale_selected_pairs) ? ov.martingale_selected_pairs : DEFAULT_MARTINGALE_CONFIG.selected_pairs,
       progression_steps: Array.isArray(ov.deriv_progression_steps) ? ov.deriv_progression_steps : DEFAULT_MARTINGALE_CONFIG.progression_steps,
       progression_active_steps: Array.isArray(ov.deriv_progression_active_steps) ? ov.deriv_progression_active_steps : DEFAULT_MARTINGALE_CONFIG.progression_active_steps
@@ -144,6 +145,7 @@ export async function POST(req: Request) {
       trading_mode,
       allocated_capital,
       execution_mode,
+      selected_strategies,
       selected_pairs,
       progression_steps,
       progression_active_steps,
@@ -164,6 +166,7 @@ export async function POST(req: Request) {
       martingale_trading_mode: trading_mode || currentOv.martingale_trading_mode || 'DEMO',
       martingale_allocated_capital: allocated_capital !== undefined ? parseFloat(allocated_capital) : (currentOv.martingale_allocated_capital || 20.00),
       martingale_execution_mode: execution_mode || currentOv.martingale_execution_mode || 'ONE_BY_ONE',
+      martingale_active_strategies: Array.isArray(selected_strategies) ? selected_strategies : (currentOv.martingale_active_strategies || ['FOREX_15M_PRO_V1', 'FOREX_15M_MTF', 'FOREX_15M_MTF_V2', 'FOREX_30M_MTF_V3']),
       martingale_selected_pairs: Array.isArray(selected_pairs) ? selected_pairs : (currentOv.martingale_selected_pairs || DEFAULT_MARTINGALE_CONFIG.selected_pairs),
       deriv_progression_steps: Array.isArray(progression_steps) ? progression_steps : (currentOv.deriv_progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps),
       deriv_progression_active_steps: Array.isArray(progression_active_steps) ? progression_active_steps : (currentOv.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps),
