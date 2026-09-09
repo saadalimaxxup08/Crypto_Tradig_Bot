@@ -70,7 +70,17 @@ export async function GET(req: Request) {
 
     const appId = settings.deriv_app_id || process.env.DERIV_APP_ID || '';
     const token = settings.deriv_api_token || process.env.DERIV_API_TOKEN || '';
-    const tradingMode = ov.deriv_trading_mode || settings.deriv_trading_mode || 'DEMO';
+    const demoAccount = settings.deriv_demo_account || process.env.DERIV_DEMO_ACCOUNT || '';
+    const realAccount = settings.deriv_real_account || process.env.DERIV_REAL_ACCOUNT || '';
+    
+    // Read independent Martingale trading account mode (DEMO vs REAL)
+    const tradingMode = ov.martingale_trading_mode || ov.deriv_trading_mode || 'DEMO';
+    const activeAccount = tradingMode === 'DEMO' ? demoAccount : realAccount;
+
+    if (!appId || !token || !activeAccount) {
+      scanLogs.push(`❌ Missing Deriv credentials or active account (${tradingMode} ID)`);
+      return NextResponse.json({ success: true, message: 'Missing credentials', logs: scanLogs });
+    }
 
     // Load risk filter toggles
     const newsFilterEnabled = ov.deriv_news_filter_enabled !== false;
@@ -104,31 +114,40 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, message: 'One-by-One Lock Active', logs: scanLogs });
     }
 
-    // Connect WebSocket
-    const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId || '68202'}`;
-    socket = await new Promise<WebSocket>((resolve, reject) => {
-      const ws = new WebSocket(wsUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-      });
-      ws.on('open', () => resolve(ws));
-      ws.on('error', (e) => reject(e));
-      setTimeout(() => reject(new Error('Connection timeout')), 10000);
-    });
+    // Connect WebSocket via OTP to ensure authorized options trading session
+    const wsUrl = await fetchOTP(appId, token, activeAccount);
+    
+    const connectAttempts = 3;
+    let lastError: any = null;
 
-    if (token) {
-      await new Promise<void>((resolve) => {
-        const authHandler = (evt: any) => {
-          const res = JSON.parse(evt.data);
-          if (res.msg_type === 'authorize') {
-            socket!.removeEventListener('message', authHandler);
-            resolve();
-          }
-        };
-        socket!.addEventListener('message', authHandler);
-        socket!.send(JSON.stringify({ authorize: token }));
-        setTimeout(resolve, 3000);
-      });
+    for (let attempt = 1; attempt <= connectAttempts; attempt++) {
+      try {
+        socket = await new Promise<WebSocket>((resolve, reject) => {
+          const ws = new WebSocket(wsUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          });
+          ws.on('unexpected-response', (req: any, res: any) => reject(new Error(`Handshake rejected: HTTP ${res.statusCode}`)));
+          ws.on('open', () => resolve(ws));
+          ws.on('error', (e: any) => reject(new Error(e.message || 'WebSocket handshake failed.')));
+          setTimeout(() => reject(new Error('Connection timed out.')), 15000);
+        });
+        break;
+      } catch (err: any) {
+        lastError = err;
+        scanLogs.push(`⚠️ WebSocket connection attempt ${attempt} failed: ${err.message}`);
+        if (attempt < connectAttempts) {
+          await new Promise(r => setTimeout(r, 1500));
+        }
+      }
     }
+
+    if (!socket) {
+      throw new Error(`WebSocket connection failed: ${lastError?.message}`);
+    }
+
+    (socket as any).setMaxListeners?.(200);
 
     // Sync open Martingale trades
     const { data: openTrades } = await supabase
@@ -165,11 +184,12 @@ export async function GET(req: Request) {
     }
 
     const effectiveStake = freshStakeResult.stake;
-    scanLogs.push(`📊 [Martingale Engine] Step ${freshStakeResult.stepIndex + 1} Stake: $${effectiveStake.toFixed(2)} | Mode: ${config.execution_mode}`);
+    scanLogs.push(`📊 [Martingale Engine] Step ${freshStakeResult.stepIndex + 1} Stake: $${effectiveStake.toFixed(2)} | Account: ${tradingMode} | Mode: ${config.execution_mode}`);
 
     const nearEntryPairs: any[] = [];
+    const activeStrategies = (ov.deriv_active_strategies || ['FOREX_15M_MTF']) as string[];
 
-    // Scan pairs for entry
+    // Scan pairs for entry using active strategy models
     for (const pair of selectedPairs) {
       if (newsFilterEnabled && await isEconomicNewsBlocked(pair)) {
         scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: High Impact News block is active.`);
@@ -182,82 +202,121 @@ export async function GET(req: Request) {
       const candles15m = await fetchCandles(socket, pair, 900);
       const candlesH1 = await fetchCandles(socket, pair, 3600);
 
-      const stratResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
-      scanLogs.push(`- ADX: ${stratResult.adxValue.toFixed(1)} | Signal: ${stratResult.direction}`);
+      let candles10m: any[] = [];
+      let candles30m: any[] = [];
+      let candlesH4: any[] = [];
 
-      nearEntryPairs.push({
-        symbol: pair,
-        direction: stratResult.direction === 'CALL' ? 'RISE' : stratResult.direction === 'PUT' ? 'FALL' : (stratResult.nearEntry?.direction || 'ANALYZING'),
-        reason: stratResult.direction !== 'NEUTRAL' ? `Signal ${stratResult.direction} Triggered` : (stratResult.nearEntry?.reason || `ADX: ${stratResult.adxValue.toFixed(1)} | Monitoring Crossover`),
-        confirmations: stratResult.nearEntry?.confirmations || {
-          trend: stratResult.adxValue >= 20,
-          adx: stratResult.adxValue >= 22,
-          stochZone: true
-        },
-        adx: stratResult.adxValue || 0,
-        stochK: stratResult.nearEntry?.stochK || 50,
-        stochD: stratResult.nearEntry?.stochD || 50,
-        updatedAt: new Date().toISOString()
-      });
+      if (activeStrategies.includes('FOREX_30M_MTF_V3')) {
+        candles10m = await fetchCandles(socket, pair, 600);
+        candles30m = await fetchCandles(socket, pair, 1800);
+        candlesH4 = await fetchCandles(socket, pair, 14400);
+      }
 
-      if (stratResult.direction !== 'NEUTRAL') {
-        const tick = await fetchTick(socket, pair);
-        if (tick) {
-          if (isSpreadBlocked(pair, tick.ask, tick.bid)) {
-            scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: Spread limit exceeded.`);
-            continue;
-          }
+      for (const stratId of activeStrategies) {
+        let stratResult: any;
+        let stratName = '';
+        let tradeDuration = 15;
 
-          scanLogs.push(`🔥 [Martingale Engine] Triggering $${effectiveStake.toFixed(2)} ${stratResult.direction} on ${getDisplaySymbolName(pair)}`);
-          try {
-            const result = await buyContract(socket, pair, stratResult.direction, effectiveStake, 15);
-            
-            const newTrade = {
-              id: crypto.randomUUID(),
-              contract_id: result.contract_id,
-              symbol: pair,
-              contract_type: stratResult.direction,
-              duration: 15,
-              duration_unit: 'm',
-              stake: effectiveStake,
-              payout: parseFloat(result.payout),
-              status: 'OPEN',
-              entry_price: parseFloat(result.buy_price),
-              exit_price: null,
-              barrier: null,
-              pnl: 0,
-              is_paper: tradingMode === 'DEMO',
-              strategy_engine: 'MARTINGALE_ENGINE',
-              created_at: new Date().toISOString(),
-              closed_at: null
-            };
+        if (stratId === 'FOREX_15M_PRO_V1') {
+          stratResult = analyzeForex15mProV1Strategy(candlesH1, candles15m, candles5m);
+          stratName = 'v1 - Forex 15m Trend-Rejection Pro';
+          tradeDuration = 15;
+        } else if (stratId === 'FOREX_15M_MTF_V2') {
+          stratResult = analyzeForex15mStrategyV2(candles5m, candles15m, candlesH1);
+          stratName = 'v2 - Forex 15m MTF Crossover';
+          tradeDuration = 15;
+        } else if (stratId === 'FOREX_30M_MTF_V3') {
+          stratResult = analyzeForex30mStrategyV3(candles10m, candles30m, candlesH1, candlesH4);
+          stratName = 'v1.1 - Forex 30m MTF Crossover';
+          tradeDuration = 30;
+        } else {
+          stratResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
+          stratName = 'v1 - Forex 15m MTF Crossover';
+          tradeDuration = 15;
+        }
 
-            await supabase.from('deriv_trades').insert([newTrade]);
-            scanLogs.push(`🎉 Martingale Trade Executed! ID: ${result.contract_id}`);
+        scanLogs.push(`- [${stratName}] ADX: ${stratResult.adxValue.toFixed(1)} | Signal: ${stratResult.direction}`);
 
-            // Send Telegram Alert
-            const chartLink = `https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair}&trade_type=rise_fall`;
-            const signalMsg = `🚀 <b>MARTINGALE ENGINE ALERT</b> 🚀\n` +
-              `-------------------------------------\n` +
-              `<b>Asset Pair:</b> ${getDisplaySymbolName(pair)}\n` +
-              `<b>Progression Step:</b> Step ${freshStakeResult.stepIndex + 1}\n` +
-              `<b>Stake Amount:</b> $${effectiveStake.toFixed(2)}\n` +
-              `<b>Direction:</b> ${stratResult.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
-              `<b>Execution Mode:</b> ${config.execution_mode === 'ONE_BY_ONE' ? 'One-By-One (Sequential)' : 'Multi-Trade'}\n` +
-              `<b>Account:</b> ${tradingMode}\n\n` +
-              `📈 <a href="${chartLink}">Open Live Chart on Deriv</a>`;
+        nearEntryPairs.push({
+          symbol: pair,
+          direction: stratResult.direction === 'CALL' ? 'RISE' : stratResult.direction === 'PUT' ? 'FALL' : (stratResult.nearEntry?.direction || 'ANALYZING'),
+          reason: stratResult.direction !== 'NEUTRAL' ? `Signal ${stratResult.direction} Triggered` : (stratResult.nearEntry?.reason || `ADX: ${stratResult.adxValue.toFixed(1)} | Monitoring Crossover`),
+          confirmations: stratResult.nearEntry?.confirmations || {
+            trend: stratResult.adxValue >= 20,
+            adx: stratResult.adxValue >= 22,
+            stochZone: true
+          },
+          adx: stratResult.adxValue || 0,
+          stochK: stratResult.nearEntry?.stochK || 50,
+          stochD: stratResult.nearEntry?.stochD || 50,
+          updatedAt: new Date().toISOString()
+        });
 
-            await sendTelegramAlert(signalMsg);
-
-            // If ONE_BY_ONE mode, stop scanning remaining pairs once trade is placed!
-            if (config.execution_mode === 'ONE_BY_ONE') {
-              scanLogs.push('🔒 One-by-One trade executed. Halting further pair scans in this cycle.');
-              break;
+        if (stratResult.direction !== 'NEUTRAL') {
+          const tick = await fetchTick(socket, pair);
+          if (tick) {
+            if (isSpreadBlocked(pair, tick.ask, tick.bid)) {
+              scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: Spread limit exceeded.`);
+              continue;
             }
-          } catch (buyErr: any) {
-            scanLogs.push(`❌ Buy error on ${getDisplaySymbolName(pair)}: ${buyErr.message}`);
+
+            scanLogs.push(`🔥 [Martingale Engine] Triggering $${effectiveStake.toFixed(2)} ${stratResult.direction} on ${getDisplaySymbolName(pair)}`);
+            try {
+              const result = await buyContract(socket, pair, stratResult.direction, effectiveStake, tradeDuration);
+              
+              const newTrade = {
+                id: crypto.randomUUID(),
+                contract_id: result.contract_id,
+                symbol: pair,
+                contract_type: stratResult.direction,
+                duration: tradeDuration,
+                duration_unit: 'm',
+                stake: effectiveStake,
+                payout: parseFloat(result.payout),
+                status: 'OPEN',
+                entry_price: parseFloat(result.buy_price),
+                exit_price: null,
+                barrier: null,
+                pnl: 0,
+                is_paper: tradingMode === 'DEMO',
+                strategy_engine: 'MARTINGALE_ENGINE',
+                created_at: new Date().toISOString(),
+                closed_at: null
+              };
+
+              await supabase.from('deriv_trades').insert([newTrade]);
+              scanLogs.push(`🎉 Martingale Trade Executed! ID: ${result.contract_id}`);
+
+              // Send Telegram Alert
+              const chartLink = `https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair}&trade_type=rise_fall`;
+              const signalMsg = `🚀 <b>MARTINGALE ENGINE ALERT</b> 🚀\n` +
+                `-------------------------------------\n` +
+                `<b>Asset Pair:</b> ${getDisplaySymbolName(pair)}\n` +
+                `<b>Progression Step:</b> Step ${freshStakeResult.stepIndex + 1}\n` +
+                `<b>Stake Amount:</b> $${effectiveStake.toFixed(2)}\n` +
+                `<b>Direction:</b> ${stratResult.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
+                `<b>Execution Mode:</b> ${config.execution_mode === 'ONE_BY_ONE' ? 'One-By-One (Sequential)' : 'Multi-Trade'}\n` +
+                `<b>Account:</b> ${tradingMode}\n\n` +
+                `📈 <a href="${chartLink}">Open Live Chart on Deriv</a>`;
+
+              await sendTelegramAlert(signalMsg);
+
+              // If ONE_BY_ONE mode, stop scanning remaining pairs once trade is placed!
+              if (config.execution_mode === 'ONE_BY_ONE') {
+                scanLogs.push('🔒 One-by-One trade executed. Halting further pair scans in this cycle.');
+                break;
+              }
+            } catch (buyErr: any) {
+              scanLogs.push(`❌ Buy error on ${getDisplaySymbolName(pair)}: ${buyErr.message}`);
+            }
           }
         }
+      }
+
+      // If ONE_BY_ONE mode trade placed, break outer pair loop as well
+      const { data: checkOpen } = await supabase.from('deriv_trades').select('id').eq('strategy_engine', 'MARTINGALE_ENGINE').eq('status', 'OPEN');
+      if (config.execution_mode === 'ONE_BY_ONE' && checkOpen && checkOpen.length > 0) {
+        break;
       }
     }
 
