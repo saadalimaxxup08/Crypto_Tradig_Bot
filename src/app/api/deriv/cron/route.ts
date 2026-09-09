@@ -47,6 +47,7 @@ export async function GET(req: Request) {
 
   const existingOverrides = settings.pair_overrides || {};
   const derivStakeAmount = existingOverrides.deriv_stake_amount || 1.00;
+  const isMartingaleEnabled = existingOverrides.deriv_progression_enabled === true || settings.martingale_config?.enabled === true;
 
   try {
     const isBotEnabled = existingOverrides.deriv_bot_enabled !== undefined ? existingOverrides.deriv_bot_enabled : (settings.deriv_bot_enabled || false);
@@ -255,6 +256,13 @@ export async function GET(req: Request) {
           }
 
           if (strategyResultObj.direction !== 'NEUTRAL') {
+            // If Martingale Engine is active, primary trades are executed by Martingale Engine.
+            // Main scanner runs in monitoring mode to prevent duplicate trade executions.
+            if (isMartingaleEnabled) {
+              localLogs.push(`ℹ️ [${stratName}] Signal detected on ${getDisplaySymbolName(pair)}, but Martingale Engine is primary executor. Main scanner skipping duplicate execution.`);
+              continue;
+            }
+
             // D. Fetch tick to check spread before buying
             const tick = await fetchTick(socket!, pair);
             if (tick) {
