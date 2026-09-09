@@ -123,6 +123,59 @@ const MARTINGALE_STRATEGIES_LIST = [
   { id: 'FOREX_30M_MTF_V3', name: 'v1.1 - Forex 30m MTF Crossover', desc: 'Triple Trend (H4/H1/30m) + ATR Volatility Filter + RSI Guard + 30m contracts.' }
 ];
 
+const MARKET_CATEGORIES = [
+  {
+    id: 'derived',
+    name: '1. Derived Synthetics & Volatilities',
+    desc: 'Volatility 10-300 Indices & Step 100-500 Indices',
+    pairs: [
+      'stpRNG', 'stpRNG2', 'stpRNG3', 'stpRNG4', 'stpRNG5',
+      'R_10', 'R_25', 'R_50', 'R_75', 'R_100',
+      '1HZ10V', '1HZ15V', '1HZ25V', '1HZ30V', '1HZ50V', '1HZ75V', '1HZ90V', '1HZ100V', '1HZ150V', '1HZ250V', '1HZ300V'
+    ]
+  },
+  {
+    id: 'synthetics_jump_boom',
+    name: '2. Jump, Boom, Crash & Reset Indices',
+    desc: 'Jump 10-100, Boom/Crash 50-1000, Range Break, Bull & Bear Markets',
+    pairs: [
+      'JD10', 'JD25', 'JD50', 'JD75', 'JD100',
+      'BOOM50', 'BOOM150N', 'BOOM300N', 'BOOM500', 'BOOM600', 'BOOM900', 'BOOM1000',
+      'CRASH50', 'CRASH150N', 'CRASH300N', 'CRASH500', 'CRASH600', 'CRASH900', 'CRASH1000',
+      'RB100', 'RB200', 'RDBULL', 'RDBEAR'
+    ]
+  },
+  {
+    id: 'forex',
+    name: '3. Forex Majors & Cross Pairs',
+    desc: 'EUR/USD, GBP/USD, USD/JPY, AUD, CAD, CHF, NZD Crosses',
+    pairs: [
+      'frxEURUSD', 'frxGBPUSD', 'frxUSDJPY', 'frxAUDUSD', 'frxUSDCAD', 'frxUSDCHF', 'frxNZDUSD',
+      'frxEURGBP', 'frxEURJPY', 'frxGBPJPY', 'frxAUDJPY', 'frxEURAUD', 'frxEURCAD', 'frxEURCHF',
+      'frxGBPAUD', 'frxGBPCAD', 'frxGBPCHF', 'frxGBPNZD', 'frxAUDCAD', 'frxAUDCHF', 'frxAUDNZD',
+      'frxEURNZD', 'frxNZDJPY'
+    ]
+  },
+  {
+    id: 'stocks',
+    name: '4. Stocks & Index Markets',
+    desc: 'US Tech 100, US 500, Wall Street 30, Germany 40, FTSE 100, Japan 225',
+    pairs: [
+      'OTC_NDX', 'OTC_SPC', 'OTC_DJI', 'OTC_FTSE', 'OTC_GDAXI', 'OTC_FCHI',
+      'OTC_SX5E', 'OTC_N225', 'OTC_HSI', 'OTC_AS51', 'OTC_AEX', 'OTC_SSMI'
+    ]
+  },
+  {
+    id: 'commodities',
+    name: '5. Commodities, Metals & Baskets',
+    desc: 'Spot Gold, Silver, BTC, ETH, Currency Baskets (EUR, GBP, USD, Gold)',
+    pairs: [
+      'frxXAUUSD', 'frxXAGUSD', 'cryBTCUSD', 'cryETHUSD',
+      'WLDAUD', 'WLDEUR', 'WLDGBP', 'WLDUSD', 'WLDXAU'
+    ]
+  }
+];
+
 const ALL_AVAILABLE_PAIRS = Object.keys(SYMBOL_DISPLAY_MAP);
 
 export default function MartingaleStrategyPage() {
@@ -485,6 +538,15 @@ export default function MartingaleStrategyPage() {
 
   const selectAllPairs = () => setSelectedPairs([...ALL_AVAILABLE_PAIRS]);
   const clearAllPairs = () => setSelectedPairs([]);
+
+  const selectCategoryPairs = (categoryPairs: string[]) => {
+    const combined = Array.from(new Set([...selectedPairs, ...categoryPairs]));
+    setSelectedPairs(combined);
+  };
+
+  const clearCategoryPairs = (categoryPairs: string[]) => {
+    setSelectedPairs(selectedPairs.filter(p => !categoryPairs.includes(p)));
+  };
 
   if (!isInitialLoaded) {
     return (
@@ -1161,26 +1223,26 @@ export default function MartingaleStrategyPage() {
         </div>
       </div>
 
-      {/* Control 4: Dedicated Martingale Pair Selector */}
+      {/* Control 4: Dedicated Martingale Pair Selector (5 Market Categories) */}
       <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
           <div>
             <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
               <Shield className="w-5 h-5 text-emerald-400" />
-              <span>Dedicated Martingale Scanned Pairs ({selectedPairs.length} Active)</span>
+              <span>Dedicated Martingale Scanned Pairs ({selectedPairs.length} Active Across 5 Categories)</span>
             </h3>
             <p className="text-xs text-zinc-400 mt-1">
-              Select any pairs dedicated for Martingale Strategy execution. You can select as many pairs as you want (no limit — click Select All or toggle individual pairs).
+              Select pairs for Martingale execution organized across 5 separate market categories. Use quick category selectors or toggle individual asset pairs.
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={selectAllPairs}
               className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold px-3 py-2 rounded-xl transition-all cursor-pointer"
             >
-              Select All
+              Select All (88)
             </button>
             <button
               type="button"
@@ -1201,22 +1263,67 @@ export default function MartingaleStrategyPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-72 overflow-y-auto pr-1">
-          {ALL_AVAILABLE_PAIRS.map((pair) => {
-            const isSelected = selectedPairs.includes(pair);
-            const displayName = SYMBOL_DISPLAY_MAP[pair] || pair;
+        {/* 5 Categorized Market Containers */}
+        <div className="space-y-6">
+          {MARKET_CATEGORIES.map((cat) => {
+            const activeInCatCount = cat.pairs.filter(p => selectedPairs.includes(p)).length;
+            const isAllCatSelected = activeInCatCount === cat.pairs.length;
+
             return (
-              <div
-                key={pair}
-                onClick={() => togglePair(pair)}
-                className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
-                  isSelected
-                    ? 'bg-emerald-950/20 border-emerald-500/50 text-emerald-300'
-                    : 'bg-[#09090b]/60 border-zinc-800/80 text-zinc-500 hover:border-zinc-700'
-                }`}
-              >
-                <span className="text-xs font-extrabold truncate pr-1">{displayName}</span>
-                <CheckSquare className={`w-4 h-4 shrink-0 ${isSelected ? 'text-emerald-400' : 'text-zinc-700'}`} />
+              <div key={cat.id} className="bg-[#08080b]/80 border border-zinc-850 rounded-2xl p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/60 pb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xs font-extrabold text-zinc-200 uppercase tracking-wider">{cat.name}</span>
+                    <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${
+                      activeInCatCount > 0
+                        ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30'
+                        : 'bg-zinc-900 text-zinc-500 border-zinc-800'
+                    }`}>
+                      {activeInCatCount} / {cat.pairs.length} Active
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => selectCategoryPairs(cat.pairs)}
+                      className="text-[10px] bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                    >
+                      Select All Category
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => clearCategoryPairs(cat.pairs)}
+                      className="text-[10px] bg-zinc-900 hover:bg-zinc-850 text-zinc-500 font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                    >
+                      Clear Category
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-zinc-500 italic">{cat.desc}</p>
+
+                {/* Category Pair Grid with vertical scrollbar */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
+                  {cat.pairs.map((pair) => {
+                    const isSelected = selectedPairs.includes(pair);
+                    const displayName = SYMBOL_DISPLAY_MAP[pair] || pair;
+                    return (
+                      <div
+                        key={pair}
+                        onClick={() => togglePair(pair)}
+                        className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300 shadow-sm'
+                            : 'bg-[#060608]/80 border-zinc-800/80 text-zinc-500 hover:border-zinc-700'
+                        }`}
+                      >
+                        <span className="text-[11px] font-extrabold truncate pr-1">{displayName}</span>
+                        <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-emerald-400' : 'text-zinc-750'}`} />
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
