@@ -52,11 +52,11 @@ export async function getMartingaleExecutionStake(
   }
 
   try {
-    // 1. Fetch Martingale specific trades from database
+    // 1. Fetch Martingale specific trades from database (stake < 0.99)
     const { data: martingaleTrades, error } = await supabase
       .from('deriv_trades')
       .select('*')
-      .eq('strategy_engine', 'MARTINGALE_ENGINE')
+      .lt('stake', 0.99)
       .order('created_at', { ascending: false })
       .limit(30);
 
