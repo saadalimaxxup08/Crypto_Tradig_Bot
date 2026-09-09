@@ -131,6 +131,12 @@ export default function MartingaleStrategyPage() {
     true, true, true, true, true, true, true, true, true, true
   ]);
 
+  const [newsFilterEnabled, setNewsFilterEnabled] = useState(true);
+  const [sessionFilterEnabled, setSessionFilterEnabled] = useState(true);
+  const [cooldownFilterEnabled, setCooldownFilterEnabled] = useState(true);
+  const [dailyLimitEnabled, setDailyLimitEnabled] = useState(true);
+  const [isSavingRiskToggles, setIsSavingRiskToggles] = useState(false);
+
   const [stats, setStats] = useState<any>({
     totalTrades: 0,
     wonCount: 0,
@@ -165,6 +171,12 @@ export default function MartingaleStrategyPage() {
             setActiveSteps(data.config.progression_active_steps.map((b: any) => Boolean(b)));
           }
         }
+        if (data.riskFilters) {
+          setNewsFilterEnabled(data.riskFilters.news !== false);
+          setSessionFilterEnabled(data.riskFilters.session !== false);
+          setCooldownFilterEnabled(data.riskFilters.cooldown !== false);
+          setDailyLimitEnabled(data.riskFilters.daily !== false);
+        }
         if (data.stats) {
           setStats(data.stats);
         }
@@ -184,6 +196,40 @@ export default function MartingaleStrategyPage() {
     const interval = setInterval(fetchMartingaleData, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleToggleRiskFilter = async (filterType: string, currentValue: boolean) => {
+    setIsSavingRiskToggles(true);
+    const newValue = !currentValue;
+
+    let news = newsFilterEnabled;
+    let session = sessionFilterEnabled;
+    let cooldown = cooldownFilterEnabled;
+    let daily = dailyLimitEnabled;
+
+    if (filterType === 'news') { setNewsFilterEnabled(newValue); news = newValue; }
+    if (filterType === 'session') { setSessionFilterEnabled(newValue); session = newValue; }
+    if (filterType === 'cooldown') { setCooldownFilterEnabled(newValue); cooldown = newValue; }
+    if (filterType === 'daily') { setDailyLimitEnabled(newValue); daily = newValue; }
+
+    try {
+      await fetch('/api/deriv/martingale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          riskFilters: {
+            news,
+            session,
+            cooldown,
+            daily
+          }
+        })
+      });
+    } catch (err) {
+      console.error('Error toggling risk filter:', err);
+    } finally {
+      setIsSavingRiskToggles(false);
+    }
+  };
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -348,6 +394,91 @@ export default function MartingaleStrategyPage() {
             {stats.winRate.toFixed(1)}%
           </div>
           <p className="text-[10px] text-zinc-500">Total {stats.totalTrades} Martingale trades executed</p>
+        </div>
+      </div>
+
+      {/* Active Safety & News Filters Card */}
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
+        <div className="flex items-center justify-between border-b border-zinc-800/50 pb-3">
+          <div>
+            <h3 className="text-md font-bold text-zinc-200 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-emerald-400" />
+              <span>Active Safety &amp; News Filters</span>
+            </h3>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Live automated risk control filters protecting your Martingale Strategy capital.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* News Filter Toggle */}
+          <button
+            type="button"
+            onClick={() => handleToggleRiskFilter('news', newsFilterEnabled)}
+            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+              newsFilterEnabled
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+            }`}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider">News Blocker</span>
+            <span className="text-[9px] opacity-60 mt-0.5">USD/EUR/GBP High Impact</span>
+            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${newsFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+              {newsFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
+            </span>
+          </button>
+
+          {/* Session Filter Toggle */}
+          <button
+            type="button"
+            onClick={() => handleToggleRiskFilter('session', sessionFilterEnabled)}
+            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+              sessionFilterEnabled
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+            }`}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider">Asian Session</span>
+            <span className="text-[9px] opacity-60 mt-0.5">21:00 - 23:59 GMT Block</span>
+            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${sessionFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+              {sessionFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
+            </span>
+          </button>
+
+          {/* Loss Cooldown Guard Toggle */}
+          <button
+            type="button"
+            onClick={() => handleToggleRiskFilter('cooldown', cooldownFilterEnabled)}
+            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+              cooldownFilterEnabled
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+            }`}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider">Loss Cooldown</span>
+            <span className="text-[9px] opacity-60 mt-0.5">2 Losses = 60m Cooldown</span>
+            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${cooldownFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+              {cooldownFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
+            </span>
+          </button>
+
+          {/* Daily Trades Limit Toggle */}
+          <button
+            type="button"
+            onClick={() => handleToggleRiskFilter('daily', dailyLimitEnabled)}
+            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+              dailyLimitEnabled
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+            }`}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider">Daily Trade Limit</span>
+            <span className="text-[9px] opacity-60 mt-0.5">Max 10 Trades Limit</span>
+            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${dailyLimitEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+              {dailyLimitEnabled ? 'GUARD ON' : 'GUARD OFF'}
+            </span>
+          </button>
         </div>
       </div>
 

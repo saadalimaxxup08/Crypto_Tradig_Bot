@@ -60,9 +60,18 @@ export async function GET() {
 
     const winRate = (wonCount + lostCount) > 0 ? (wonCount / (wonCount + lostCount)) * 100 : 0;
 
+    const ov = settings?.pair_overrides || {};
+    const riskFilters = {
+      news: ov.deriv_news_filter_enabled !== false,
+      session: ov.deriv_session_filter_enabled !== false,
+      cooldown: ov.deriv_cooldown_filter_enabled !== false,
+      daily: ov.deriv_daily_limit_enabled !== false
+    };
+
     return NextResponse.json({
       success: true,
       config,
+      riskFilters,
       stats: {
         totalTrades: tradesList.length,
         wonCount,
@@ -93,7 +102,8 @@ export async function POST(req: Request) {
       execution_mode,
       selected_pairs,
       progression_steps,
-      progression_active_steps
+      progression_active_steps,
+      riskFilters
     } = body;
 
     const { data: currentSettings } = await supabase
@@ -113,42 +123,51 @@ export async function POST(req: Request) {
       progression_active_steps: Array.isArray(progression_active_steps) ? progression_active_steps : currentConfig.progression_active_steps
     };
 
+    const currentOv = currentSettings?.pair_overrides || {};
+    const updatedOv = {
+      ...currentOv,
+      martingale_allocated_capital: updatedConfig.allocated_capital,
+      martingale_execution_mode: updatedConfig.execution_mode,
+      martingale_selected_pairs: updatedConfig.selected_pairs,
+      deriv_progression_enabled: updatedConfig.enabled,
+      deriv_progression_steps: updatedConfig.progression_steps,
+      deriv_progression_active_steps: updatedConfig.progression_active_steps,
+      ...(riskFilters ? {
+        deriv_news_filter_enabled: riskFilters.news !== undefined ? Boolean(riskFilters.news) : (currentOv.deriv_news_filter_enabled !== false),
+        deriv_session_filter_enabled: riskFilters.session !== undefined ? Boolean(riskFilters.session) : (currentOv.deriv_session_filter_enabled !== false),
+        deriv_cooldown_filter_enabled: riskFilters.cooldown !== undefined ? Boolean(riskFilters.cooldown) : (currentOv.deriv_cooldown_filter_enabled !== false),
+        deriv_daily_limit_enabled: riskFilters.daily !== undefined ? Boolean(riskFilters.daily) : (currentOv.deriv_daily_limit_enabled !== false)
+      } : {})
+    };
+
     // Update settings table
     const { error } = await supabase
       .from('settings')
       .update({
         martingale_config: updatedConfig,
-        pair_overrides: {
-          ...(currentSettings?.pair_overrides || {}),
-          martingale_allocated_capital: updatedConfig.allocated_capital,
-          martingale_execution_mode: updatedConfig.execution_mode,
-          martingale_selected_pairs: updatedConfig.selected_pairs,
-          deriv_progression_enabled: updatedConfig.enabled,
-          deriv_progression_steps: updatedConfig.progression_steps,
-          deriv_progression_active_steps: updatedConfig.progression_active_steps
-        }
+        pair_overrides: updatedOv
       })
       .eq('id', 1);
 
     if (error) {
-      // Fallback to update pair_overrides only
       await supabase
         .from('settings')
         .update({
-          pair_overrides: {
-            ...(currentSettings?.pair_overrides || {}),
-            martingale_allocated_capital: updatedConfig.allocated_capital,
-            martingale_execution_mode: updatedConfig.execution_mode,
-            martingale_selected_pairs: updatedConfig.selected_pairs,
-            deriv_progression_enabled: updatedConfig.enabled,
-            deriv_progression_steps: updatedConfig.progression_steps,
-            deriv_progression_active_steps: updatedConfig.progression_active_steps
-          }
+          pair_overrides: updatedOv
         })
         .eq('id', 1);
     }
 
-    return NextResponse.json({ success: true, config: updatedConfig });
+    return NextResponse.json({
+      success: true,
+      config: updatedConfig,
+      riskFilters: {
+        news: updatedOv.deriv_news_filter_enabled !== false,
+        session: updatedOv.deriv_session_filter_enabled !== false,
+        cooldown: updatedOv.deriv_cooldown_filter_enabled !== false,
+        daily: updatedOv.deriv_daily_limit_enabled !== false
+      }
+    });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }

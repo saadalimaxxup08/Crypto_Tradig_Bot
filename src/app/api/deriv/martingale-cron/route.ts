@@ -72,6 +72,27 @@ export async function GET(req: Request) {
     const token = settings.deriv_api_token || process.env.DERIV_API_TOKEN || '';
     const tradingMode = ov.deriv_trading_mode || settings.deriv_trading_mode || 'DEMO';
 
+    // Load risk filter toggles
+    const newsFilterEnabled = ov.deriv_news_filter_enabled !== false;
+    const sessionFilterEnabled = ov.deriv_session_filter_enabled !== false;
+    const cooldownFilterEnabled = ov.deriv_cooldown_filter_enabled !== false;
+    const dailyLimitEnabled = ov.deriv_daily_limit_enabled !== false;
+
+    if (sessionFilterEnabled && isAsianSessionBlocked()) {
+      scanLogs.push('⏳ Session Filter: Asian session block active (21:00 - 23:59 GMT). Skipping Martingale scans.');
+      return NextResponse.json({ success: true, message: 'Asian session block', logs: scanLogs });
+    }
+
+    const riskControls = await getRiskControlsStatus();
+    if (dailyLimitEnabled && riskControls.isDailyLimitBlocked) {
+      scanLogs.push(`🚨 Risk Control: Daily limit of 10 trades reached (${riskControls.dailyTradesCount} trades today). Skipping Martingale scans.`);
+      return NextResponse.json({ success: true, message: 'Daily limit reached', logs: scanLogs });
+    }
+    if (cooldownFilterEnabled && riskControls.isCooldownBlocked) {
+      scanLogs.push('🚨 Risk Control: 2 consecutive losses detected. Cooldown period (60m) active. Skipping Martingale scans.');
+      return NextResponse.json({ success: true, message: 'Cooldown active', logs: scanLogs });
+    }
+
     // Check stake and ONE_BY_ONE lock before opening WS
     const stakeResult = await getMartingaleExecutionStake(config);
     if (stakeResult.isHalted) {
@@ -148,6 +169,11 @@ export async function GET(req: Request) {
 
     // Scan pairs for entry
     for (const pair of selectedPairs) {
+      if (newsFilterEnabled && await isEconomicNewsBlocked(pair)) {
+        scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: High Impact News block is active.`);
+        continue;
+      }
+
       scanLogs.push(`Scanning ${getDisplaySymbolName(pair)}...`);
 
       const candles5m = await fetchCandles(socket, pair, 300);
