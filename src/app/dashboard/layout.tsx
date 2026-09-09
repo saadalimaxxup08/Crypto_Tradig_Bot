@@ -92,6 +92,14 @@ export default async function DashboardLayout({
             </Link>
 
             <Link
+              href="/dashboard/martingale"
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-emerald-950/40 hover:text-emerald-400 text-emerald-400 bg-emerald-950/20 border border-emerald-500/30 transition-all duration-200"
+            >
+              <TrendingUp className="w-5 h-5 text-emerald-400" />
+              <span className="font-extrabold">Martingale Strategy Engine</span>
+            </Link>
+
+            <Link
               href="/dashboard/scanner"
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
             >
