@@ -148,34 +148,37 @@ export default function MartingaleStrategyPage() {
   });
 
   const [recentTrades, setRecentTrades] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoaded, setIsInitialLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
-  const fetchMartingaleData = async () => {
+  const fetchMartingaleData = async (forceUpdateState = false) => {
     try {
       const res = await fetch('/api/deriv/martingale');
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.config) {
-          setEnabled(Boolean(data.config.enabled));
-          setAllocatedCapital(String(data.config.allocated_capital || '20.00'));
-          setExecutionMode(data.config.execution_mode || 'ONE_BY_ONE');
-          if (Array.isArray(data.config.selected_pairs)) {
-            setSelectedPairs(data.config.selected_pairs);
+          if (!isInitialLoaded || forceUpdateState) {
+            setEnabled(Boolean(data.config.enabled));
+            setAllocatedCapital(String(data.config.allocated_capital || '20.00'));
+            setExecutionMode(data.config.execution_mode || 'ONE_BY_ONE');
+            if (Array.isArray(data.config.selected_pairs)) {
+              setSelectedPairs(data.config.selected_pairs);
+            }
+            if (Array.isArray(data.config.progression_steps) && data.config.progression_steps.length === 10) {
+              setProgressionSteps(data.config.progression_steps.map((s: any) => String(s)));
+            }
+            if (Array.isArray(data.config.progression_active_steps) && data.config.progression_active_steps.length === 10) {
+              setActiveSteps(data.config.progression_active_steps.map((b: any) => Boolean(b)));
+            }
+            if (data.riskFilters) {
+              setNewsFilterEnabled(data.riskFilters.news !== false);
+              setSessionFilterEnabled(data.riskFilters.session !== false);
+              setCooldownFilterEnabled(data.riskFilters.cooldown !== false);
+              setDailyLimitEnabled(data.riskFilters.daily !== false);
+            }
+            setIsInitialLoaded(true);
           }
-          if (Array.isArray(data.config.progression_steps) && data.config.progression_steps.length === 10) {
-            setProgressionSteps(data.config.progression_steps.map((s: any) => String(s)));
-          }
-          if (Array.isArray(data.config.progression_active_steps) && data.config.progression_active_steps.length === 10) {
-            setActiveSteps(data.config.progression_active_steps.map((b: any) => Boolean(b)));
-          }
-        }
-        if (data.riskFilters) {
-          setNewsFilterEnabled(data.riskFilters.news !== false);
-          setSessionFilterEnabled(data.riskFilters.session !== false);
-          setCooldownFilterEnabled(data.riskFilters.cooldown !== false);
-          setDailyLimitEnabled(data.riskFilters.daily !== false);
         }
         if (data.stats) {
           setStats(data.stats);
@@ -186,16 +189,78 @@ export default function MartingaleStrategyPage() {
       }
     } catch (err) {
       console.error('Failed to load Martingale Strategy data:', err);
-    } finally {
-      setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchMartingaleData();
-    const interval = setInterval(fetchMartingaleData, 10000);
+    const interval = setInterval(() => fetchMartingaleData(false), 10000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleToggleEngine = async () => {
+    const nextState = !enabled;
+    setEnabled(nextState);
+    try {
+      const res = await fetch('/api/deriv/martingale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: nextState,
+          allocated_capital: parseFloat(allocatedCapital) || 20.00,
+          execution_mode: executionMode,
+          selected_pairs: selectedPairs,
+          progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
+          progression_active_steps: activeSteps,
+          riskFilters: {
+            news: newsFilterEnabled,
+            session: sessionFilterEnabled,
+            cooldown: cooldownFilterEnabled,
+            daily: dailyLimitEnabled
+          }
+        })
+      });
+      if (res.ok) {
+        setStatusMsg({
+          type: 'success',
+          text: `Martingale Engine status set to WORK ${nextState ? 'ON (RUNNING)' : 'OFF (PAUSED)'}!`
+        });
+        setTimeout(() => setStatusMsg({ type: '', text: '' }), 4000);
+        await fetchMartingaleData(true);
+      }
+    } catch (err) {
+      console.error('Error toggling master engine:', err);
+    }
+  };
+
+  const handleExecutionModeChange = async (mode: 'ONE_BY_ONE' | 'ALL_CONCURRENT') => {
+    setExecutionMode(mode);
+    try {
+      const res = await fetch('/api/deriv/martingale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled,
+          allocated_capital: parseFloat(allocatedCapital) || 20.00,
+          execution_mode: mode,
+          selected_pairs: selectedPairs,
+          progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
+          progression_active_steps: activeSteps,
+          riskFilters: {
+            news: newsFilterEnabled,
+            session: sessionFilterEnabled,
+            cooldown: cooldownFilterEnabled,
+            daily: dailyLimitEnabled
+          }
+        })
+      });
+      if (res.ok) {
+        await fetchMartingaleData(true);
+      }
+    } catch (err) {
+      console.error('Error changing execution mode:', err);
+    }
+  };
 
   const handleToggleRiskFilter = async (filterType: string, currentValue: boolean) => {
     setIsSavingRiskToggles(true);
@@ -216,6 +281,12 @@ export default function MartingaleStrategyPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          enabled,
+          allocated_capital: parseFloat(allocatedCapital) || 20.00,
+          execution_mode: executionMode,
+          selected_pairs: selectedPairs,
+          progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
+          progression_active_steps: activeSteps,
           riskFilters: {
             news,
             session,
@@ -225,7 +296,7 @@ export default function MartingaleStrategyPage() {
         })
       });
       if (res.ok) {
-        await fetchMartingaleData();
+        await fetchMartingaleData(true);
       }
     } catch (err) {
       console.error('Error toggling risk filter:', err);
@@ -267,7 +338,7 @@ export default function MartingaleStrategyPage() {
           origin: { y: 0.8 },
           colors: ['#10b981', '#3b82f6']
         });
-        fetchMartingaleData();
+        await fetchMartingaleData(true);
         setTimeout(() => setStatusMsg({ type: '', text: '' }), 4000);
       } else {
         setStatusMsg({ type: 'error', text: data.error || 'Failed to save settings.' });
@@ -290,7 +361,7 @@ export default function MartingaleStrategyPage() {
   const selectAllPairs = () => setSelectedPairs([...ALL_AVAILABLE_PAIRS]);
   const clearAllPairs = () => setSelectedPairs([]);
 
-  if (isLoading) {
+  if (!isInitialLoaded) {
     return (
       <div className="flex items-center justify-center min-h-[600px]">
         <div className="flex flex-col items-center gap-3">
@@ -342,7 +413,7 @@ export default function MartingaleStrategyPage() {
           </div>
           <button
             type="button"
-            onClick={() => setEnabled(!enabled)}
+            onClick={handleToggleEngine}
             className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none ${
               enabled ? 'bg-emerald-500' : 'bg-zinc-700'
             }`}
@@ -533,7 +604,7 @@ export default function MartingaleStrategyPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div
-                onClick={() => setExecutionMode('ONE_BY_ONE')}
+                onClick={() => handleExecutionModeChange('ONE_BY_ONE')}
                 className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                   executionMode === 'ONE_BY_ONE'
                     ? 'bg-emerald-950/20 border-emerald-500/50 text-emerald-400'
@@ -552,7 +623,7 @@ export default function MartingaleStrategyPage() {
               </div>
 
               <div
-                onClick={() => setExecutionMode('ALL_CONCURRENT')}
+                onClick={() => handleExecutionModeChange('ALL_CONCURRENT')}
                 className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
                   executionMode === 'ALL_CONCURRENT'
                     ? 'bg-emerald-950/20 border-emerald-500/50 text-emerald-400'

@@ -12,28 +12,22 @@ export async function GET() {
   }
 
   try {
-    const { data: settings, error } = await supabase
+    const { data: settings } = await supabase
       .from('settings')
-      .select('martingale_config, pair_overrides')
+      .select('pair_overrides')
       .eq('id', 1)
       .single();
 
     const ov = settings?.pair_overrides || {};
-    let config = settings?.martingale_config;
-    
-    // Fallback merge with pair_overrides if martingale_config is missing or not set
-    if (!config && ov) {
-      config = {
-        enabled: ov.deriv_progression_enabled === true,
-        allocated_capital: ov.martingale_allocated_capital || 20.00,
-        execution_mode: ov.martingale_execution_mode || 'ONE_BY_ONE',
-        selected_pairs: ov.martingale_selected_pairs || DEFAULT_MARTINGALE_CONFIG.selected_pairs,
-        progression_steps: ov.deriv_progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps,
-        progression_active_steps: ov.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps
-      };
-    } else if (!config) {
-      config = DEFAULT_MARTINGALE_CONFIG;
-    }
+
+    const config = {
+      enabled: ov.deriv_progression_enabled === true,
+      allocated_capital: ov.martingale_allocated_capital !== undefined ? parseFloat(ov.martingale_allocated_capital) : 20.00,
+      execution_mode: ov.martingale_execution_mode || 'ONE_BY_ONE',
+      selected_pairs: Array.isArray(ov.martingale_selected_pairs) ? ov.martingale_selected_pairs : DEFAULT_MARTINGALE_CONFIG.selected_pairs,
+      progression_steps: Array.isArray(ov.deriv_progression_steps) ? ov.deriv_progression_steps : DEFAULT_MARTINGALE_CONFIG.progression_steps,
+      progression_active_steps: Array.isArray(ov.deriv_progression_active_steps) ? ov.deriv_progression_active_steps : DEFAULT_MARTINGALE_CONFIG.progression_active_steps
+    };
 
     // Fetch Martingale stats from deriv_trades
     const { data: martingaleTrades } = await supabase
@@ -109,37 +103,20 @@ export async function POST(req: Request) {
 
     const { data: currentSettings } = await supabase
       .from('settings')
-      .select('pair_overrides, martingale_config')
+      .select('pair_overrides')
       .eq('id', 1)
       .single();
 
     const currentOv = currentSettings?.pair_overrides || {};
-    const currentConfig = currentSettings?.martingale_config || {
-      enabled: currentOv.deriv_progression_enabled === true,
-      allocated_capital: currentOv.martingale_allocated_capital || 20.00,
-      execution_mode: currentOv.martingale_execution_mode || 'ONE_BY_ONE',
-      selected_pairs: currentOv.martingale_selected_pairs || DEFAULT_MARTINGALE_CONFIG.selected_pairs,
-      progression_steps: currentOv.deriv_progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps,
-      progression_active_steps: currentOv.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps
-    };
-
-    const updatedConfig = {
-      enabled: enabled !== undefined ? Boolean(enabled) : currentConfig.enabled,
-      allocated_capital: allocated_capital !== undefined ? parseFloat(allocated_capital) : currentConfig.allocated_capital,
-      execution_mode: execution_mode || currentConfig.execution_mode,
-      selected_pairs: Array.isArray(selected_pairs) ? selected_pairs : currentConfig.selected_pairs,
-      progression_steps: Array.isArray(progression_steps) ? progression_steps : currentConfig.progression_steps,
-      progression_active_steps: Array.isArray(progression_active_steps) ? progression_active_steps : currentConfig.progression_active_steps
-    };
 
     const updatedOv = {
       ...currentOv,
-      martingale_allocated_capital: updatedConfig.allocated_capital,
-      martingale_execution_mode: updatedConfig.execution_mode,
-      martingale_selected_pairs: updatedConfig.selected_pairs,
-      deriv_progression_enabled: updatedConfig.enabled,
-      deriv_progression_steps: updatedConfig.progression_steps,
-      deriv_progression_active_steps: updatedConfig.progression_active_steps,
+      deriv_progression_enabled: enabled !== undefined ? Boolean(enabled) : (currentOv.deriv_progression_enabled === true),
+      martingale_allocated_capital: allocated_capital !== undefined ? parseFloat(allocated_capital) : (currentOv.martingale_allocated_capital || 20.00),
+      martingale_execution_mode: execution_mode || currentOv.martingale_execution_mode || 'ONE_BY_ONE',
+      martingale_selected_pairs: Array.isArray(selected_pairs) ? selected_pairs : (currentOv.martingale_selected_pairs || DEFAULT_MARTINGALE_CONFIG.selected_pairs),
+      deriv_progression_steps: Array.isArray(progression_steps) ? progression_steps : (currentOv.deriv_progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps),
+      deriv_progression_active_steps: Array.isArray(progression_active_steps) ? progression_active_steps : (currentOv.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps),
       deriv_news_filter_enabled: riskFilters?.news !== undefined ? Boolean(riskFilters.news) : (currentOv.deriv_news_filter_enabled !== false),
       deriv_session_filter_enabled: riskFilters?.session !== undefined ? Boolean(riskFilters.session) : (currentOv.deriv_session_filter_enabled !== false),
       deriv_cooldown_filter_enabled: riskFilters?.cooldown !== undefined ? Boolean(riskFilters.cooldown) : (currentOv.deriv_cooldown_filter_enabled !== false),
@@ -158,9 +135,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
+    const config = {
+      enabled: updatedOv.deriv_progression_enabled === true,
+      allocated_capital: updatedOv.martingale_allocated_capital,
+      execution_mode: updatedOv.martingale_execution_mode,
+      selected_pairs: updatedOv.martingale_selected_pairs,
+      progression_steps: updatedOv.deriv_progression_steps,
+      progression_active_steps: updatedOv.deriv_progression_active_steps
+    };
+
     return NextResponse.json({
       success: true,
-      config: updatedConfig,
+      config,
       riskFilters: {
         news: updatedOv.deriv_news_filter_enabled !== false,
         session: updatedOv.deriv_session_filter_enabled !== false,
