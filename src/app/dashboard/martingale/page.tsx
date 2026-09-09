@@ -212,7 +212,7 @@ export default function MartingaleStrategyPage() {
     if (filterType === 'daily') { setDailyLimitEnabled(newValue); daily = newValue; }
 
     try {
-      await fetch('/api/deriv/martingale', {
+      const res = await fetch('/api/deriv/martingale', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -224,6 +224,9 @@ export default function MartingaleStrategyPage() {
           }
         })
       });
+      if (res.ok) {
+        await fetchMartingaleData();
+      }
     } catch (err) {
       console.error('Error toggling risk filter:', err);
     } finally {
@@ -245,7 +248,13 @@ export default function MartingaleStrategyPage() {
           execution_mode: executionMode,
           selected_pairs: selectedPairs,
           progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
-          progression_active_steps: activeSteps
+          progression_active_steps: activeSteps,
+          riskFilters: {
+            news: newsFilterEnabled,
+            session: sessionFilterEnabled,
+            cooldown: cooldownFilterEnabled,
+            daily: dailyLimitEnabled
+          }
         })
       });
 

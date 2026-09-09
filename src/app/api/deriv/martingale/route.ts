@@ -18,11 +18,11 @@ export async function GET() {
       .eq('id', 1)
       .single();
 
-    let config = settings?.martingale_config || DEFAULT_MARTINGALE_CONFIG;
+    const ov = settings?.pair_overrides || {};
+    let config = settings?.martingale_config;
     
-    // Fallback merge with pair_overrides if martingale_config not created yet
-    if (!settings?.martingale_config && settings?.pair_overrides) {
-      const ov = settings.pair_overrides;
+    // Fallback merge with pair_overrides if martingale_config is missing or not set
+    if (!config && ov) {
       config = {
         enabled: ov.deriv_progression_enabled === true,
         allocated_capital: ov.martingale_allocated_capital || 20.00,
@@ -31,6 +31,8 @@ export async function GET() {
         progression_steps: ov.deriv_progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps,
         progression_active_steps: ov.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps
       };
+    } else if (!config) {
+      config = DEFAULT_MARTINGALE_CONFIG;
     }
 
     // Fetch Martingale stats from deriv_trades
@@ -60,7 +62,6 @@ export async function GET() {
 
     const winRate = (wonCount + lostCount) > 0 ? (wonCount / (wonCount + lostCount)) * 100 : 0;
 
-    const ov = settings?.pair_overrides || {};
     const riskFilters = {
       news: ov.deriv_news_filter_enabled !== false,
       session: ov.deriv_session_filter_enabled !== false,
@@ -108,11 +109,19 @@ export async function POST(req: Request) {
 
     const { data: currentSettings } = await supabase
       .from('settings')
-      .select('martingale_config, pair_overrides')
+      .select('pair_overrides, martingale_config')
       .eq('id', 1)
       .single();
 
-    const currentConfig = currentSettings?.martingale_config || DEFAULT_MARTINGALE_CONFIG;
+    const currentOv = currentSettings?.pair_overrides || {};
+    const currentConfig = currentSettings?.martingale_config || {
+      enabled: currentOv.deriv_progression_enabled === true,
+      allocated_capital: currentOv.martingale_allocated_capital || 20.00,
+      execution_mode: currentOv.martingale_execution_mode || 'ONE_BY_ONE',
+      selected_pairs: currentOv.martingale_selected_pairs || DEFAULT_MARTINGALE_CONFIG.selected_pairs,
+      progression_steps: currentOv.deriv_progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps,
+      progression_active_steps: currentOv.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps
+    };
 
     const updatedConfig = {
       enabled: enabled !== undefined ? Boolean(enabled) : currentConfig.enabled,
@@ -123,7 +132,6 @@ export async function POST(req: Request) {
       progression_active_steps: Array.isArray(progression_active_steps) ? progression_active_steps : currentConfig.progression_active_steps
     };
 
-    const currentOv = currentSettings?.pair_overrides || {};
     const updatedOv = {
       ...currentOv,
       martingale_allocated_capital: updatedConfig.allocated_capital,
@@ -132,30 +140,22 @@ export async function POST(req: Request) {
       deriv_progression_enabled: updatedConfig.enabled,
       deriv_progression_steps: updatedConfig.progression_steps,
       deriv_progression_active_steps: updatedConfig.progression_active_steps,
-      ...(riskFilters ? {
-        deriv_news_filter_enabled: riskFilters.news !== undefined ? Boolean(riskFilters.news) : (currentOv.deriv_news_filter_enabled !== false),
-        deriv_session_filter_enabled: riskFilters.session !== undefined ? Boolean(riskFilters.session) : (currentOv.deriv_session_filter_enabled !== false),
-        deriv_cooldown_filter_enabled: riskFilters.cooldown !== undefined ? Boolean(riskFilters.cooldown) : (currentOv.deriv_cooldown_filter_enabled !== false),
-        deriv_daily_limit_enabled: riskFilters.daily !== undefined ? Boolean(riskFilters.daily) : (currentOv.deriv_daily_limit_enabled !== false)
-      } : {})
+      deriv_news_filter_enabled: riskFilters?.news !== undefined ? Boolean(riskFilters.news) : (currentOv.deriv_news_filter_enabled !== false),
+      deriv_session_filter_enabled: riskFilters?.session !== undefined ? Boolean(riskFilters.session) : (currentOv.deriv_session_filter_enabled !== false),
+      deriv_cooldown_filter_enabled: riskFilters?.cooldown !== undefined ? Boolean(riskFilters.cooldown) : (currentOv.deriv_cooldown_filter_enabled !== false),
+      deriv_daily_limit_enabled: riskFilters?.daily !== undefined ? Boolean(riskFilters.daily) : (currentOv.deriv_daily_limit_enabled !== false)
     };
 
-    // Update settings table
     const { error } = await supabase
       .from('settings')
       .update({
-        martingale_config: updatedConfig,
         pair_overrides: updatedOv
       })
       .eq('id', 1);
 
     if (error) {
-      await supabase
-        .from('settings')
-        .update({
-          pair_overrides: updatedOv
-        })
-        .eq('id', 1);
+      console.error('Failed to update settings in Supabase:', error);
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({
