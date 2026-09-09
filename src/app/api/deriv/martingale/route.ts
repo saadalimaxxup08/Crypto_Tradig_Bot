@@ -69,11 +69,12 @@ export async function GET() {
       progression_active_steps: Array.isArray(ov.deriv_progression_active_steps) ? ov.deriv_progression_active_steps : DEFAULT_MARTINGALE_CONFIG.progression_active_steps
     };
 
-    // Fetch Martingale stats from deriv_trades
+    // Fetch Martingale stats from deriv_trades (active session onwards)
     const { data: martingaleTrades } = await supabase
       .from('deriv_trades')
       .select('*')
       .lt('stake', 0.99)
+      .gte('created_at', '2026-09-09T12:00:00Z')
       .order('created_at', { ascending: false });
 
     const tradesList = martingaleTrades || [];
