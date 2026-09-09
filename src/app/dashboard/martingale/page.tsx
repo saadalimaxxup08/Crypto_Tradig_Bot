@@ -148,6 +148,8 @@ export default function MartingaleStrategyPage() {
   });
 
   const [recentTrades, setRecentTrades] = useState<any[]>([]);
+  const [openTrades, setOpenTrades] = useState<any[]>([]);
+  const [tradeFilter, setTradeFilter] = useState<'all' | 'won' | 'lost'>('all');
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
@@ -182,6 +184,9 @@ export default function MartingaleStrategyPage() {
         }
         if (data.stats) {
           setStats(data.stats);
+        }
+        if (data.openTrades) {
+          setOpenTrades(data.openTrades);
         }
         if (data.recentTrades) {
           setRecentTrades(data.recentTrades);
@@ -819,55 +824,153 @@ export default function MartingaleStrategyPage() {
         </button>
       </div>
 
-      {/* Recent Martingale Trades History Table */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
-        <h3 className="text-lg font-bold text-zinc-200 border-b border-zinc-800/50 pb-3 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-emerald-400" />
-          <span>Recent Martingale Trades Execution Log</span>
-        </h3>
+      {/* Martingale Active Positions Terminal (OPEN Trades) */}
+      {openTrades.length > 0 && (
+        <div className="bg-emerald-950/20 backdrop-blur-xl border border-emerald-500/40 rounded-3xl p-6 space-y-4 shadow-xl shadow-emerald-950/20">
+          <div className="flex items-center justify-between border-b border-emerald-500/20 pb-3">
+            <h3 className="text-sm font-extrabold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+              <Zap className="w-4 h-4 animate-pulse text-emerald-400" />
+              <span>Active Running Martingale Position ({openTrades.length})</span>
+            </h3>
+            <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-xl uppercase tracking-wider animate-pulse">
+              One-By-One Lock Active
+            </span>
+          </div>
 
-        {recentTrades.length === 0 ? (
-          <div className="text-center py-8 text-zinc-500 text-xs">
-            No Martingale trades executed yet. Enable Martingale Strategy Engine to start!
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            {openTrades.map((t) => (
+              <div key={t.id} className="bg-[#09090b]/90 border border-emerald-500/30 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-zinc-100">{SYMBOL_DISPLAY_MAP[t.symbol] || t.symbol}</span>
+                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${t.contract_type === 'CALL' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-rose-950 text-rose-400 border border-rose-500/30'}`}>
+                    {t.contract_type === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-mono pt-1">
+                  <span className="text-zinc-400">Stake:</span>
+                  <span className="font-extrabold text-emerald-400">${(parseFloat(t.stake) || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-zinc-400">Entry Spot:</span>
+                  <span className="font-bold text-zinc-200">{t.entry_price ? parseFloat(t.entry_price).toFixed(4) : 'N/A'}</span>
+                </div>
+                <div className="text-[10px] text-zinc-500 font-mono text-right pt-1">
+                  Open Time: {new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                </div>
+              </div>
+            ))}
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs font-mono">
-              <thead>
-                <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-wider">
-                  <th className="pb-3">Symbol</th>
-                  <th className="pb-3">Type</th>
-                  <th className="pb-3">Stake</th>
-                  <th className="pb-3">PnL</th>
-                  <th className="pb-3">Status</th>
-                  <th className="pb-3">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-zinc-800/50 text-zinc-300">
-                {recentTrades.map((t) => (
-                  <tr key={t.id} className="hover:bg-zinc-800/20">
-                    <td className="py-3 font-bold text-zinc-100">{SYMBOL_DISPLAY_MAP[t.symbol] || t.symbol}</td>
-                    <td className="py-3 font-bold">{t.contract_type}</td>
-                    <td className="py-3">${(parseFloat(t.stake) || 0).toFixed(2)}</td>
-                    <td className={`py-3 font-bold ${parseFloat(t.pnl) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {parseFloat(t.pnl) >= 0 ? '+' : ''}${parseFloat(t.pnl).toFixed(2)}
-                    </td>
-                    <td className="py-3">
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold ${
-                        t.status === 'WON' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' :
-                        t.status === 'LOST' ? 'bg-rose-950 text-rose-400 border border-rose-500/30' :
-                        'bg-amber-950 text-amber-400 border border-amber-500/30'
-                      }`}>
-                        {t.status}
-                      </span>
-                    </td>
-                    <td className="py-3 text-zinc-500 text-[11px]">{new Date(t.created_at).toLocaleTimeString()}</td>
+        </div>
+      )}
+
+      {/* Dedicated Martingale Trades History Table */}
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
+          <div>
+            <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-emerald-400" />
+              <span>Dedicated Martingale Trades History Ledger</span>
+            </h3>
+            <p className="text-xs text-zinc-400 mt-1">
+              Complete history of trades executed exclusively by the Martingale Progression Engine.
+            </p>
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex items-center gap-1.5 bg-zinc-950/80 border border-zinc-800 p-1 rounded-2xl shrink-0">
+            <button
+              type="button"
+              onClick={() => setTradeFilter('all')}
+              className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${tradeFilter === 'all' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+            >
+              All ({recentTrades.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTradeFilter('won')}
+              className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${tradeFilter === 'won' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'text-zinc-400 hover:text-zinc-200'}`}
+            >
+              Won ({recentTrades.filter(t => t.status === 'WON').length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setTradeFilter('lost')}
+              className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${tradeFilter === 'lost' ? 'bg-rose-950 text-rose-400 border border-rose-500/30' : 'text-zinc-400 hover:text-zinc-200'}`}
+            >
+              Lost ({recentTrades.filter(t => t.status === 'LOST').length})
+            </button>
+          </div>
+        </div>
+
+        {(() => {
+          const filtered = recentTrades.filter(t => {
+            if (tradeFilter === 'won') return t.status === 'WON';
+            if (tradeFilter === 'lost') return t.status === 'LOST';
+            return true;
+          });
+
+          if (filtered.length === 0) {
+            return (
+              <div className="text-center py-12 text-zinc-500 text-xs">
+                No Martingale trades found for the selected filter. Enable Martingale Strategy Engine to start!
+              </div>
+            );
+          }
+
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead>
+                  <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-wider">
+                    <th className="pb-3">Symbol / Asset</th>
+                    <th className="pb-3">Direction</th>
+                    <th className="pb-3">Entry Spot</th>
+                    <th className="pb-3">Exit Spot</th>
+                    <th className="pb-3">Stake</th>
+                    <th className="pb-3">Net Return</th>
+                    <th className="pb-3">Status</th>
+                    <th className="pb-3 text-right">Close Time (Jeddah)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="divide-y divide-zinc-800/50 text-zinc-300">
+                  {filtered.map((t) => {
+                    const pnlVal = parseFloat(t.pnl) || 0;
+                    const isWon = t.status === 'WON' || pnlVal > 0;
+                    const isLost = t.status === 'LOST' || pnlVal < 0;
+                    return (
+                      <tr key={t.id} className="hover:bg-zinc-800/20 transition-colors">
+                        <td className="py-3 font-extrabold text-zinc-100">{SYMBOL_DISPLAY_MAP[t.symbol] || t.symbol}</td>
+                        <td className="py-3 font-extrabold">
+                          <span className={t.contract_type === 'CALL' ? 'text-emerald-400' : 'text-rose-400'}>
+                            {t.contract_type === 'CALL' ? 'RISE' : 'FALL'}
+                          </span>
+                        </td>
+                        <td className="py-3 text-zinc-400">{t.entry_price ? parseFloat(t.entry_price).toFixed(4) : 'N/A'}</td>
+                        <td className="py-3 text-zinc-400">{t.exit_price ? parseFloat(t.exit_price).toFixed(4) : 'N/A'}</td>
+                        <td className="py-3 font-bold text-zinc-200">${(parseFloat(t.stake) || 0).toFixed(2)}</td>
+                        <td className={`py-3 font-extrabold ${pnlVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                          {pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)}
+                        </td>
+                        <td className="py-3">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                            isWon ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30' :
+                            isLost ? 'bg-rose-950/60 text-rose-400 border border-rose-500/30' :
+                            'bg-amber-950/60 text-amber-400 border border-amber-500/30'
+                          }`}>
+                            {t.status}
+                          </span>
+                        </td>
+                        <td className="py-3 text-zinc-500 text-[11px] text-right font-mono">
+                          {t.closed_at ? new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false }) : new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

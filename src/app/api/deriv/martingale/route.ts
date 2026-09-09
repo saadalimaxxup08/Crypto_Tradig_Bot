@@ -63,6 +63,8 @@ export async function GET() {
       daily: ov.deriv_daily_limit_enabled !== false
     };
 
+    const openTradesList = tradesList.filter(t => t.status === 'OPEN');
+
     return NextResponse.json({
       success: true,
       config,
@@ -76,7 +78,8 @@ export async function GET() {
         winRate,
         allocatedCapital: config.allocated_capital || 20.00
       },
-      recentTrades: tradesList.slice(0, 15)
+      openTrades: openTradesList,
+      recentTrades: tradesList.slice(0, 50)
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
