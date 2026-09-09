@@ -145,7 +145,10 @@ export default function MartingaleStrategyPage() {
     openCount: 0,
     totalPnL: 0,
     winRate: 0,
-    allocatedCapital: 20.00
+    allocatedCapital: 20.00,
+    demoBalance: 0.00,
+    realBalance: 0.00,
+    activeBalance: 0.00
   });
 
   const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
@@ -554,41 +557,60 @@ export default function MartingaleStrategyPage() {
       )}
 
       {/* Martingale Dedicated Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-5 space-y-1">
-          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Allocated Capital Pool</span>
-          <div className="text-2xl font-black font-mono text-zinc-100 flex items-center gap-1">
-            <DollarSign className="w-5 h-5 text-emerald-400" />
-            <span>${parseFloat(allocatedCapital).toFixed(2)}</span>
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        {/* Card 1: Total Deriv Wallet Balance (Chota label + Badge) */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Total Deriv Wallet</span>
+            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase ${
+              tradingMode === 'REAL' ? 'bg-rose-950/60 text-rose-400 border-rose-500/30' : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
+            }`}>
+              {tradingMode === 'REAL' ? 'REAL' : 'DEMO'}
+            </span>
           </div>
-          <p className="text-[10px] text-zinc-500">Dedicated budget pool for Martingale trades</p>
+          <div className="text-xl font-black font-mono text-zinc-100 flex items-center gap-1">
+            <DollarSign className="w-4 h-4 text-emerald-400" />
+            <span>{(tradingMode === 'REAL' ? (stats.realBalance || 0) : (stats.demoBalance || 0)).toFixed(2)}</span>
+          </div>
+          <p className="text-[9px] text-zinc-500">Deriv main account wallet balance</p>
         </div>
 
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-5 space-y-1">
-          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Martingale Total PnL</span>
-          <div className={`text-2xl font-black font-mono ${stats.totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+        {/* Card 2: Allocated Martingale Capital Pool */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
+          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Allocated Capital Pool</span>
+          <div className="text-xl font-black font-mono text-emerald-400 flex items-center gap-1">
+            <DollarSign className="w-4 h-4 text-emerald-400" />
+            <span>{parseFloat(allocatedCapital).toFixed(2)}</span>
+          </div>
+          <p className="text-[9px] text-zinc-500">Editable budget dedicated for Martingale</p>
+        </div>
+
+        {/* Card 3: Martingale Isolated Total PnL */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
+          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Martingale Isolated PnL</span>
+          <div className={`text-xl font-black font-mono ${stats.totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {stats.totalPnL >= 0 ? '+' : ''}${stats.totalPnL.toFixed(2)}
           </div>
-          <p className="text-[10px] text-zinc-500">{stats.wonCount} Won / {stats.lostCount} Lost</p>
+          <p className="text-[9px] text-zinc-500">{stats.wonCount} Won / {stats.lostCount} Lost (Isolated)</p>
         </div>
 
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-5 space-y-1">
-          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Execution Mode</span>
-          <div className="text-lg font-black text-emerald-400 flex items-center gap-2">
-            {executionMode === 'ONE_BY_ONE' ? <Lock className="w-4 h-4 text-emerald-400" /> : <Zap className="w-4 h-4 text-emerald-400" />}
+        {/* Card 4: Execution Mode */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
+          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Execution Mode</span>
+          <div className="text-md font-black text-emerald-400 flex items-center gap-1.5 pt-0.5">
+            {executionMode === 'ONE_BY_ONE' ? <Lock className="w-3.5 h-3.5 text-emerald-400" /> : <Zap className="w-3.5 h-3.5 text-emerald-400" />}
             <span>{executionMode === 'ONE_BY_ONE' ? 'One-By-One' : 'Multi-Trade'}</span>
           </div>
-          <p className="text-[10px] text-zinc-500">
-            {executionMode === 'ONE_BY_ONE' ? 'Waits for active trade to expire before next entry' : 'Parallel trades allowed'}
-          </p>
+          <p className="text-[9px] text-zinc-500">Sequential trade entry lock</p>
         </div>
 
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-5 space-y-1">
-          <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">Martingale Win Rate</span>
-          <div className="text-2xl font-black font-mono text-zinc-100">
+        {/* Card 5: Martingale Win Rate */}
+        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1 col-span-2 lg:col-span-1">
+          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Martingale Win Rate</span>
+          <div className="text-xl font-black font-mono text-zinc-100">
             {stats.winRate.toFixed(1)}%
           </div>
-          <p className="text-[10px] text-zinc-500">Total {stats.totalTrades} Martingale trades executed</p>
+          <p className="text-[9px] text-zinc-500">Total {stats.totalTrades} Martingale trades</p>
         </div>
       </div>
 
@@ -757,9 +779,12 @@ export default function MartingaleStrategyPage() {
                 USD
               </span>
             </div>
-            <p className="text-[10px] text-zinc-500">
-              Only this pool will be tracked. Main strategy testing funds remain completely untouched.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[10px] text-zinc-500 gap-1 pt-1">
+              <span>Only this pool will be tracked. Main strategy testing funds remain completely untouched.</span>
+              <span className="font-mono font-bold text-zinc-300 shrink-0">
+                Deriv Wallet ({tradingMode}): ${(tradingMode === 'REAL' ? (stats.realBalance || 0) : (stats.demoBalance || 0)).toFixed(2)}
+              </span>
+            </div>
           </div>
 
           {/* Execution Mode Radio Cards */}

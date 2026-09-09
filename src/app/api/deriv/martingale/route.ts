@@ -5,6 +5,34 @@ import { DEFAULT_MARTINGALE_CONFIG } from '@/lib/deriv_martingale_engine';
 
 export const dynamic = 'force-dynamic';
 
+async function getDerivBalances(appId: string, token: string) {
+  try {
+    const response = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
+      method: 'GET',
+      headers: {
+        'Deriv-App-ID': appId,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.status === 200) {
+      const resData = await response.json();
+      if (resData && resData.data) {
+        const demo = resData.data.find((a: any) => a.account_type === 'demo');
+        const real = resData.data.find((a: any) => a.account_type === 'real');
+        return {
+          demoBalance: demo ? parseFloat(demo.balance) : 0.00,
+          realBalance: real ? parseFloat(real.balance) : 0.00
+        };
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch Deriv balances in martingale route:", e);
+  }
+  return { demoBalance: 0.00, realBalance: 0.00 };
+}
+
 export async function GET() {
   const user = getSessionUser();
   if (!user) {
@@ -14,11 +42,21 @@ export async function GET() {
   try {
     const { data: settings } = await supabase
       .from('settings')
-      .select('pair_overrides')
+      .select('deriv_app_id, deriv_api_token, pair_overrides')
       .eq('id', 1)
       .single();
 
+    const appId = settings?.deriv_app_id || process.env.DERIV_APP_ID || '';
+    const token = settings?.deriv_api_token || process.env.DERIV_API_TOKEN || '';
     const ov = settings?.pair_overrides || {};
+
+    let demoBalance = 0.00;
+    let realBalance = 0.00;
+    if (appId && token) {
+      const balances = await getDerivBalances(appId, token);
+      demoBalance = balances.demoBalance;
+      realBalance = balances.realBalance;
+    }
 
     const config = {
       enabled: ov.deriv_progression_enabled === true,
@@ -77,7 +115,10 @@ export async function GET() {
         openCount,
         totalPnL,
         winRate,
-        allocatedCapital: config.allocated_capital || 20.00
+        allocatedCapital: config.allocated_capital || 20.00,
+        demoBalance,
+        realBalance,
+        activeBalance: config.trading_mode === 'REAL' ? realBalance : demoBalance
       },
       openTrades: openTradesList,
       recentTrades: tradesList.slice(0, 50)
