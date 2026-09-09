@@ -336,6 +336,16 @@ export async function GET(req: Request) {
     socket.close();
     scanLogs.push('Scan loop execution complete.');
     await saveDerivScanLogs(existingOverrides, scanLogs, nearEntryPairs);
+
+    // Also trigger Martingale background scanner cycle automatically
+    try {
+      await fetch(`${originUrl}/api/deriv/martingale-cron`, {
+        signal: AbortSignal.timeout(12000)
+      });
+    } catch (mErr: any) {
+      console.error('Martingale background cron trigger error:', mErr);
+    }
+
     return NextResponse.json({ success: true, logs: scanLogs });
 
   } catch (err: any) {

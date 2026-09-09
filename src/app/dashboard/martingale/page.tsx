@@ -213,9 +213,20 @@ export default function MartingaleStrategyPage() {
   };
 
   useEffect(() => {
-    fetchMartingaleData();
-    const interval = setInterval(() => fetchMartingaleData(false), 10000);
-    return () => clearInterval(interval);
+    const initPage = async () => {
+      await fetchMartingaleData(true);
+      // Auto-trigger instant scan on page load so terminal console & watchlist are never blank
+      handleRunInstantScan();
+    };
+    initPage();
+
+    const dataInterval = setInterval(() => fetchMartingaleData(false), 10000);
+    const scanInterval = setInterval(() => handleRunInstantScan(), 20000);
+
+    return () => {
+      clearInterval(dataInterval);
+      clearInterval(scanInterval);
+    };
   }, []);
 
   const handleTradingModeChange = async (mode: 'DEMO' | 'REAL') => {
