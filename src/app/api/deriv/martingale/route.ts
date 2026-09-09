@@ -22,6 +22,7 @@ export async function GET() {
 
     const config = {
       enabled: ov.deriv_progression_enabled === true,
+      trading_mode: ov.martingale_trading_mode || 'DEMO',
       allocated_capital: ov.martingale_allocated_capital !== undefined ? parseFloat(ov.martingale_allocated_capital) : 20.00,
       execution_mode: ov.martingale_execution_mode || 'ONE_BY_ONE',
       selected_pairs: Array.isArray(ov.martingale_selected_pairs) ? ov.martingale_selected_pairs : DEFAULT_MARTINGALE_CONFIG.selected_pairs,
@@ -96,6 +97,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const {
       enabled,
+      trading_mode,
       allocated_capital,
       execution_mode,
       selected_pairs,
@@ -115,6 +117,7 @@ export async function POST(req: Request) {
     const updatedOv = {
       ...currentOv,
       deriv_progression_enabled: enabled !== undefined ? Boolean(enabled) : (currentOv.deriv_progression_enabled === true),
+      martingale_trading_mode: trading_mode || currentOv.martingale_trading_mode || 'DEMO',
       martingale_allocated_capital: allocated_capital !== undefined ? parseFloat(allocated_capital) : (currentOv.martingale_allocated_capital || 20.00),
       martingale_execution_mode: execution_mode || currentOv.martingale_execution_mode || 'ONE_BY_ONE',
       martingale_selected_pairs: Array.isArray(selected_pairs) ? selected_pairs : (currentOv.martingale_selected_pairs || DEFAULT_MARTINGALE_CONFIG.selected_pairs),
@@ -140,6 +143,7 @@ export async function POST(req: Request) {
 
     const config = {
       enabled: updatedOv.deriv_progression_enabled === true,
+      trading_mode: updatedOv.martingale_trading_mode,
       allocated_capital: updatedOv.martingale_allocated_capital,
       execution_mode: updatedOv.martingale_execution_mode,
       selected_pairs: updatedOv.martingale_selected_pairs,

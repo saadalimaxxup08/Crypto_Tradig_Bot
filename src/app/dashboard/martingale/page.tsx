@@ -15,7 +15,8 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  DollarSign
+  DollarSign,
+  Terminal
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -147,6 +148,9 @@ export default function MartingaleStrategyPage() {
     allocatedCapital: 20.00
   });
 
+  const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
+  const [scanLogs, setScanLogs] = useState<string[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
   const [recentTrades, setRecentTrades] = useState<any[]>([]);
   const [openTrades, setOpenTrades] = useState<any[]>([]);
   const [tradeFilter, setTradeFilter] = useState<'all' | 'won' | 'lost'>('all');
@@ -162,6 +166,7 @@ export default function MartingaleStrategyPage() {
         if (data.success && data.config) {
           if (!isInitialLoaded || forceUpdateState) {
             setEnabled(Boolean(data.config.enabled));
+            setTradingMode(data.config.trading_mode || 'DEMO');
             setAllocatedCapital(String(data.config.allocated_capital || '20.00'));
             setExecutionMode(data.config.execution_mode || 'ONE_BY_ONE');
             if (Array.isArray(data.config.selected_pairs)) {
@@ -203,6 +208,59 @@ export default function MartingaleStrategyPage() {
     return () => clearInterval(interval);
   }, []);
 
+  const handleTradingModeChange = async (mode: 'DEMO' | 'REAL') => {
+    setTradingMode(mode);
+    try {
+      const res = await fetch('/api/deriv/martingale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled,
+          trading_mode: mode,
+          allocated_capital: parseFloat(allocatedCapital) || 20.00,
+          execution_mode: executionMode,
+          selected_pairs: selectedPairs,
+          progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
+          progression_active_steps: activeSteps,
+          riskFilters: {
+            news: newsFilterEnabled,
+            session: sessionFilterEnabled,
+            cooldown: cooldownFilterEnabled,
+            daily: dailyLimitEnabled
+          }
+        })
+      });
+      if (res.ok) {
+        setStatusMsg({
+          type: 'success',
+          text: `Martingale Account Mode switched to ${mode === 'REAL' ? 'REAL LIVE ACCOUNT' : 'DEMO VIRTUAL SANDBOX'}!`
+        });
+        setTimeout(() => setStatusMsg({ type: '', text: '' }), 4000);
+        await fetchMartingaleData(true);
+      }
+    } catch (err) {
+      console.error('Error changing trading mode:', err);
+    }
+  };
+
+  const handleRunInstantScan = async () => {
+    setIsScanning(true);
+    try {
+      const res = await fetch('/api/deriv/martingale-cron');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.logs && Array.isArray(data.logs)) {
+          setScanLogs(data.logs);
+        }
+        await fetchMartingaleData(true);
+      }
+    } catch (err) {
+      console.error('Failed to trigger instant scan:', err);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const handleToggleEngine = async () => {
     const nextState = !enabled;
     setEnabled(nextState);
@@ -212,6 +270,7 @@ export default function MartingaleStrategyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enabled: nextState,
+          trading_mode: tradingMode,
           allocated_capital: parseFloat(allocatedCapital) || 20.00,
           execution_mode: executionMode,
           selected_pairs: selectedPairs,
@@ -246,6 +305,7 @@ export default function MartingaleStrategyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enabled,
+          trading_mode: tradingMode,
           allocated_capital: parseFloat(allocatedCapital) || 20.00,
           execution_mode: mode,
           selected_pairs: selectedPairs,
@@ -287,6 +347,7 @@ export default function MartingaleStrategyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enabled,
+          trading_mode: tradingMode,
           allocated_capital: parseFloat(allocatedCapital) || 20.00,
           execution_mode: executionMode,
           selected_pairs: selectedPairs,
@@ -320,6 +381,7 @@ export default function MartingaleStrategyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           enabled,
+          trading_mode: tradingMode,
           allocated_capital: parseFloat(allocatedCapital) || 20.00,
           execution_mode: executionMode,
           selected_pairs: selectedPairs,
@@ -428,6 +490,53 @@ export default function MartingaleStrategyPage() {
                 enabled ? 'translate-x-8' : 'translate-x-1'
               }`}
             />
+          </button>
+        </div>
+      </div>
+
+      {/* Martingale Account Mode Switch Card (DEMO vs REAL) */}
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-extrabold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+              <Shield className="w-4 h-4 text-emerald-400" />
+              <span>Independent Martingale Trading Account Mode</span>
+            </h3>
+            <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md border ${
+              tradingMode === 'REAL'
+                ? 'bg-rose-950/60 text-rose-400 border-rose-500/40 animate-pulse'
+                : 'bg-amber-950/60 text-amber-400 border-amber-500/40'
+            }`}>
+              {tradingMode === 'REAL' ? 'REAL LIVE ACCOUNT' : 'DEMO VIRTUAL SANDBOX'}
+            </span>
+          </div>
+          <p className="text-xs text-zinc-400">
+            Switch Martingale Engine between Demo Virtual Practice and Real Live Account independently without affecting main bot testing.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-zinc-950/80 border border-zinc-800 p-1 rounded-2xl shrink-0">
+          <button
+            type="button"
+            onClick={() => handleTradingModeChange('DEMO')}
+            className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+              tradingMode === 'DEMO'
+                ? 'bg-amber-500 text-zinc-950 shadow-md shadow-amber-500/10'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            DEMO VIRTUAL
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTradingModeChange('REAL')}
+            className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+              tradingMode === 'REAL'
+                ? 'bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20'
+                : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            REAL LIVE CAPITAL
           </button>
         </div>
       </div>
@@ -565,6 +674,59 @@ export default function MartingaleStrategyPage() {
               {dailyLimitEnabled ? 'GUARD ON' : 'GUARD OFF'}
             </span>
           </button>
+        </div>
+      </div>
+
+      {/* Live Martingale Analysis & Scan Logs Terminal Card */}
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-3 gap-3">
+          <div>
+            <h3 className="text-md font-bold text-zinc-200 flex items-center gap-2">
+              <Terminal className="w-5 h-5 text-emerald-400" />
+              <span>Live Martingale Analysis &amp; Scanner Feed</span>
+            </h3>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Real-time console monitoring all active pair scans, signal evaluations, filter rejections, and One-By-One trade locks.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleRunInstantScan}
+            disabled={isScanning}
+            className="flex items-center gap-2 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold py-2 px-4 rounded-xl transition-all cursor-pointer disabled:opacity-50 shrink-0"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
+            <span>{isScanning ? 'Scanning Pairs...' : 'Run Scan & Analysis Now'}</span>
+          </button>
+        </div>
+
+        <div className="bg-[#08080a] border border-zinc-900 rounded-2xl p-4 font-mono text-xs max-h-60 overflow-y-auto space-y-1.5 leading-relaxed text-zinc-300">
+          {scanLogs.length === 0 ? (
+            <div className="text-zinc-600 text-center py-6">
+              No recent scan logs. Click "Run Scan &amp; Analysis Now" or wait for automated background scanner execution.
+            </div>
+          ) : (
+            scanLogs.map((logLine, idx) => {
+              const isTrade = logLine.includes('TRADE EXECUTED') || logLine.includes('WON') || logLine.includes('PLACED');
+              const isReject = logLine.includes('REJECTED') || logLine.includes('SKIP') || logLine.includes('BLOCKED');
+              const isInfo = logLine.includes('SCAN');
+
+              return (
+                <div
+                  key={idx}
+                  className={`flex items-start gap-2 ${
+                    isTrade ? 'text-emerald-400 font-bold' :
+                    isReject ? 'text-amber-400/90' :
+                    isInfo ? 'text-cyan-400/90' : 'text-zinc-400'
+                  }`}
+                >
+                  <span className="text-zinc-600 select-none">&gt;</span>
+                  <span className="break-all">{logLine}</span>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
