@@ -198,18 +198,18 @@ export async function GET(req: Request) {
 
       scanLogs.push(`Scanning ${getDisplaySymbolName(pair)}...`);
 
-      const candles5m = await fetchCandles(socket, pair, 300);
-      const candles15m = await fetchCandles(socket, pair, 900);
-      const candlesH1 = await fetchCandles(socket, pair, 3600);
+      const candles5m = await fetchCandles(socket, pair, 300, appId);
+      const candles15m = await fetchCandles(socket, pair, 900, appId);
+      const candlesH1 = await fetchCandles(socket, pair, 3600, appId);
 
       let candles10m: any[] = [];
       let candles30m: any[] = [];
       let candlesH4: any[] = [];
 
       if (activeStrategies.includes('FOREX_30M_MTF_V3')) {
-        candles10m = await fetchCandles(socket, pair, 600);
-        candles30m = await fetchCandles(socket, pair, 1800);
-        candlesH4 = await fetchCandles(socket, pair, 14400);
+        candles10m = await fetchCandles(socket, pair, 600, appId);
+        candles30m = await fetchCandles(socket, pair, 1800, appId);
+        candlesH4 = await fetchCandles(socket, pair, 14400, appId);
       }
 
       for (const stratId of activeStrategies) {

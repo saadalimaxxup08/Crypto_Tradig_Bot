@@ -22,20 +22,77 @@ export async function fetchOTP(appId: string, token: string, accountId: string):
   return otpData.data.url;
 }
 
-// Fetch historical candles over WebSocket
-export function fetchCandles(socket: WebSocket, symbol: string, granularity: number): Promise<any[]> {
-  return new Promise((resolve) => {
+// Public WebSocket Connection for unthrottled ticks_history requests
+let publicSocket: WebSocket | null = null;
+let publicSocketAppId = '';
+
+export async function getPublicWebSocket(appId?: string): Promise<WebSocket> {
+  const activeAppId = appId || process.env.DERIV_APP_ID || '1089';
+  if (publicSocket && publicSocket.readyState === WebSocket.OPEN && publicSocketAppId === activeAppId) {
+    return publicSocket;
+  }
+
+  if (publicSocket) {
+    try { publicSocket.close(); } catch (e) {}
+  }
+
+  const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${activeAppId}`;
+  publicSocket = new WebSocket(wsUrl);
+  publicSocketAppId = activeAppId;
+
+  await new Promise<void>((resolve) => {
+    if (publicSocket!.readyState === WebSocket.OPEN) return resolve();
+    publicSocket!.on('open', () => resolve());
+    publicSocket!.on('error', () => resolve());
+    setTimeout(() => resolve(), 4000);
+  });
+
+  (publicSocket as any).setMaxListeners?.(200);
+  return publicSocket;
+}
+
+// In-memory Candle Cache (40s TTL) to prevent rate limits and optimize scanning speed
+const candleCache: Map<string, { candles: any[]; timestamp: number }> = new Map();
+
+// Fetch historical candles over WebSocket with Public WS Fallback
+export async function fetchCandles(socket: WebSocket, symbol: string, granularity: number, appId?: string): Promise<any[]> {
+  const cacheKey = `${symbol}_${granularity}`;
+  const cached = candleCache.get(cacheKey);
+  const now = Date.now();
+
+  // 1. Return cached candles if fetched within last 40 seconds
+  if (cached && (now - cached.timestamp < 40000) && cached.candles.length > 0) {
+    return cached.candles;
+  }
+
+  // 2. Fetch candles over primary WebSocket
+  const candles = await new Promise<any[]>((resolve) => {
+    let done = false;
+    const cleanup = () => {
+      if (!done) {
+        done = true;
+        socket.removeEventListener('message', handleMsg);
+      }
+    };
+
     const handleMsg = (event: any) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.msg_type === 'candles' && data.echo_req.ticks_history === symbol && data.echo_req.granularity === granularity) {
-          socket.removeEventListener('message', handleMsg);
+        if (data.error && data.echo_req?.ticks_history === symbol && data.echo_req?.granularity === granularity) {
+          cleanup();
+          resolve([]);
+          return;
+        }
+        if (data.msg_type === 'candles' && data.echo_req?.ticks_history === symbol && data.echo_req?.granularity === granularity) {
+          cleanup();
           resolve(data.candles || []);
+          return;
         }
       } catch (e) {
         // ignore
       }
     };
+
     socket.addEventListener('message', handleMsg);
     socket.send(JSON.stringify({
       ticks_history: symbol,
@@ -46,26 +103,98 @@ export function fetchCandles(socket: WebSocket, symbol: string, granularity: num
       style: 'candles'
     }));
 
-    // Safety timeout
     setTimeout(() => {
-      socket.removeEventListener('message', handleMsg);
+      cleanup();
       resolve([]);
-    }, 5000);
+    }, 2500);
   });
+
+  if (candles.length > 0) {
+    candleCache.set(cacheKey, { candles, timestamp: Date.now() });
+    return candles;
+  }
+
+  // 3. If primary WS returned empty/rate-limit error, fallback to Public Unthrottled WebSocket
+  try {
+    const pubSocket = await getPublicWebSocket(appId);
+    const pubCandles = await new Promise<any[]>((resolve) => {
+      let done = false;
+      const cleanup = () => {
+        if (!done) {
+          done = true;
+          pubSocket.removeEventListener('message', handleMsg);
+        }
+      };
+
+      const handleMsg = (event: any) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.msg_type === 'candles' && data.echo_req?.ticks_history === symbol && data.echo_req?.granularity === granularity) {
+            cleanup();
+            resolve(data.candles || []);
+            return;
+          }
+          if (data.error && data.echo_req?.ticks_history === symbol) {
+            cleanup();
+            resolve([]);
+            return;
+          }
+        } catch (e) {}
+      };
+
+      pubSocket.addEventListener('message', handleMsg);
+      pubSocket.send(JSON.stringify({
+        ticks_history: symbol,
+        adjust_start_time: 1,
+        count: 220,
+        end: 'latest',
+        granularity,
+        style: 'candles'
+      }));
+
+      setTimeout(() => {
+        cleanup();
+        resolve([]);
+      }, 2500);
+    });
+
+    if (pubCandles.length > 0) {
+      candleCache.set(cacheKey, { candles: pubCandles, timestamp: Date.now() });
+      return pubCandles;
+    }
+  } catch (err: any) {
+    console.error('Public WS fallback error:', err.message);
+  }
+
+  return cached?.candles || [];
 }
 
 // Fetch bid/ask tick over WebSocket
 export function fetchTick(socket: WebSocket, symbol: string): Promise<{ ask: number; bid: number } | null> {
   return new Promise((resolve) => {
+    let done = false;
+    const cleanup = () => {
+      if (!done) {
+        done = true;
+        socket.removeEventListener('message', handleMsg);
+      }
+    };
+
     const handleMsg = (event: any) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.msg_type === 'tick' && data.echo_req.ticks === symbol) {
-          socket.removeEventListener('message', handleMsg);
+        if (data.error && data.echo_req?.ticks === symbol) {
+          cleanup();
+          resolve(null);
+          return;
+        }
+        if (data.msg_type === 'tick' && data.echo_req?.ticks === symbol) {
+          cleanup();
           resolve({
             ask: parseFloat(data.tick.ask),
             bid: parseFloat(data.tick.bid)
           });
+          return;
         }
       } catch (e) {
         // ignore
@@ -76,11 +205,11 @@ export function fetchTick(socket: WebSocket, symbol: string): Promise<{ ask: num
       ticks: symbol
     }));
 
-    // Safety timeout
+    // Safety timeout (2.5 seconds)
     setTimeout(() => {
-      socket.removeEventListener('message', handleMsg);
+      cleanup();
       resolve(null);
-    }, 4000);
+    }, 2500);
   });
 }
 
