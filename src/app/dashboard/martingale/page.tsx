@@ -441,10 +441,20 @@ export default function MartingaleStrategyPage() {
               <Layers className="w-5 h-5 text-emerald-400" />
               <span>Custom 10-Step Progression &amp; Recovery Table</span>
             </h3>
-            <p className="text-xs text-zinc-400 mt-1">
+            <p className="text-xs text-zinc-400 mt-1 max-w-3xl">
               Tick the steps you want to activate. When a trade loses, the bot moves to the next <b>ticked step</b>. As soon as <b>ANY trade WINS</b>, the bot resets back to Step 1. If <b>all ticked steps lose</b>, trading is automatically HALTED for risk protection!
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold py-2.5 px-5 rounded-2xl shadow-lg shadow-emerald-950/40 transition-all shrink-0 active:scale-95 disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            <span>{isSaving ? 'Saving Steps...' : 'Save Progression Steps'}</span>
+          </button>
         </div>
 
         {/* 10 Step Inputs Grid with Checkboxes */}
@@ -510,6 +520,22 @@ export default function MartingaleStrategyPage() {
             );
           })}
         </div>
+
+        {/* Progression Table Bottom Quick Save Bar */}
+        <div className="flex items-center justify-between border-t border-zinc-800/50 pt-4">
+          <span className="text-xs text-zinc-400">
+            Active Steps Enabled: <b>{activeSteps.filter(Boolean).length} / 10</b>
+          </span>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold py-2 px-4 rounded-xl shadow-md transition-all active:scale-95 disabled:opacity-50"
+          >
+            <Save className="w-3.5 h-3.5" />
+            <span>{isSaving ? 'Saving...' : 'Save Progression Table'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Control 3: Dedicated Martingale Pair Selector */}
@@ -529,16 +555,25 @@ export default function MartingaleStrategyPage() {
             <button
               type="button"
               onClick={selectAllPairs}
-              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold px-3 py-1.5 rounded-xl transition-all"
+              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold px-3 py-2 rounded-xl transition-all cursor-pointer"
             >
               Select All
             </button>
             <button
               type="button"
               onClick={clearAllPairs}
-              className="text-xs bg-zinc-800/60 hover:bg-zinc-800 text-zinc-400 font-bold px-3 py-1.5 rounded-xl transition-all"
+              className="text-xs bg-zinc-800/60 hover:bg-zinc-800 text-zinc-400 font-bold px-3 py-2 rounded-xl transition-all cursor-pointer"
             >
               Clear All
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSaving ? 'Saving...' : 'Save Selected Pairs'}</span>
             </button>
           </div>
         </div>
