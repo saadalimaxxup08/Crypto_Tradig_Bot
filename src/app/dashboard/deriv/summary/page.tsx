@@ -32,44 +32,103 @@ const STRATEGY_NAMES: Record<string, string> = {
 };
 
 const SYMBOL_NAMES: Record<string, string> = {
+  // Forex Majors, Minors & Metals
   frxEURUSD: 'EUR/USD',
   frxGBPUSD: 'GBP/USD',
   frxUSDJPY: 'USD/JPY',
   frxAUDUSD: 'AUD/USD',
   frxUSDCAD: 'USD/CAD',
   frxUSDCHF: 'USD/CHF',
-  frxAUDJPY: 'AUD/JPY',
+  frxNZDUSD: 'NZD/USD',
+  frxEURGBP: 'EUR/GBP',
   frxEURJPY: 'EUR/JPY',
   frxGBPJPY: 'GBP/JPY',
+  frxAUDJPY: 'AUD/JPY',
+  frxEURAUD: 'EUR/AUD',
+  frxEURCAD: 'EUR/CAD',
+  frxEURCHF: 'EUR/CHF',
+  frxGBPAUD: 'GBP/AUD',
+  frxGBPCAD: 'GBP/CAD',
+  frxGBPCHF: 'GBP/CHF',
+  frxGBPNZD: 'GBP/NZD',
+  frxAUDCAD: 'AUD/CAD',
+  frxAUDCHF: 'AUD/CHF',
+  frxAUDNZD: 'AUD/NZD',
+  frxEURNZD: 'EUR/NZD',
+  frxNZDJPY: 'NZD/JPY',
   frxXAUUSD: 'Gold / USD',
   frxXAGUSD: 'Silver / USD',
   cryBTCUSD: 'BTC/USD',
   cryETHUSD: 'ETH/USD',
+  // Synthetics Volatility Indices
   R_10: 'Volatility 10 Index',
   R_25: 'Volatility 25 Index',
   R_50: 'Volatility 50 Index',
   R_75: 'Volatility 75 Index',
   R_100: 'Volatility 100 Index',
   '1HZ10V': 'Volatility 10 (1s) Index',
+  '1HZ15V': 'Volatility 15 (1s) Index',
+  '1HZ25V': 'Volatility 25 (1s) Index',
+  '1HZ30V': 'Volatility 30 (1s) Index',
+  '1HZ50V': 'Volatility 50 (1s) Index',
   '1HZ75V': 'Volatility 75 (1s) Index',
+  '1HZ90V': 'Volatility 90 (1s) Index',
   '1HZ100V': 'Volatility 100 (1s) Index',
-  BOOM500: 'Boom 500 Index',
-  BOOM1000: 'Boom 1000 Index',
-  CRASH500: 'Crash 500 Index',
-  CRASH1000: 'Crash 1000 Index',
-  JD50: 'Jump 50 Index',
+  '1HZ150V': 'Volatility 150 (1s) Index',
+  '1HZ250V': 'Volatility 250 (1s) Index',
+  '1HZ300V': 'Volatility 300 (1s) Index',
+  // Step Indices
   stpRNG: 'Step Index',
-  RB100: 'Range Break 100',
-  RB200: 'Range Break 200',
-  stpRNG2: 'Step Index 200',
-  stpRNG3: 'Step Index 300',
-  stpRNG4: 'Step Index 400',
-  stpRNG5: 'Step Index 500'
+  stpRNG2: 'Step Index 2',
+  stpRNG3: 'Step Index 3',
+  stpRNG4: 'Step Index 4',
+  stpRNG5: 'Step Index 5',
+  // Boom & Crash & Jump & Range Break
+  BOOM50: 'Boom 50 Index',
+  BOOM150N: 'Boom 150 Index',
+  BOOM300N: 'Boom 300 Index',
+  BOOM500: 'Boom 500 Index',
+  BOOM600: 'Boom 600 Index',
+  BOOM900: 'Boom 900 Index',
+  BOOM1000: 'Boom 1000 Index',
+  CRASH50: 'Crash 50 Index',
+  CRASH150N: 'Crash 150 Index',
+  CRASH300N: 'Crash 300 Index',
+  CRASH500: 'Crash 500 Index',
+  CRASH600: 'Crash 600 Index',
+  CRASH900: 'Crash 900 Index',
+  CRASH1000: 'Crash 1000 Index',
+  JD10: 'Jump 10 Index',
+  JD25: 'Jump 25 Index',
+  JD50: 'Jump 50 Index',
+  JD75: 'Jump 75 Index',
+  JD100: 'Jump 100 Index',
+  RB100: 'Range Break 100 Index',
+  RB200: 'Range Break 200 Index',
+  // OTC/Indices
+  OTC_NDX: 'US Tech 100 Index',
+  OTC_SPC: 'US 500 Index',
+  OTC_DJI: 'Wall Street 30 Index',
+  OTC_FTSE: 'UK 100 Index',
+  OTC_GDAXI: 'Germany 40 Index',
+  OTC_FCHI: 'France 40 Index',
+  OTC_SX5E: 'Euro 50 Index',
+  OTC_N225: 'Japan 225 Index',
+  OTC_HSI: 'Hong Kong 50 Index',
+  OTC_AS51: 'Australia 200 Index',
+  OTC_AEX: 'Netherlands 25 Index',
+  OTC_SSMI: 'Swiss 20 Index',
+  WLDAUD: 'AUD Basket',
+  WLDEUR: 'EUR Basket',
+  WLDGBP: 'GBP Basket',
+  WLDUSD: 'USD Basket',
+  WLDXAU: 'Gold Basket',
+  RDBEAR: 'Bear Market Index',
+  RDBULL: 'Bull Market Index'
 };
 
 function getDisplaySymbolName(symbol: string) {
-  const name = SYMBOL_NAMES[symbol];
-  return name ? `${name} (${symbol})` : symbol;
+  return SYMBOL_NAMES[symbol] || symbol;
 }
 
 export default function DerivSummaryPage() {
@@ -416,7 +475,7 @@ export default function DerivSummaryPage() {
 
         doc.setTextColor(30, 30, 35);
         doc.text(entryTime, 17, currentY);
-        doc.text(getDisplaySymbolName(t.pair).split(' (')[0], 54, currentY);
+        doc.text(getDisplaySymbolName(t.pair), 54, currentY);
         
         if (t.direction === 'LONG') {
           doc.setTextColor(16, 185, 129);
@@ -480,7 +539,7 @@ export default function DerivSummaryPage() {
         currentY = 20;
       }
       const closeTime = new Date(t.closed_at).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false });
-      const displayName = getDisplaySymbolName(t.pair).split(' (')[0];
+      const displayName = getDisplaySymbolName(t.pair);
       const durStr = `${t.duration || 15}${t.duration_unit || 'm'}`;
 
       doc.setTextColor(30, 30, 35);
@@ -579,7 +638,7 @@ export default function DerivSummaryPage() {
           const ls = stats.total - stats.wins;
 
           doc.setTextColor(30, 30, 35);
-          doc.text(getDisplaySymbolName(pair).split(' (')[0], 17, currentY);
+          doc.text(getDisplaySymbolName(pair), 17, currentY);
           doc.text(stats.total.toString(), 64, currentY);
           doc.text(`${stats.wins}W - ${ls}L`, 100, currentY);
           doc.text(`${wr.toFixed(1)}%`, 140, currentY);
@@ -607,7 +666,7 @@ export default function DerivSummaryPage() {
           }
 
           doc.setTextColor(140, 140, 145);
-          doc.text(getDisplaySymbolName(pair).split(' (')[0], 17, currentY);
+          doc.text(getDisplaySymbolName(pair), 17, currentY);
           doc.text("0", 64, currentY);
           doc.text("0W - 0L", 100, currentY);
           doc.text("0.0%", 140, currentY);
@@ -1028,7 +1087,7 @@ export default function DerivSummaryPage() {
                       readOnly
                       className="w-3 h-3 pointer-events-none accent-emerald-500 rounded border-zinc-700 focus:ring-0"
                     />
-                    <span>{getDisplaySymbolName(pair).split(' (')[0]}</span>
+                    <span>{getDisplaySymbolName(pair)}</span>
                   </button>
                 );
               })}
@@ -1276,7 +1335,7 @@ export default function DerivSummaryPage() {
                   return (
                     <tr key={t.id} className="hover:bg-zinc-900/10">
                       <td className="py-3.5 font-mono text-zinc-400">{entryTime.toLocaleString('en-US', { timeZone: 'Asia/Riyadh' })}</td>
-                      <td className="py-3.5 font-bold text-zinc-200">{getDisplaySymbolName(t.pair).split(' (')[0]}</td>
+                      <td className="py-3.5 font-bold text-zinc-200">{getDisplaySymbolName(t.pair)}</td>
                       <td className="py-3.5 text-center">
                         <span
                           className={`px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase ${
@@ -1419,7 +1478,7 @@ export default function DerivSummaryPage() {
                   return (
                     <tr key={t.id} className="hover:bg-zinc-900/10">
                       <td className="py-3.5 font-mono text-zinc-400">{closeTime}</td>
-                      <td className="py-3.5 font-bold text-zinc-200">{getDisplaySymbolName(t.pair).split(' (')[0]}</td>
+                      <td className="py-3.5 font-bold text-zinc-200">{getDisplaySymbolName(t.pair)}</td>
                       <td className="py-3.5 text-center">
                         <span
                           className={`px-1.5 py-0.5 text-[9px] font-bold rounded border uppercase ${

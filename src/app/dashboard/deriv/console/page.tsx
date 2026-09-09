@@ -82,7 +82,7 @@ const SYMBOL_NAMES: Record<string, string> = {
 
 function getDisplaySymbolName(symbol: string) {
   const name = SYMBOL_NAMES[symbol];
-  return name ? `${name} (${symbol})` : symbol;
+  return name || symbol;
 }
 
 export default function DerivConsolePage() {
@@ -766,7 +766,7 @@ export default function DerivConsolePage() {
                   className="w-4 h-4 rounded text-emerald-500 bg-[#060608] border-zinc-850 focus:ring-emerald-500/20 focus:ring-offset-[#060608] cursor-pointer"
                 />
                 <span className={`text-xs font-mono font-bold transition-colors duration-200 ${isChecked ? 'text-emerald-400' : 'text-zinc-450 hover:text-zinc-300'}`}>
-                  {getDisplaySymbolName(pair).split(' (')[0]}
+                  {getDisplaySymbolName(pair)}
                 </span>
               </label>
             );

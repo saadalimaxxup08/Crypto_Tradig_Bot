@@ -304,7 +304,7 @@ export async function GET() {
                         `Timeframe: ${tradeDuration}m\n` +
                         `Account: ${tradingMode}\n` +
                         `Stake: $${effectiveStake.toFixed(2)}\n\n` +
-                        `📈 <b>Live Chart:</b> <a href="${chartLink}">Open ${getDisplaySymbolName(pair).split(' (')[0]} on Deriv</a>\n` +
+                        `📈 <b>Live Chart:</b> <a href="${chartLink}">Open ${getDisplaySymbolName(pair)} on Deriv</a>\n` +
                         `🔗 <b>Direct Link:</b> ${chartLink}`;
                       
                       await sendTelegramAlert(signalMsg);

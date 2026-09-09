@@ -579,7 +579,7 @@ export async function generateTradePDF(trade: any, contract: any, candles: any[]
     doc.text(value, 50, rowY);
   };
 
-  const displayName = getDisplaySymbolName(trade.symbol).split(' (')[0];
+  const displayName = getDisplaySymbolName(trade.symbol);
   const pnl = parseFloat(contract.profit || 0);
 
   drawRow('Asset Pair:', displayName, y + 18);

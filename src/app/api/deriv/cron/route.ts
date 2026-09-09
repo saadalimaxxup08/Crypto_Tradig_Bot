@@ -305,7 +305,7 @@ export async function GET(req: Request) {
                   `<b>Scan Time (GMT):</b> ${gmtTime}\n` +
                   `<b>Analysis Stats:</b> H1 Trend: ${strategyResultObj.direction === 'CALL' ? 'BULLISH' : 'BEARISH'} | ADX: ${strategyResultObj.adxValue.toFixed(1)}\n` +
                   `<b>Account Mode:</b> ${tradingMode} Sandbox\n\n` +
-                  `📈 <b>Live Chart:</b> <a href="${chartLink}">Open ${getDisplaySymbolName(pair).split(' (')[0]} on Deriv</a>\n` +
+                  `📈 <b>Live Chart:</b> <a href="${chartLink}">Open ${getDisplaySymbolName(pair)} on Deriv</a>\n` +
                   `🔗 <b>Direct Link:</b> ${chartLink}`;
                 
                 await sendTelegramAlert(signalMsg);
