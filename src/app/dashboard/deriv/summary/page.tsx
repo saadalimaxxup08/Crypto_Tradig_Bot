@@ -18,6 +18,7 @@ interface Trade {
   leverage: number;
   margin: number;
   strategy?: string;
+  strategy_engine?: string;
   is_paper?: boolean;
   deriv_status?: 'WON' | 'LOST' | 'OPEN';
   duration?: number;
@@ -147,6 +148,7 @@ export default function DerivSummaryPage() {
   const [selectedStrategies, setSelectedStrategies] = useState<string[]>([]);
   const [showPaperTrades, setShowPaperTrades] = useState(true);
   const [timeframeFilter, setTimeframeFilter] = useState<'all' | '1m' | '5m' | '15m' | '30m'>('all');
+  const [engineFilter, setEngineFilter] = useState<'all' | 'normal' | 'martingale'>('all');
 
   // Default date ranges setup
   useEffect(() => {
@@ -163,6 +165,13 @@ export default function DerivSummaryPage() {
   const applyFilters = (allTrades: Trade[]) => {
     // 1. Filter only live trades unless showPaperTrades is enabled
     let filteredTrades = allTrades.filter((t) => showPaperTrades ? true : !t.is_paper);
+
+    // 1.5 Filter by Strategy Execution Engine
+    if (engineFilter === 'normal') {
+      filteredTrades = filteredTrades.filter((t) => t.strategy_engine !== 'MARTINGALE_ENGINE');
+    } else if (engineFilter === 'martingale') {
+      filteredTrades = filteredTrades.filter((t) => t.strategy_engine === 'MARTINGALE_ENGINE');
+    }
 
     // 2. Filter by selected Pairs (if any are selected)
     if (selectedPairs.length > 0) {
@@ -254,6 +263,7 @@ export default function DerivSummaryPage() {
             leverage: 1,
             margin: t.stake || 1.0,
             strategy: strategy,
+            strategy_engine: t.strategy_engine || 'STANDARD_ENGINE',
             is_paper: t.is_paper,
             deriv_status: t.status,
             duration: dur,
@@ -277,7 +287,7 @@ export default function DerivSummaryPage() {
 
   useEffect(() => {
     applyFilters(rawTrades);
-  }, [startDate, endDate, hourlyFilter, selectedPairs, selectedStrategies, showPaperTrades, rawTrades, timeframeFilter]);
+  }, [startDate, endDate, hourlyFilter, selectedPairs, selectedStrategies, showPaperTrades, rawTrades, timeframeFilter, engineFilter]);
 
   // Set quick ranges
   const setRangeQuick = (rangeType: 'today' | 'yesterday' | '2days' | '3days' | '5days' | 'week' | 'month') => {
@@ -357,13 +367,14 @@ export default function DerivSummaryPage() {
     doc.setTextColor(160, 160, 165);
     doc.text("Performance Summary Report & Verified Options Ledger (Jeddah Time)", 14, 19);
     
+    const engineLabel = engineFilter === 'normal' ? ' | Normal Deriv' : engineFilter === 'martingale' ? ' | Martingale Engine' : '';
     const tfLabel = timeframeFilter !== 'all' ? ` | Timeframe: ${timeframeFilter}` : '';
     const stratLabel = selectedStrategies.length === 1 
       ? ` | Strategy: ${STRATEGY_NAMES[selectedStrategies[0]] || selectedStrategies[0]}` 
       : selectedStrategies.length > 1 
         ? ` | ${selectedStrategies.length} Strats` 
         : '';
-    const dateRangeStr = `Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}${tfLabel}${stratLabel}`;
+    const dateRangeStr = `Period: ${new Date(startDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })} to ${new Date(endDate).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' })}${engineLabel}${tfLabel}${stratLabel}`;
     doc.text(dateRangeStr, 196, 19, { align: 'right' });
 
     // 2. Metrics Bounding Box Cards Grid
@@ -859,6 +870,59 @@ export default function DerivSummaryPage() {
             )}
             <span>Send Telegram</span>
           </button>
+        </div>
+      </div>
+
+      {/* Execution Engine Selection Tabs */}
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-5 space-y-3 no-print">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xs font-extrabold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+              <Layers className="w-4 h-4 text-emerald-400" />
+              <span>Deriv Execution Engine Filter</span>
+            </h3>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Filter performance reports between Standard Testing Trades and Martingale Strategy Engine.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 p-1 bg-zinc-950/80 border border-zinc-800 rounded-2xl overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setEngineFilter('all')}
+              className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+                engineFilter === 'all'
+                  ? 'bg-zinc-800 text-white shadow-md'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              All Deriv Engines
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEngineFilter('normal')}
+              className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+                engineFilter === 'normal'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              Normal Deriv ($1.00 Testing)
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEngineFilter('martingale')}
+              className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
+                engineFilter === 'martingale'
+                  ? 'bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20'
+                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
+              }`}
+            >
+              Martingale Engine ($20 Pool)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1491,9 +1555,18 @@ export default function DerivSummaryPage() {
                         </span>
                       </td>
                       <td className="py-3.5 text-center">
-                        <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-blue-950/30 border border-blue-900/50 text-blue-300">
-                          {STRATEGY_NAMES[t.strategy || ''] || t.strategy || 'Forex MTF'}
-                        </span>
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-blue-950/30 border border-blue-900/50 text-blue-300">
+                            {STRATEGY_NAMES[t.strategy || ''] || t.strategy || 'Forex MTF'}
+                          </span>
+                          <span className={`px-1.5 py-0.5 text-[8px] font-extrabold rounded uppercase ${
+                            t.strategy_engine === 'MARTINGALE_ENGINE'
+                              ? 'bg-emerald-950/40 border border-emerald-800/50 text-emerald-300'
+                              : 'bg-zinc-900 border border-zinc-800 text-zinc-400'
+                          }`}>
+                            {t.strategy_engine === 'MARTINGALE_ENGINE' ? 'MARTINGALE' : 'NORMAL'}
+                          </span>
+                        </div>
                       </td>
                       <td className="py-3.5 text-center">
                         <span className="px-2 py-0.5 text-[10px] font-mono font-bold rounded-md bg-zinc-900 border border-zinc-800 text-zinc-300">
