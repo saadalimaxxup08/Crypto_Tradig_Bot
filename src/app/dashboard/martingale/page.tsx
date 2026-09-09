@@ -20,11 +20,13 @@ import {
 import confetti from 'canvas-confetti';
 
 const SYMBOL_DISPLAY_MAP: Record<string, string> = {
+  // Step Indices
   stpRNG: 'Step Index',
   stpRNG2: 'Step Index 2',
   stpRNG3: 'Step Index 3',
   stpRNG4: 'Step Index 4',
   stpRNG5: 'Step Index 5',
+  // Synthetics Volatility Indices
   R_10: 'Volatility 10 Index',
   R_25: 'Volatility 25 Index',
   R_50: 'Volatility 50 Index',
@@ -41,13 +43,20 @@ const SYMBOL_DISPLAY_MAP: Record<string, string> = {
   '1HZ150V': 'Volatility 150 (1s) Index',
   '1HZ250V': 'Volatility 250 (1s) Index',
   '1HZ300V': 'Volatility 300 (1s) Index',
+  // Boom & Crash & Jump & Range Break
   BOOM50: 'Boom 50 Index',
+  BOOM150N: 'Boom 150 Index',
   BOOM300N: 'Boom 300 Index',
   BOOM500: 'Boom 500 Index',
+  BOOM600: 'Boom 600 Index',
+  BOOM900: 'Boom 900 Index',
   BOOM1000: 'Boom 1000 Index',
   CRASH50: 'Crash 50 Index',
+  CRASH150N: 'Crash 150 Index',
   CRASH300N: 'Crash 300 Index',
   CRASH500: 'Crash 500 Index',
+  CRASH600: 'Crash 600 Index',
+  CRASH900: 'Crash 900 Index',
   CRASH1000: 'Crash 1000 Index',
   JD10: 'Jump 10 Index',
   JD25: 'Jump 25 Index',
@@ -56,6 +65,7 @@ const SYMBOL_DISPLAY_MAP: Record<string, string> = {
   JD100: 'Jump 100 Index',
   RB100: 'Range Break 100 Index',
   RB200: 'Range Break 200 Index',
+  // Forex Majors, Minors & Metals
   frxEURUSD: 'EUR/USD',
   frxGBPUSD: 'GBP/USD',
   frxUSDJPY: 'USD/JPY',
@@ -67,9 +77,42 @@ const SYMBOL_DISPLAY_MAP: Record<string, string> = {
   frxEURJPY: 'EUR/JPY',
   frxGBPJPY: 'GBP/JPY',
   frxAUDJPY: 'AUD/JPY',
+  frxEURAUD: 'EUR/AUD',
+  frxEURCAD: 'EUR/CAD',
+  frxEURCHF: 'EUR/CHF',
+  frxGBPAUD: 'GBP/AUD',
+  frxGBPCAD: 'GBP/CAD',
+  frxGBPCHF: 'GBP/CHF',
+  frxGBPNZD: 'GBP/NZD',
+  frxAUDCAD: 'AUD/CAD',
   frxAUDCHF: 'AUD/CHF',
   frxAUDNZD: 'AUD/NZD',
-  OTC_DJI: 'Wall Street 30 Index'
+  frxEURNZD: 'EUR/NZD',
+  frxNZDJPY: 'NZD/JPY',
+  frxXAUUSD: 'Gold / USD',
+  frxXAGUSD: 'Silver / USD',
+  cryBTCUSD: 'BTC/USD',
+  cryETHUSD: 'ETH/USD',
+  // OTC/Indices & Baskets
+  OTC_NDX: 'US Tech 100 Index',
+  OTC_SPC: 'US 500 Index',
+  OTC_DJI: 'Wall Street 30 Index',
+  OTC_FTSE: 'UK 100 Index',
+  OTC_GDAXI: 'Germany 40 Index',
+  OTC_FCHI: 'France 40 Index',
+  OTC_SX5E: 'Euro 50 Index',
+  OTC_N225: 'Japan 225 Index',
+  OTC_HSI: 'Hong Kong 50 Index',
+  OTC_AS51: 'Australia 200 Index',
+  OTC_AEX: 'Netherlands 25 Index',
+  OTC_SSMI: 'Swiss 20 Index',
+  WLDAUD: 'AUD Basket',
+  WLDEUR: 'EUR Basket',
+  WLDGBP: 'GBP Basket',
+  WLDUSD: 'USD Basket',
+  WLDXAU: 'Gold Basket',
+  RDBEAR: 'Bear Market Index',
+  RDBULL: 'Bull Market Index'
 };
 
 const ALL_AVAILABLE_PAIRS = Object.keys(SYMBOL_DISPLAY_MAP);
@@ -478,7 +521,7 @@ export default function MartingaleStrategyPage() {
               <span>Dedicated Martingale Scanned Pairs ({selectedPairs.length} Active)</span>
             </h3>
             <p className="text-xs text-zinc-400 mt-1">
-              Select pairs dedicated for Martingale Strategy execution.
+              Select any pairs dedicated for Martingale Strategy execution. You can select as many pairs as you want (no limit — click Select All or toggle individual pairs).
             </p>
           </div>
 
