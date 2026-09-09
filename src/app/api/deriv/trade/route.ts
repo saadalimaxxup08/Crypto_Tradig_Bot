@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getSessionUser } from '@/lib/auth';
 import WebSocket from 'ws';
-import { syncOpenTrades } from '@/lib/deriv_api_helpers';
+import { syncOpenTrades, syncOpenTradesDirect } from '@/lib/deriv_api_helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,37 +76,25 @@ export async function GET(request: Request) {
       dbTrades = data || [];
     }
 
-    // 2. Identify open trades to sync
+    // 2. Identify open trades to sync via direct WebSocket without hitting OTP rate limits
     const openTrades = dbTrades.filter(t => t.status === 'OPEN');
 
-    if (openTrades.length > 0) {
-      const activeAccount = openTrades[0].is_paper ? demoAccount : realAccount;
-      if (activeAccount) {
-        try {
-          const wsUrl = await fetchOTP(appId, token, activeAccount);
-          const socket = new WebSocket(wsUrl);
+    if (openTrades.length > 0 && appId) {
+      try {
+        await syncOpenTradesDirect(appId, token, openTrades);
 
-          await new Promise<void>((res) => {
-            if (socket.readyState === WebSocket.OPEN) res();
-            else socket.on('open', () => res());
-          });
-
-          await syncOpenTrades(socket, openTrades);
-          socket.close();
-
-          // Refetch updated trades
-          if (!useFallback) {
-            const { data: refreshed } = await supabase
-              .from('deriv_trades')
-              .select('*')
-              .order('created_at', { ascending: false });
-            if (refreshed) {
-              dbTrades = refreshed;
-            }
+        // Refetch updated trades
+        if (!useFallback) {
+          const { data: refreshed } = await supabase
+            .from('deriv_trades')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (refreshed) {
+            dbTrades = refreshed;
           }
-        } catch (syncErr) {
-          console.error('Error syncing Deriv contracts:', syncErr);
         }
+      } catch (syncErr) {
+        console.error('Error syncing Deriv contracts:', syncErr);
       }
     }
 

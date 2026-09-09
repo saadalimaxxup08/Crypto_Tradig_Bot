@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getSessionUser } from '@/lib/auth';
-import WebSocket from 'ws';
-import { syncOpenTrades } from '@/lib/deriv_api_helpers';
+import { syncOpenTradesDirect } from '@/lib/deriv_api_helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,36 +75,24 @@ export async function GET(request: Request) {
     const openTrades = detailedTrades.filter(t => t.status === 'OPEN');
     const livePrices: Record<string, number> = {};
 
-    // 3. Sync open trades and fetch live price (current_spot) from Deriv
-    if (openTrades.length > 0 && appId && token) {
-      const activeAccount = openTrades[0].is_paper ? demoAccount : realAccount;
-      if (activeAccount) {
-        try {
-          const wsUrl = await fetchOTP(appId, token, activeAccount);
-          const socket = new WebSocket(wsUrl);
+    // 3. Sync open trades efficiently via direct WebSocket without hitting OTP rate limits
+    if (openTrades.length > 0 && appId) {
+      try {
+        await syncOpenTradesDirect(appId, token, openTrades);
 
-          await new Promise<void>((res) => {
-            if (socket.readyState === WebSocket.OPEN) res();
-            else socket.on('open', () => res());
-          });
-
-          await syncOpenTrades(socket, openTrades);
-          socket.close();
-
-          // Refetch updated trades so dashboard has the freshly synced statuses
-          if (!useFallback) {
-            const { data: refreshed } = await supabase
-              .from('deriv_trades')
-              .select('*')
-              .order('created_at', { ascending: false })
-              .limit(5000);
-            if (refreshed) {
-              detailedTrades = refreshed;
-            }
+        // Refetch updated trades so dashboard has the freshly synced statuses
+        if (!useFallback) {
+          const { data: refreshed } = await supabase
+            .from('deriv_trades')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(5000);
+          if (refreshed) {
+            detailedTrades = refreshed;
           }
-        } catch (syncErr) {
-          console.error('Error syncing Deriv contracts inside trades endpoint:', syncErr);
         }
+      } catch (syncErr) {
+        console.error('Error syncing Deriv contracts inside trades endpoint:', syncErr);
       }
     }
 

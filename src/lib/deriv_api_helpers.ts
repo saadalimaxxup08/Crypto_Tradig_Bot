@@ -603,6 +603,70 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
   });
 }
 
+export async function syncOpenTradesDirect(appId: string, token: string, openTrades: any[]): Promise<void> {
+  if (!openTrades || openTrades.length === 0 || !appId) return;
+
+  return new Promise<void>(async (resolve) => {
+    let socket: WebSocket | null = null;
+    let isDone = false;
+
+    const cleanup = () => {
+      if (!isDone) {
+        isDone = true;
+        if (socket) {
+          try { socket.close(); } catch (e) {}
+        }
+        resolve();
+      }
+    };
+
+    const timer = setTimeout(cleanup, 12000);
+
+    try {
+      const wsUrl = `wss://ws.derivws.com/websockets/v3?app_id=${appId}`;
+      socket = new WebSocket(wsUrl);
+
+      await new Promise<void>((res) => {
+        if (socket!.readyState === WebSocket.OPEN) res();
+        else socket!.on('open', () => res());
+        socket!.on('error', () => res());
+        setTimeout(() => res(), 3000);
+      });
+
+      if (socket.readyState !== WebSocket.OPEN) {
+        clearTimeout(timer);
+        cleanup();
+        return;
+      }
+
+      if (token) {
+        socket.send(JSON.stringify({ authorize: token }));
+        await new Promise<void>((res) => {
+          const handleAuth = (evt: any) => {
+            try {
+              const data = JSON.parse(evt.data);
+              if (data.msg_type === 'authorize' || data.error) {
+                socket?.removeEventListener('message', handleAuth);
+                res();
+              }
+            } catch (e) {
+              res();
+            }
+          };
+          socket?.addEventListener('message', handleAuth);
+          setTimeout(() => res(), 2500);
+        });
+      }
+
+      await syncOpenTrades(socket, openTrades);
+      clearTimeout(timer);
+      cleanup();
+    } catch (err) {
+      clearTimeout(timer);
+      cleanup();
+    }
+  });
+}
 export function fetchClosedTradeCandles(
   socket: WebSocket,
   symbol: string,
