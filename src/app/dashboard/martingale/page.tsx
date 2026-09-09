@@ -153,6 +153,7 @@ export default function MartingaleStrategyPage() {
 
   const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
   const [scanLogs, setScanLogs] = useState<string[]>([]);
+  const [nearEntryPairs, setNearEntryPairs] = useState<any[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [recentTrades, setRecentTrades] = useState<any[]>([]);
   const [openTrades, setOpenTrades] = useState<any[]>([]);
@@ -189,6 +190,12 @@ export default function MartingaleStrategyPage() {
             }
             setIsInitialLoaded(true);
           }
+        }
+        if (data.nearEntryPairs && Array.isArray(data.nearEntryPairs)) {
+          setNearEntryPairs(data.nearEntryPairs);
+        }
+        if (data.lastScanLogs && Array.isArray(data.lastScanLogs) && data.lastScanLogs.length > 0) {
+          setScanLogs(data.lastScanLogs);
         }
         if (data.stats) {
           setStats(data.stats);
@@ -254,6 +261,9 @@ export default function MartingaleStrategyPage() {
         const data = await res.json();
         if (data.logs && Array.isArray(data.logs)) {
           setScanLogs(data.logs);
+        }
+        if (data.nearEntryPairs && Array.isArray(data.nearEntryPairs)) {
+          setNearEntryPairs(data.nearEntryPairs);
         }
         await fetchMartingaleData(true);
       }
@@ -699,7 +709,112 @@ export default function MartingaleStrategyPage() {
         </div>
       </div>
 
-      {/* Live Martingale Analysis & Scan Logs Terminal Card */}
+      {/* Martingale Pairs Near Entry Watchlist Table Card */}
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-3 gap-2">
+          <div>
+            <h3 className="text-md font-bold text-zinc-200 flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+              <span>Martingale Pairs Near Entry Watchlist ({nearEntryPairs.length} Active)</span>
+            </h3>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Live monitoring of pairs evaluated near trade entry thresholds for Martingale execution.
+            </p>
+          </div>
+          <span className="text-[10px] text-zinc-500 font-mono">
+            {nearEntryPairs.length > 0 ? `${nearEntryPairs.length} pairs analyzed in current scan cycle` : 'Scanning active pairs...'}
+          </span>
+        </div>
+
+        <div className="overflow-x-auto rounded-2xl border border-zinc-900 bg-[#050507]/60">
+          <table className="w-full text-left border-collapse text-xs font-mono">
+            <thead>
+              <tr className="border-b border-zinc-800 bg-zinc-950 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                <th className="py-3 px-4">Asset Pair</th>
+                <th className="py-3 px-3">Signal Direction</th>
+                <th className="py-3 px-3">Proximity Status</th>
+                <th className="py-3 px-3 text-right">Confirmations (T A S)</th>
+                <th className="py-3 px-3 text-right">ADX</th>
+                <th className="py-3 px-4 text-right">Stoch %K / %D</th>
+                <th className="py-3 px-4 text-center">Deriv Live Chart</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-900 text-zinc-300 font-medium">
+              {nearEntryPairs.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-zinc-500 text-xs italic">
+                    No pairs currently near entry criteria. Click "Run Scan &amp; Analysis Now" below to run live scanner!
+                  </td>
+                </tr>
+              ) : (
+                nearEntryPairs.map((pair: any, idx: number) => (
+                  <tr key={idx} className="hover:bg-zinc-800/20 transition-colors">
+                    <td className="py-3 px-4 font-extrabold text-zinc-100">
+                      {SYMBOL_DISPLAY_MAP[pair.symbol] || pair.symbol}
+                    </td>
+                    <td className="py-3 px-3">
+                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                        pair.direction === 'RISE' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30' :
+                        pair.direction === 'FALL' ? 'bg-rose-950/60 text-rose-400 border border-rose-500/30' :
+                        'bg-amber-950/60 text-amber-400 border border-amber-500/30'
+                      }`}>
+                        {pair.direction === 'RISE' ? '↗️ RISE (CALL)' : pair.direction === 'FALL' ? '↘️ FALL (PUT)' : '🔍 ANALYZING'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-zinc-400 text-xs">
+                      {pair.reason}
+                    </td>
+                    <td className="py-3 px-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span
+                          title="Trend Alignment"
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border ${
+                            pair.confirmations?.trend ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                          }`}
+                        >
+                          T
+                        </span>
+                        <span
+                          title="ADX Momentum"
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border ${
+                            pair.confirmations?.adx ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                          }`}
+                        >
+                          A
+                        </span>
+                        <span
+                          title="Stochastic Zone"
+                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border ${
+                            pair.confirmations?.stochZone ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                          }`}
+                        >
+                          S
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-right font-mono font-bold text-zinc-200">
+                      {parseFloat(pair.adx || 0).toFixed(1)}
+                    </td>
+                    <td className="py-3 px-4 text-right font-mono font-bold text-zinc-400">
+                      {parseFloat(pair.stochK || 50).toFixed(0)} / {parseFloat(pair.stochD || 50).toFixed(0)}
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <a
+                        href={`https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair.symbol}&trade_type=rise_fall`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block px-3 py-1 text-[10px] font-black text-amber-400 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/30 rounded-lg transition-all uppercase tracking-wider font-mono"
+                      >
+                        Go Live Chart
+                      </a>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
       <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-3 gap-3">
           <div>

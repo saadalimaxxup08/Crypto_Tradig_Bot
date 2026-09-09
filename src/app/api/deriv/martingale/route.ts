@@ -108,6 +108,9 @@ export async function GET() {
       success: true,
       config,
       riskFilters,
+      nearEntryPairs: ov.martingale_near_entry_pairs || [],
+      lastScanLogs: ov.martingale_last_scan_logs || [],
+      lastScanAt: ov.martingale_last_scan_at || '',
       stats: {
         totalTrades: tradesList.length,
         wonCount,

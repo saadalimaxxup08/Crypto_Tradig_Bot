@@ -167,6 +167,8 @@ export async function GET(req: Request) {
     const effectiveStake = freshStakeResult.stake;
     scanLogs.push(`📊 [Martingale Engine] Step ${freshStakeResult.stepIndex + 1} Stake: $${effectiveStake.toFixed(2)} | Mode: ${config.execution_mode}`);
 
+    const nearEntryPairs: any[] = [];
+
     // Scan pairs for entry
     for (const pair of selectedPairs) {
       if (newsFilterEnabled && await isEconomicNewsBlocked(pair)) {
@@ -182,6 +184,21 @@ export async function GET(req: Request) {
 
       const stratResult = analyzeForex15mStrategy(candles5m, candles15m, candlesH1);
       scanLogs.push(`- ADX: ${stratResult.adxValue.toFixed(1)} | Signal: ${stratResult.direction}`);
+
+      nearEntryPairs.push({
+        symbol: pair,
+        direction: stratResult.direction === 'CALL' ? 'RISE' : stratResult.direction === 'PUT' ? 'FALL' : (stratResult.nearEntry?.direction || 'ANALYZING'),
+        reason: stratResult.direction !== 'NEUTRAL' ? `Signal ${stratResult.direction} Triggered` : (stratResult.nearEntry?.reason || `ADX: ${stratResult.adxValue.toFixed(1)} | Monitoring Crossover`),
+        confirmations: stratResult.nearEntry?.confirmations || {
+          trend: stratResult.adxValue >= 20,
+          adx: stratResult.adxValue >= 22,
+          stochZone: true
+        },
+        adx: stratResult.adxValue || 0,
+        stochK: stratResult.nearEntry?.stochK || 50,
+        stochD: stratResult.nearEntry?.stochD || 50,
+        updatedAt: new Date().toISOString()
+      });
 
       if (stratResult.direction !== 'NEUTRAL') {
         const tick = await fetchTick(socket, pair);
@@ -218,7 +235,7 @@ export async function GET(req: Request) {
             await supabase.from('deriv_trades').insert([newTrade]);
             scanLogs.push(`🎉 Martingale Trade Executed! ID: ${result.contract_id}`);
 
-            // Send Telegram & WhatsApp Notification
+            // Send Telegram Alert
             const chartLink = `https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair}&trade_type=rise_fall`;
             const signalMsg = `🚀 <b>MARTINGALE ENGINE ALERT</b> 🚀\n` +
               `-------------------------------------\n` +
@@ -244,8 +261,20 @@ export async function GET(req: Request) {
       }
     }
 
+    // Save latest near entry pairs & scan logs to Supabase pair_overrides
+    const { data: latestSettings } = await supabase.from('settings').select('pair_overrides').eq('id', 1).single();
+    const currentOv = latestSettings?.pair_overrides || {};
+    await supabase.from('settings').update({
+      pair_overrides: {
+        ...currentOv,
+        martingale_near_entry_pairs: nearEntryPairs,
+        martingale_last_scan_logs: scanLogs,
+        martingale_last_scan_at: new Date().toISOString()
+      }
+    }).eq('id', 1);
+
     socket.close();
-    return NextResponse.json({ success: true, logs: scanLogs });
+    return NextResponse.json({ success: true, logs: scanLogs, nearEntryPairs });
   } catch (err: any) {
     if (socket) socket.close();
     return NextResponse.json({ success: false, error: err.message, logs: scanLogs }, { status: 500 });
