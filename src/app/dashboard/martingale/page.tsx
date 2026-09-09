@@ -771,9 +771,9 @@ export default function MartingaleStrategyPage() {
           </span>
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-zinc-900 bg-[#050507]/60">
+        <div className="overflow-x-auto max-h-[310px] overflow-y-auto rounded-2xl border border-zinc-900 bg-[#050507]/60 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
           <table className="w-full text-left border-collapse text-xs font-mono">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-zinc-950 shadow-sm">
               <tr className="border-b border-zinc-800 bg-zinc-950 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
                 <th className="py-3 px-4">Asset Pair</th>
                 <th className="py-3 px-3">Signal Direction</th>
