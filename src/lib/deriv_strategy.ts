@@ -18,6 +18,11 @@ export function isAsianSessionBlocked(): boolean {
 
 // 2. Spread Filter Check (pip sizing: 0.0001 for EUR/USD, GBP/USD, 0.01 for USD/JPY)
 export function isSpreadBlocked(symbol: string, ask: number, bid: number): boolean {
+  // Non-Forex synthetic markets (Volatility, Step, Jump, Boom/Crash, Bull/Bear) have fixed synthetic pricing
+  if (!symbol.startsWith('frx')) {
+    return false;
+  }
+
   const spread = Math.abs(ask - bid);
   let pips = 0;
 
@@ -27,7 +32,7 @@ export function isSpreadBlocked(symbol: string, ask: number, bid: number): boole
     pips = spread / 0.0001;
   }
 
-  return pips > 2.0;
+  return pips > 2.5;
 }
 
 let cachedXmlText: string | null = null;
