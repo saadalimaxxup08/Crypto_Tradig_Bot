@@ -1571,18 +1571,18 @@ export default function MartingaleStrategyPage() {
           }
 
           return (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs font-mono">
-                <thead>
-                  <tr className="border-b border-zinc-800 text-zinc-500 uppercase tracking-wider">
-                    <th className="pb-3">Symbol / Asset</th>
-                    <th className="pb-3">Direction</th>
-                    <th className="pb-3">Entry Spot</th>
-                    <th className="pb-3">Exit Spot</th>
-                    <th className="pb-3">Stake</th>
-                    <th className="pb-3">Net Return</th>
-                    <th className="pb-3">Status</th>
-                    <th className="pb-3 text-right">Close Time (Jeddah)</th>
+            <div className="overflow-x-auto max-h-[380px] overflow-y-auto rounded-2xl border border-zinc-900 bg-[#050507]/60 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+              <table className="w-full text-left text-xs font-mono border-collapse">
+                <thead className="sticky top-0 z-10 bg-zinc-950 shadow-sm">
+                  <tr className="border-b border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-3 px-4">Symbol / Asset</th>
+                    <th className="py-3 px-3">Direction</th>
+                    <th className="py-3 px-3">Entry Spot</th>
+                    <th className="py-3 px-3">Exit Spot</th>
+                    <th className="py-3 px-3">Stake</th>
+                    <th className="py-3 px-3">Net Return</th>
+                    <th className="py-3 px-3">Status</th>
+                    <th className="py-3 px-4 text-right">Close Time (Jeddah)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-800/50 text-zinc-300">
@@ -1592,19 +1592,19 @@ export default function MartingaleStrategyPage() {
                     const isLost = t.status === 'LOST' || pnlVal < 0;
                     return (
                       <tr key={t.id} className="hover:bg-zinc-800/20 transition-colors">
-                        <td className="py-3 font-extrabold text-zinc-100">{SYMBOL_DISPLAY_MAP[t.symbol] || t.symbol}</td>
-                        <td className="py-3 font-extrabold">
+                        <td className="py-3 px-4 font-extrabold text-zinc-100">{SYMBOL_DISPLAY_MAP[t.symbol] || t.symbol}</td>
+                        <td className="py-3 px-3 font-extrabold">
                           <span className={t.contract_type === 'CALL' ? 'text-emerald-400' : 'text-rose-400'}>
                             {t.contract_type === 'CALL' ? 'RISE' : 'FALL'}
                           </span>
                         </td>
-                        <td className="py-3 text-zinc-400">{t.entry_price ? parseFloat(t.entry_price).toFixed(4) : 'N/A'}</td>
-                        <td className="py-3 text-zinc-400">{t.exit_price ? parseFloat(t.exit_price).toFixed(4) : 'N/A'}</td>
-                        <td className="py-3 font-bold text-zinc-200">${(parseFloat(t.stake) || 0).toFixed(2)}</td>
-                        <td className={`py-3 font-extrabold ${pnlVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        <td className="py-3 px-3 text-zinc-400">{t.entry_price ? parseFloat(t.entry_price).toFixed(4) : 'N/A'}</td>
+                        <td className="py-3 px-3 text-zinc-400">{t.exit_price ? parseFloat(t.exit_price).toFixed(4) : 'N/A'}</td>
+                        <td className="py-3 px-3 font-bold text-zinc-200">${(parseFloat(t.stake) || 0).toFixed(2)}</td>
+                        <td className={`py-3 px-3 font-extrabold ${pnlVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                           {pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)}
                         </td>
-                        <td className="py-3">
+                        <td className="py-3 px-3">
                           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
                             isWon ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30' :
                             isLost ? 'bg-rose-950/60 text-rose-400 border border-rose-500/30' :
@@ -1613,7 +1613,7 @@ export default function MartingaleStrategyPage() {
                             {t.status}
                           </span>
                         </td>
-                        <td className="py-3 text-zinc-500 text-[11px] text-right font-mono">
+                        <td className="py-3 px-4 text-zinc-500 text-[11px] text-right font-mono">
                           {t.closed_at ? new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false }) : new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false })}
                         </td>
                       </tr>
