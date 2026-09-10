@@ -26,7 +26,7 @@ export async function getEffectiveProgressionStake(
   const rawSteps = overrides?.deriv_progression_steps;
   const rawActiveFlags = overrides?.deriv_progression_active_steps;
 
-  const defaultSteps = [0.35, 0.39, 0.83, 1.75, 3.69, 7.79, 16.45, 34.73, 73.00, 150.00];
+  const defaultSteps = [0.35, 0.40, 0.86, 1.83, 3.91, 8.36, 17.86, 38.15, 81.50, 174.12];
   const defaultFlags = [true, true, true, true, true, true, true, true, true, true];
 
   const steps: number[] = Array.isArray(rawSteps) && rawSteps.length === 10

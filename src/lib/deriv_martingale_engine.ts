@@ -14,7 +14,7 @@ export const DEFAULT_MARTINGALE_CONFIG: MartingaleConfig = {
   allocated_capital: 20.00,
   execution_mode: 'ONE_BY_ONE',
   selected_pairs: ['stpRNG', 'stpRNG2', 'stpRNG3', 'stpRNG4', 'stpRNG5', '1HZ30V', 'R_100', 'JD75', 'frxUSDJPY', 'frxAUDJPY'],
-  progression_steps: [0.35, 0.39, 0.83, 1.75, 3.69, 7.79, 16.45, 34.73, 73.00, 150.00],
+  progression_steps: [0.35, 0.40, 0.86, 1.83, 3.91, 8.36, 17.86, 38.15, 81.50, 174.12],
   progression_active_steps: [true, true, true, true, true, true, true, true, true, true]
 };
 
