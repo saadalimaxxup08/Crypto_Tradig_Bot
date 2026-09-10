@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   TrendingUp,
   Save,
@@ -217,6 +217,43 @@ export default function MartingaleStrategyPage() {
   const [tradingMode, setTradingMode] = useState<'DEMO' | 'REAL'>('DEMO');
   const [scanLogs, setScanLogs] = useState<string[]>([]);
   const [nearEntryPairs, setNearEntryPairs] = useState<any[]>([]);
+
+  // Deduplicate and sort nearEntryPairs so highest probability signals rank at the top
+  const sortedNearEntryPairs = useMemo(() => {
+    if (!nearEntryPairs || !Array.isArray(nearEntryPairs)) return [];
+
+    const uniqueMap = new Map<string, any>();
+    nearEntryPairs.forEach(p => {
+      if (!p || !p.symbol) return;
+      const existing = uniqueMap.get(p.symbol);
+      if (!existing) {
+        uniqueMap.set(p.symbol, p);
+      } else {
+        const pTrig = p.direction === 'RISE' || p.direction === 'FALL';
+        const exTrig = existing.direction === 'RISE' || existing.direction === 'FALL';
+        if (pTrig && !exTrig) {
+          uniqueMap.set(p.symbol, p);
+        } else if (pTrig === exTrig && (parseFloat(p.adx || 0) > parseFloat(existing.adx || 0))) {
+          uniqueMap.set(p.symbol, p);
+        }
+      }
+    });
+
+    const uniqueList = Array.from(uniqueMap.values());
+
+    return uniqueList.sort((a, b) => {
+      const aTrig = (a.direction === 'RISE' || a.direction === 'FALL') ? 2 : 0;
+      const bTrig = (b.direction === 'RISE' || b.direction === 'FALL') ? 2 : 0;
+
+      const scoreA = aTrig + (a.confirmations?.trend ? 1 : 0) + (a.confirmations?.adx ? 1 : 0) + (a.confirmations?.stochZone ? 1 : 0);
+      const scoreB = bTrig + (b.confirmations?.trend ? 1 : 0) + (b.confirmations?.adx ? 1 : 0) + (b.confirmations?.stochZone ? 1 : 0);
+
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+      return parseFloat(b.adx || 0) - parseFloat(a.adx || 0);
+    });
+  }, [nearEntryPairs]);
   const [isScanning, setIsScanning] = useState(false);
   const [recentTrades, setRecentTrades] = useState<any[]>([]);
   const [openTrades, setOpenTrades] = useState<any[]>([]);
@@ -829,14 +866,14 @@ export default function MartingaleStrategyPage() {
           <div>
             <h3 className="text-md font-bold text-zinc-200 flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-              <span>Martingale Pairs Near Entry Watchlist ({nearEntryPairs.length} Active)</span>
+              <span>Martingale Pairs Near Entry Watchlist ({sortedNearEntryPairs.length} Active)</span>
             </h3>
             <p className="text-xs text-zinc-400 mt-0.5">
               Live monitoring of pairs evaluated near trade entry thresholds for Martingale execution.
             </p>
           </div>
           <span className="text-[10px] text-zinc-500 font-mono">
-            {nearEntryPairs.length > 0 ? `${nearEntryPairs.length} pairs analyzed in current scan cycle` : 'Scanning active pairs...'}
+            {sortedNearEntryPairs.length > 0 ? `${sortedNearEntryPairs.length} unique active pairs analyzed in current scan cycle` : 'Scanning active pairs...'}
           </span>
         </div>
 
@@ -854,14 +891,14 @@ export default function MartingaleStrategyPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-900 text-zinc-300 font-medium">
-              {nearEntryPairs.length === 0 ? (
+              {sortedNearEntryPairs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-zinc-500 text-xs italic">
                     No pairs currently near entry criteria. Click "Run Scan &amp; Analysis Now" below to run live scanner!
                   </td>
                 </tr>
               ) : (
-                nearEntryPairs.map((pair: any, idx: number) => (
+                sortedNearEntryPairs.map((pair: any, idx: number) => (
                   <tr key={idx} className="hover:bg-zinc-800/20 transition-colors">
                     <td className="py-3 px-4 font-extrabold text-zinc-100">
                       {SYMBOL_DISPLAY_MAP[pair.symbol] || pair.symbol}

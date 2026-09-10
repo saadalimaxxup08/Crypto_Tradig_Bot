@@ -319,20 +319,50 @@ export async function GET(req: Request) {
       }
     }
 
+    // Deduplicate and sort nearEntryPairs so highest probability signals rank at the top
+    const uniqueNearEntryMap = new Map<string, any>();
+    for (const item of nearEntryPairs) {
+      const existing = uniqueNearEntryMap.get(item.symbol);
+      if (!existing) {
+        uniqueNearEntryMap.set(item.symbol, item);
+      } else {
+        const isNewTriggered = item.direction === 'RISE' || item.direction === 'FALL';
+        const isExTriggered = existing.direction === 'RISE' || existing.direction === 'FALL';
+        if (isNewTriggered && !isExTriggered) {
+          uniqueNearEntryMap.set(item.symbol, item);
+        } else if (isNewTriggered === isExTriggered && (item.adx || 0) > (existing.adx || 0)) {
+          uniqueNearEntryMap.set(item.symbol, item);
+        }
+      }
+    }
+
+    const sortedNearEntryList = Array.from(uniqueNearEntryMap.values()).sort((a, b) => {
+      const aTrig = (a.direction === 'RISE' || a.direction === 'FALL') ? 2 : 0;
+      const bTrig = (b.direction === 'RISE' || b.direction === 'FALL') ? 2 : 0;
+      
+      const scoreA = aTrig + (a.confirmations?.trend ? 1 : 0) + (a.confirmations?.adx ? 1 : 0) + (a.confirmations?.stochZone ? 1 : 0);
+      const scoreB = bTrig + (b.confirmations?.trend ? 1 : 0) + (b.confirmations?.adx ? 1 : 0) + (b.confirmations?.stochZone ? 1 : 0);
+
+      if (scoreB !== scoreA) {
+        return scoreB - scoreA;
+      }
+      return (b.adx || 0) - (a.adx || 0);
+    });
+
     // Save latest near entry pairs & scan logs to Supabase pair_overrides
     const { data: latestSettings } = await supabase.from('settings').select('pair_overrides').eq('id', 1).single();
     const currentOv = latestSettings?.pair_overrides || {};
     await supabase.from('settings').update({
       pair_overrides: {
         ...currentOv,
-        martingale_near_entry_pairs: nearEntryPairs,
+        martingale_near_entry_pairs: sortedNearEntryList,
         martingale_last_scan_logs: scanLogs,
         martingale_last_scan_at: new Date().toISOString()
       }
     }).eq('id', 1);
 
     socket.close();
-    return NextResponse.json({ success: true, logs: scanLogs, nearEntryPairs });
+    return NextResponse.json({ success: true, logs: scanLogs, nearEntryPairs: sortedNearEntryList });
   } catch (err: any) {
     if (socket) socket.close();
     return NextResponse.json({ success: false, error: err.message, logs: scanLogs }, { status: 500 });
