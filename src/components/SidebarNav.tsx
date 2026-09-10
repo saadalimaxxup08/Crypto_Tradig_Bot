@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -71,6 +72,20 @@ const NAV_ITEMS = [
 export default function SidebarNav() {
   const pathname = usePathname();
 
+  // Close mobile sidebar drawer whenever route changes or link is clicked
+  const closeMobileSidebar = () => {
+    if (typeof document !== 'undefined') {
+      const toggle = document.getElementById('sidebar-toggle') as HTMLInputElement | null;
+      if (toggle) {
+        toggle.checked = false;
+      }
+    }
+  };
+
+  useEffect(() => {
+    closeMobileSidebar();
+  }, [pathname]);
+
   return (
     <nav className="p-4 space-y-1.5">
       {NAV_ITEMS.map((item) => {
@@ -78,12 +93,13 @@ export default function SidebarNav() {
         const isActive =
           item.href === '/dashboard'
             ? pathname === '/dashboard'
-            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+            : pathname === item.href || (pathname ? pathname.startsWith(`${item.href}/`) : false);
 
         return (
           <Link
             key={item.href}
             href={item.href}
+            onClick={closeMobileSidebar}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all duration-200 ${
               isActive
                 ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-500/30 font-extrabold shadow-sm'
