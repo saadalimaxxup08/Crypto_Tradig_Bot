@@ -1,23 +1,13 @@
 import { redirect } from 'next/navigation';
 import { getSessionUser } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
-import Link from 'next/link';
+import SidebarNav from '@/components/SidebarNav';
 import {
   TrendingUp,
-  LayoutDashboard,
-  Activity,
-  History,
-  Settings,
   LogOut,
   User,
-  Shield,
   Menu,
   X,
-  FileText,
-  Beaker,
-  Terminal,
-  LineChart,
-  Cpu,
 } from 'lucide-react';
 import React from 'react';
 
@@ -81,88 +71,8 @@ export default async function DashboardLayout({
             </label>
           </div>
 
-          {/* Navigation Links */}
-          <nav className="p-4 space-y-1.5">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <LineChart className="w-5 h-5 text-zinc-400" />
-              <span>Deriv Dashboard</span>
-            </Link>
-
-            <Link
-              href="/dashboard/martingale"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-emerald-950/40 hover:text-emerald-400 text-emerald-400 bg-emerald-950/20 border border-emerald-500/30 transition-all duration-200"
-            >
-              <TrendingUp className="w-5 h-5 text-emerald-400" />
-              <span className="font-extrabold">Martingale Strategy Engine</span>
-            </Link>
-
-            <Link
-              href="/dashboard/scanner"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <Activity className="w-5 h-5 text-zinc-400" />
-              <span>Live Scanner</span>
-            </Link>
-
-            <Link
-              href="/dashboard/signals"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <Shield className="w-5 h-5 text-zinc-400" />
-              <span>Signals History</span>
-            </Link>
-
-            <Link
-              href="/dashboard/trades"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <History className="w-5 h-5 text-zinc-400" />
-              <span>Trades History</span>
-            </Link>
-
-            <Link
-              href="/dashboard/summary"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <FileText className="w-5 h-5 text-zinc-400" />
-              <span>Report Center</span>
-            </Link>
-
-            <Link
-              href="/dashboard/sandbox"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <Beaker className="w-5 h-5 text-zinc-400" />
-              <span>Strategy Sandbox</span>
-            </Link>
-
-            <Link
-              href="/dashboard/console"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <Terminal className="w-5 h-5 text-zinc-400" />
-              <span>System Terminal</span>
-            </Link>
-
-            <Link
-              href="/dashboard/infrastructure"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <Cpu className="w-5 h-5 text-zinc-400" />
-              <span>Project Source Performance</span>
-            </Link>
-
-            <Link
-              href="/dashboard/settings"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium hover:bg-zinc-800/50 hover:text-emerald-400 text-zinc-400 transition-all duration-200"
-            >
-              <Settings className="w-5 h-5 text-zinc-400" />
-              <span>Settings</span>
-            </Link>
-          </nav>
+          {/* Dynamic Client Sidebar Navigation */}
+          <SidebarNav />
         </div>
 
         {/* Sidebar Footer */}
