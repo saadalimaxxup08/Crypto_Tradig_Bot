@@ -106,7 +106,7 @@ export async function fetchCandles(socket: WebSocket, symbol: string, granularit
     setTimeout(() => {
       cleanup();
       resolve([]);
-    }, 2500);
+    }, 4500);
   });
 
   if (candles.length > 0) {

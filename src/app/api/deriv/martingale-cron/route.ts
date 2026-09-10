@@ -337,11 +337,11 @@ export async function GET(req: Request) {
     }
 
     const sortedNearEntryList = Array.from(uniqueNearEntryMap.values()).sort((a, b) => {
-      const aTrig = (a.direction === 'RISE' || a.direction === 'FALL') ? 2 : 0;
-      const bTrig = (b.direction === 'RISE' || b.direction === 'FALL') ? 2 : 0;
+      const aTrig = (a.direction === 'RISE' || a.direction === 'FALL') ? 3 : 0;
+      const bTrig = (b.direction === 'RISE' || b.direction === 'FALL') ? 3 : 0;
       
-      const scoreA = aTrig + (a.confirmations?.trend ? 1 : 0) + (a.confirmations?.adx ? 1 : 0) + (a.confirmations?.stochZone ? 1 : 0);
-      const scoreB = bTrig + (b.confirmations?.trend ? 1 : 0) + (b.confirmations?.adx ? 1 : 0) + (b.confirmations?.stochZone ? 1 : 0);
+      const scoreA = aTrig + (a.confirmations?.trend ? 1 : 0) + (a.confirmations?.adx ? 1 : 0) + (a.confirmations?.stochZone ? 1 : 0) + ((a.adx || 0) > 0 ? 0.5 : 0);
+      const scoreB = bTrig + (b.confirmations?.trend ? 1 : 0) + (b.confirmations?.adx ? 1 : 0) + (b.confirmations?.stochZone ? 1 : 0) + ((b.adx || 0) > 0 ? 0.5 : 0);
 
       if (scoreB !== scoreA) {
         return scoreB - scoreA;
