@@ -48,6 +48,23 @@ export async function GET(req: Request) {
     }
 
     const ov = settings.pair_overrides || {};
+
+    // Atomic Concurrency Lock: Block parallel/duplicate scan requests within 12 seconds
+    const lastScanStartedAt = ov.martingale_scan_started_at ? new Date(ov.martingale_scan_started_at).getTime() : 0;
+    const nowMs = Date.now();
+    if (nowMs - lastScanStartedAt < 12000) {
+      scanLogs.push('⏳ Concurrent scan request blocked by Execution Lock (Scan already running).');
+      return NextResponse.json({ success: true, message: 'Scan already running', logs: scanLogs });
+    }
+
+    // Claim atomic scan lock in DB
+    await supabase.from('settings').update({
+      pair_overrides: {
+        ...ov,
+        martingale_scan_started_at: new Date().toISOString()
+      }
+    }).eq('id', 1);
+
     const config: MartingaleConfig = settings.martingale_config || {
       enabled: ov.deriv_progression_enabled === true,
       allocated_capital: ov.martingale_allocated_capital || 20.00,
@@ -253,6 +270,20 @@ export async function GET(req: Request) {
         });
 
         if (stratResult.direction !== 'NEUTRAL') {
+          // Re-verify ONE_BY_ONE lock in DB right before buying contract
+          if (config.execution_mode === 'ONE_BY_ONE') {
+            const { data: currentOpen } = await supabase
+              .from('deriv_trades')
+              .select('id')
+              .neq('stake', 1.00)
+              .eq('status', 'OPEN');
+
+            if (currentOpen && currentOpen.length > 0) {
+              scanLogs.push(`🔒 [One-By-One Safety Lock] Open contract active. Halting execution on ${getDisplaySymbolName(pair)}.`);
+              break;
+            }
+          }
+
           const tick = await fetchTick(socket, pair);
           if (tick) {
             if (isSpreadBlocked(pair, tick.ask, tick.bid)) {
