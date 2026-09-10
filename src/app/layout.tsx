@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 
@@ -18,14 +18,22 @@ export const metadata: Metadata = {
   description: 'VIP Crypto Trading Bot & Real-time Strategy Scanner',
 };
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" className="overflow-x-hidden max-w-full w-full">
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden max-w-full w-full`}>
         {children}
       </body>
     </html>

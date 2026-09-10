@@ -613,9 +613,9 @@ export default function MartingaleStrategyPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+    <div className="space-y-8 max-w-7xl mx-auto pb-16 w-full max-w-full overflow-x-hidden">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between bg-[#0c0c0f]/80 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 sm:p-8 gap-6 shadow-2xl relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between bg-[#0c0c0f]/80 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 sm:p-8 gap-6 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
         
         <div className="space-y-2 relative z-10">

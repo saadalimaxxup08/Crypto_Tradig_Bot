@@ -32,7 +32,7 @@ export default async function DashboardLayout({
   const isReal = settings?.trading_mode === 'REAL';
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-[#fafafa] flex overflow-hidden font-sans">
+    <div className="min-h-screen bg-[#09090b] text-[#fafafa] flex overflow-x-hidden max-w-full w-full font-sans relative">
       {/* Sidebar mobile toggle checkbox (CSS peer trigger) */}
       <input type="checkbox" id="sidebar-toggle" className="hidden peer" />
 
@@ -40,8 +40,10 @@ export default async function DashboardLayout({
       <label htmlFor="sidebar-toggle" className="fixed inset-0 z-25 bg-black/60 backdrop-blur-sm hidden peer-checked:block lg:hidden cursor-pointer" />
 
       {/* Dynamic Background Gradients */}
-      <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[120px] pointer-events-none" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full bg-blue-500/5 blur-[120px]" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[120px]" />
+      </div>
 
       {/* Sidebar Navigation */}
       <aside className="fixed inset-y-0 left-0 w-64 border-r border-zinc-800/80 bg-[#0c0c0f]/95 backdrop-blur-xl flex flex-col justify-between z-30 shrink-0 -translate-x-full transition-transform duration-300 ease-in-out lg:static lg:translate-x-0 peer-checked:translate-x-0">
@@ -106,9 +108,9 @@ export default async function DashboardLayout({
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden z-10">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full w-full overflow-x-hidden z-10">
         {/* Top Header bar */}
-        <header className="h-16 border-b border-zinc-800/80 bg-[#0c0c0f]/50 backdrop-blur-xl px-4 lg:px-8 flex items-center justify-between z-20 shrink-0">
+        <header className="h-16 border-b border-zinc-800/80 bg-[#0c0c0f]/50 backdrop-blur-xl px-3 sm:px-4 lg:px-8 flex items-center justify-between z-20 shrink-0 max-w-full overflow-hidden">
           {/* Mobile Menu Burger Trigger */}
           <label htmlFor="sidebar-toggle" className="lg:hidden p-2 text-zinc-400 hover:text-zinc-200 cursor-pointer flex items-center justify-center rounded-xl hover:bg-zinc-800/40 transition-colors">
             <Menu className="w-5 h-5" />
@@ -131,7 +133,7 @@ export default async function DashboardLayout({
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-8 relative max-w-full w-full">
           {children}
         </main>
       </div>
