@@ -69,13 +69,13 @@ export async function GET() {
       progression_active_steps: Array.isArray(ov.deriv_progression_active_steps) ? ov.deriv_progression_active_steps : DEFAULT_MARTINGALE_CONFIG.progression_active_steps
     };
 
-    // Fetch Martingale stats from deriv_trades (active session onwards)
+    // Fetch Martingale stats from deriv_trades (lt stake 0.99)
     const { data: martingaleTrades } = await supabase
       .from('deriv_trades')
       .select('*')
       .lt('stake', 0.99)
-      .gte('created_at', '2026-09-09T12:00:00Z')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     const tradesList = martingaleTrades || [];
     let totalPnL = 0;
@@ -90,12 +90,15 @@ export async function GET() {
       } else if (t.status === 'LOST') {
         lostCount++;
         totalPnL += (parseFloat(t.pnl) || 0);
-      } else {
+      } else if (t.status === 'OPEN') {
         openCount++;
       }
     });
 
-    // Calculate current consecutive losses on Martingale engine
+    // Check if any trade is currently OPEN
+    const currentOpenTrade = tradesList.find(t => t.status === 'OPEN');
+
+    // Calculate current consecutive losses on Martingale engine from closed trades
     let consecutiveLosses = 0;
     for (const t of tradesList) {
       if (t.status === 'OPEN') continue;
@@ -113,7 +116,16 @@ export async function GET() {
     });
 
     let currentStepIndex = 0;
-    if (activeIndices.length > 0) {
+    if (currentOpenTrade) {
+      const stepsArr = config.progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps;
+      const matchingIdx = stepsArr.findIndex((s: number) => Math.abs(s - currentOpenTrade.stake) < 0.02);
+      if (matchingIdx !== -1) {
+        currentStepIndex = matchingIdx;
+      } else if (activeIndices.length > 0) {
+        const activePos = Math.min(consecutiveLosses, activeIndices.length - 1);
+        currentStepIndex = activeIndices[activePos];
+      }
+    } else if (activeIndices.length > 0) {
       const activePos = Math.min(consecutiveLosses, activeIndices.length - 1);
       currentStepIndex = activeIndices[activePos];
     }

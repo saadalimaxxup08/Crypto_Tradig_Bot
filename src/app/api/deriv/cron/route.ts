@@ -256,13 +256,6 @@ export async function GET(req: Request) {
           }
 
           if (strategyResultObj.direction !== 'NEUTRAL') {
-            // If Martingale Engine is active, primary trades are executed by Martingale Engine.
-            // Main scanner runs in monitoring mode to prevent duplicate trade executions.
-            if (isMartingaleEnabled) {
-              localLogs.push(`ℹ️ [${stratName}] Signal detected on ${getDisplaySymbolName(pair)}, but Martingale Engine is primary executor. Main scanner skipping duplicate execution.`);
-              continue;
-            }
-
             // D. Fetch tick to check spread before buying
             const tick = await fetchTick(socket!, pair);
             if (tick) {

@@ -692,14 +692,21 @@ export default function MartingaleStrategyPage() {
           <p className="text-[9px] text-zinc-500">Deriv main account wallet balance</p>
         </div>
 
-        {/* Card 2: Allocated Martingale Capital Pool */}
+        {/* Card 2: Allocated Martingale Capital Pool (Dynamic Pool) */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
-          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Allocated Capital Pool</span>
-          <div className="text-xl font-black font-mono text-emerald-400 flex items-center gap-1">
-            <DollarSign className="w-4 h-4 text-emerald-400" />
-            <span>{parseFloat(allocatedCapital).toFixed(2)}</span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Remaining Capital Pool</span>
+            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border ${
+              (stats.totalPnL || 0) >= 0 ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30' : 'bg-rose-950/60 text-rose-400 border-rose-500/30'
+            }`}>
+              {(stats.totalPnL || 0) >= 0 ? 'PROFIT' : 'DRAWDOWN'}
+            </span>
           </div>
-          <p className="text-[9px] text-zinc-500">Editable budget dedicated for Martingale</p>
+          <div className={`text-xl font-black font-mono flex items-center gap-1 ${(parseFloat(allocatedCapital) + (stats.totalPnL || 0)) >= parseFloat(allocatedCapital) ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <DollarSign className="w-4 h-4" />
+            <span>{(parseFloat(allocatedCapital) + (stats.totalPnL || 0)).toFixed(2)}</span>
+          </div>
+          <p className="text-[9px] text-zinc-500">Base: ${parseFloat(allocatedCapital).toFixed(2)} | Net: {(stats.totalPnL || 0) >= 0 ? '+' : ''}${(stats.totalPnL || 0).toFixed(2)}</p>
         </div>
 
         {/* Card 3: Martingale Isolated Total PnL */}
