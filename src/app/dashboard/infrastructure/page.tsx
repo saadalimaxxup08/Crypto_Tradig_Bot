@@ -113,7 +113,10 @@ export default function InfrastructurePage() {
 
   useEffect(() => {
     fetchInfraData();
-    const interval = setInterval(fetchInfraData, 15000);
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      fetchInfraData();
+    }, 45000);
     return () => clearInterval(interval);
   }, []);
 

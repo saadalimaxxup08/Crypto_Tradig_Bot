@@ -84,13 +84,13 @@ export async function GET() {
       progression_active_steps: Array.isArray(ov.deriv_progression_active_steps) ? ov.deriv_progression_active_steps : DEFAULT_MARTINGALE_CONFIG.progression_active_steps
     };
 
-    // Fetch Martingale stats from deriv_trades (stake != 1.00)
+    // Fetch Martingale stats from deriv_trades (essential columns only, limit 30 for max egress savings)
     const { data: martingaleTrades } = await supabase
       .from('deriv_trades')
-      .select('*')
+      .select('id, symbol, contract_type, stake, payout, status, entry_price, exit_price, pnl, created_at, closed_at')
       .neq('stake', 1.00)
       .order('created_at', { ascending: false })
-      .limit(100);
+      .limit(30);
 
     const tradesList = martingaleTrades || [];
     let totalPnL = 0;
