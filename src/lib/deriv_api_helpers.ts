@@ -674,18 +674,47 @@ export function fetchClosedTradeCandles(
   end: number
 ): Promise<any[]> {
   return new Promise((resolve) => {
-    const handleMsg = (event: any) => {
+    let resolved = false;
+
+    const handleMsg = async (event: any) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.msg_type === 'candles' && data.echo_req.ticks_history === symbol && data.echo_req.start === start) {
-          socket.removeEventListener('message', handleMsg);
-          resolve(data.candles || []);
+        if (data.msg_type === 'candles' && data.echo_req?.ticks_history === symbol) {
+          if (!resolved) {
+            resolved = true;
+            socket.removeEventListener('message', handleMsg);
+            const resCandles = data.candles || [];
+            if (resCandles.length > 0) {
+              resolve(resCandles);
+            } else {
+              // Range query returned 0 candles, use reliable count fallback
+              try {
+                const fb = await fetchCandles(socket, symbol, 60);
+                resolve(fb || []);
+              } catch (e) {
+                resolve([]);
+              }
+            }
+          }
+        } else if (data.error && data.echo_req?.ticks_history === symbol) {
+          if (!resolved) {
+            resolved = true;
+            socket.removeEventListener('message', handleMsg);
+            try {
+              const fb = await fetchCandles(socket, symbol, 60);
+              resolve(fb || []);
+            } catch (e) {
+              resolve([]);
+            }
+          }
         }
       } catch (e) {
         // ignore
       }
     };
+
     socket.addEventListener('message', handleMsg);
+
     socket.send(JSON.stringify({
       ticks_history: symbol,
       adjust_start_time: 1,
@@ -695,11 +724,19 @@ export function fetchClosedTradeCandles(
       style: 'candles'
     }));
 
-    // Safety timeout
-    setTimeout(() => {
-      socket.removeEventListener('message', handleMsg);
-      resolve([]);
-    }, 5000);
+    // Safety timeout (3.5 seconds) - fallback to fetchCandles if range query times out
+    setTimeout(async () => {
+      if (!resolved) {
+        resolved = true;
+        socket.removeEventListener('message', handleMsg);
+        try {
+          const fb = await fetchCandles(socket, symbol, 60);
+          resolve(fb || []);
+        } catch (e) {
+          resolve([]);
+        }
+      }
+    }, 3500);
   });
 }
 
@@ -868,19 +905,23 @@ export async function generateTradePDF(trade: any, contract: any, candles: any[]
     }
 
     // Draw Entry Spot Price line (dashed line)
-    const entrySpotY = getPixelY(parseFloat(contract.entry_tick));
-    if (entrySpotY >= plotY && entrySpotY <= plotY + plotH) {
-      doc.setDrawColor(34, 197, 94); // Green
-      doc.setLineWidth(0.4);
-      for (let dotX = plotX; dotX < plotX + plotW; dotX += 2) {
-        doc.line(dotX, entrySpotY, dotX + 1, entrySpotY);
+    const rawEntry = contract.entry_tick || contract.entry_spot || trade.entry_price || 0;
+    const parsedEntry = parseFloat(rawEntry);
+    if (!isNaN(parsedEntry)) {
+      const entrySpotY = getPixelY(parsedEntry);
+      if (entrySpotY >= plotY && entrySpotY <= plotY + plotH) {
+        doc.setDrawColor(34, 197, 94); // Green
+        doc.setLineWidth(0.4);
+        for (let dotX = plotX; dotX < plotX + plotW; dotX += 2) {
+          doc.line(dotX, entrySpotY, dotX + 1, entrySpotY);
+        }
+        
+        doc.setFillColor(34, 197, 94);
+        doc.setFontSize(5.5);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(plotX + 2, entrySpotY - 3, 12, 2.6, 'F');
+        doc.text('Entry Spot', plotX + 2.5, entrySpotY - 1);
       }
-      
-      doc.setFillColor(34, 197, 94);
-      doc.setFontSize(5.5);
-      doc.setTextColor(255, 255, 255);
-      doc.rect(plotX + 2, entrySpotY - 3, 12, 2.6, 'F');
-      doc.text('Entry Spot', plotX + 2.5, entrySpotY - 1);
     }
 
     // Price Labels Axis (Right side)
@@ -888,6 +929,31 @@ export async function generateTradePDF(trade: any, contract: any, candles: any[]
     doc.setTextColor(100, 116, 139);
     doc.text(finalMaxP.toFixed(2), plotX + plotW - 12, plotY + 4);
     doc.text(finalMinP.toFixed(2), plotX + plotW - 12, plotY + plotH - 2);
+  } else {
+    // Clean Fallback Visual Box if candles array is unavailable
+    const boxX = chartX + 6;
+    const boxY = y + 20;
+    const boxW = chartWidth - 12;
+    const boxH = chartHeight - 30;
+
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(boxX, boxY, boxW, boxH, 2, 2, 'FD');
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(71, 85, 105);
+    doc.text('EXECUTION TIMELINE SUMMARY', boxX + 6, boxY + 12);
+
+    const fallbackEntry = contract.entry_tick || contract.entry_spot || trade.entry_price || 'N/A';
+    const fallbackExit = contract.exit_tick || contract.exit_spot || trade.exit_price || 'N/A';
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(51, 65, 85);
+    doc.text(`• Entry Price Spot: $${fallbackEntry}`, boxX + 6, boxY + 24);
+    doc.text(`• Exit Price Spot: $${fallbackExit}`, boxX + 6, boxY + 34);
+    doc.text(`• Contract Duration: ${contract.duration} ${contract.duration_unit || 'minutes'}`, boxX + 6, boxY + 44);
+    doc.text(`• Outcome Status: ${trade.status}`, boxX + 6, boxY + 54);
   }
 
   // Footer Branding and Disclaimer
