@@ -251,67 +251,21 @@ export async function GET() {
                 localLogs.push(`- [${stratName}] ADX=${strategyResultObj.adxValue.toFixed(1)} | Direction=${strategyResultObj.direction}`);
 
                 if (strategyResultObj.direction !== 'NEUTRAL') {
-                  // Crossover Triggered!
-                  const tick = await fetchTick(socket, pair);
-                  if (tick) {
-                    const spreadBlocked = isSpreadBlocked(pair, tick.ask, tick.bid);
-                    if (spreadBlocked) {
-                      localLogs.push(`- [${stratName}] Skip: Spread exceeds limit.`);
-                      continue;
-                    }
-
-                    // Dynamic Progression Stake Calculation
-                    const { stake: effectiveStake, stepIndex, isProgressionActive, isHalted, haltReason } = await getEffectiveProgressionStake(existingOverrides, derivStakeAmount);
-                    if (isHalted) {
-                      localLogs.push(`🛑 [Progression Limit Reached] ${haltReason || 'All active progression steps lost. Trading paused for protection.'}`);
-                      continue;
-                    }
-                    if (isProgressionActive) {
-                      localLogs.push(`📊 [Custom Progression Mode ON] Step ${stepIndex + 1} Stake: $${effectiveStake.toFixed(2)}`);
-                    }
-
-                    localLogs.push(`🔥 [${stratName}] Trigger! Buying $${effectiveStake.toFixed(2)} ${strategyResultObj.direction} contract.`);
-                    try {
-                      const result = await buyContract(socket, pair, strategyResultObj.direction, effectiveStake, tradeDuration);
-                      executionSuccess = true;
-                      
-                      const newTrade = {
-                        id: crypto.randomUUID(),
-                        contract_id: result.contract_id,
-                        symbol: pair,
-                        contract_type: strategyResultObj.direction,
-                        duration: tradeDuration,
-                        duration_unit: 'm',
-                        stake: effectiveStake,
-                        payout: parseFloat(result.payout),
-                        status: 'OPEN',
-                        entry_price: parseFloat(result.buy_price),
-                        exit_price: null,
-                        barrier: null,
-                        pnl: 0,
-                        is_paper: tradingMode === 'DEMO',
-                        created_at: new Date(result.start_time * 1000).toISOString(),
-                        closed_at: null
-                      };
-
-                      await supabase.from('deriv_trades').insert([newTrade]);
-                      
-                      const chartLink = `https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair}&trade_type=rise_fall`;
-                      const signalMsg = `🔔 <b>DERIV SIGNAL EXECUTED</b>\n\n` +
-                        `Asset: <b>${getDisplaySymbolName(pair)}</b>\n` +
-                        `Strategy: <b>${stratName}</b>\n` +
-                        `Direction: ${strategyResultObj.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
-                        `Timeframe: ${tradeDuration}m\n` +
-                        `Account: ${tradingMode}\n` +
-                        `Stake: $${effectiveStake.toFixed(2)}\n\n` +
-                        `📈 <b>Live Chart:</b> <a href="${chartLink}">Open ${getDisplaySymbolName(pair)} on Deriv</a>\n` +
-                        `🔗 <b>Direct Link:</b> ${chartLink}`;
-                      
-                      await sendTelegramAlert(signalMsg);
-                    } catch (buyErr: any) {
-                      localLogs.push(`❌ [${stratName}] Buy error: ${buyErr.message}`);
-                    }
-                  }
+                  stillNear = true;
+                  finalNearEntryObj = {
+                    symbol: pair,
+                    direction: strategyResultObj.direction === 'CALL' ? 'RISE' : 'FALL',
+                    reason: `[${stratName}] Crossover Signal Triggered`,
+                    confirmations: {
+                      trend: strategyResultObj.adxValue >= 20,
+                      adx: strategyResultObj.adxValue >= 22,
+                      stochZone: true
+                    },
+                    adx: strategyResultObj.adxValue,
+                    stochK: 50,
+                    stochD: 50,
+                    updatedAt: new Date().toISOString()
+                  };
                 } else if (strategyResultObj.nearEntry.isNear) {
                   stillNear = true;
                   finalNearEntryObj = {

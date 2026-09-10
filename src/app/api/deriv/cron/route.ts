@@ -46,6 +46,23 @@ export async function GET(req: Request) {
   }
 
   const existingOverrides = settings.pair_overrides || {};
+
+  // Atomic Concurrency Lock: Block parallel/duplicate main scan requests within 12 seconds
+  const lastScanStartedAt = existingOverrides.main_scan_started_at ? new Date(existingOverrides.main_scan_started_at).getTime() : 0;
+  const nowMs = Date.now();
+  if (nowMs - lastScanStartedAt < 12000) {
+    scanLogs.push('⏳ Concurrent main scan request blocked by Execution Lock (Scan already running).');
+    return NextResponse.json({ success: true, message: 'Scan already running', logs: scanLogs });
+  }
+
+  // Claim atomic scan lock in DB
+  await supabase.from('settings').update({
+    pair_overrides: {
+      ...existingOverrides,
+      main_scan_started_at: new Date().toISOString()
+    }
+  }).eq('id', 1);
+
   const derivStakeAmount = existingOverrides.deriv_stake_amount || 1.00;
   const isMartingaleEnabled = existingOverrides.deriv_progression_enabled === true || settings.martingale_config?.enabled === true;
 
