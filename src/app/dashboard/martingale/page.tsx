@@ -16,7 +16,9 @@ import {
   CheckCircle2,
   XCircle,
   DollarSign,
-  Terminal
+  Terminal,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -261,6 +263,20 @@ export default function MartingaleStrategyPage() {
   const [isInitialLoaded, setIsInitialLoaded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    derived: true,
+    synthetics_jump_boom: false,
+    forex: false,
+    stocks: false,
+    commodities: false
+  });
+
+  const toggleCategoryExpand = (catId: string) => {
+    setExpandedCategories(prev => ({
+      ...prev,
+      [catId]: !prev[catId]
+    }));
+  };
 
   const fetchMartingaleData = async (forceUpdateState = false) => {
     try {
@@ -1327,17 +1343,26 @@ export default function MartingaleStrategyPage() {
           </div>
         </div>
 
-        {/* 5 Categorized Market Containers */}
-        <div className="space-y-6">
+        {/* 5 Categorized Market Containers (Collapsible Mobile-Friendly Accordion Menu) */}
+        <div className="space-y-3">
           {MARKET_CATEGORIES.map((cat) => {
             const activeInCatCount = cat.pairs.filter(p => selectedPairs.includes(p)).length;
-            const isAllCatSelected = activeInCatCount === cat.pairs.length;
+            const isExpanded = expandedCategories[cat.id] ?? false;
 
             return (
-              <div key={cat.id} className="bg-[#08080b]/80 border border-zinc-850 rounded-2xl p-4 space-y-3">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/60 pb-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-xs font-extrabold text-zinc-200 uppercase tracking-wider">{cat.name}</span>
+              <div
+                key={cat.id}
+                className="bg-[#08080b]/90 border border-zinc-800/80 hover:border-zinc-700/80 rounded-2xl p-4 transition-all shadow-md"
+              >
+                {/* Accordion Header Bar */}
+                <div className="flex items-center justify-between gap-3 cursor-pointer select-none">
+                  <div
+                    onClick={() => toggleCategoryExpand(cat.id)}
+                    className="flex-1 flex flex-wrap items-center gap-2.5"
+                  >
+                    <span className="text-xs font-extrabold text-zinc-100 uppercase tracking-wider hover:text-emerald-400 transition-colors">
+                      {cat.name}
+                    </span>
                     <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-lg border ${
                       activeInCatCount > 0
                         ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30'
@@ -1347,47 +1372,89 @@ export default function MartingaleStrategyPage() {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      onClick={() => selectCategoryPairs(cat.pairs)}
-                      className="text-[10px] bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        selectCategoryPairs(cat.pairs);
+                      }}
+                      className="text-[10px] bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer hidden sm:inline-block"
                     >
-                      Select All Category
+                      Select All
                     </button>
                     <button
                       type="button"
-                      onClick={() => clearCategoryPairs(cat.pairs)}
-                      className="text-[10px] bg-zinc-900 hover:bg-zinc-850 text-zinc-500 font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearCategoryPairs(cat.pairs);
+                      }}
+                      className="text-[10px] bg-zinc-900 hover:bg-zinc-850 text-zinc-500 font-bold px-2.5 py-1 rounded-lg transition-all cursor-pointer hidden sm:inline-block"
                     >
-                      Clear Category
+                      Clear
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleCategoryExpand(cat.id)}
+                      className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 px-3 py-1 rounded-xl transition-all cursor-pointer"
+                    >
+                      <span>{isExpanded ? 'Hide' : 'Expand'}</span>
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4 text-emerald-400" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4 text-emerald-400" />
+                      )}
                     </button>
                   </div>
                 </div>
 
-                <p className="text-[10px] text-zinc-500 italic">{cat.desc}</p>
-
-                {/* Category Pair Grid with vertical scrollbar */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 max-h-52 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
-                  {cat.pairs.map((pair) => {
-                    const isSelected = selectedPairs.includes(pair);
-                    const displayName = SYMBOL_DISPLAY_MAP[pair] || pair;
-                    return (
-                      <div
-                        key={pair}
-                        onClick={() => togglePair(pair)}
-                        className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                          isSelected
-                            ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300 shadow-sm'
-                            : 'bg-[#060608]/80 border-zinc-800/80 text-zinc-500 hover:border-zinc-700'
-                        }`}
-                      >
-                        <span className="text-[11px] font-extrabold truncate pr-1">{displayName}</span>
-                        <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-emerald-400' : 'text-zinc-750'}`} />
+                {/* Collapsible Content */}
+                {isExpanded && (
+                  <div className="pt-3 border-t border-zinc-800/60 mt-3 space-y-3 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-zinc-400 italic">{cat.desc}</p>
+                      <div className="flex items-center gap-1.5 sm:hidden">
+                        <button
+                          type="button"
+                          onClick={() => selectCategoryPairs(cat.pairs)}
+                          className="text-[10px] bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 font-bold px-2 py-0.5 rounded-md"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => clearCategoryPairs(cat.pairs)}
+                          className="text-[10px] bg-zinc-900 text-zinc-500 font-bold px-2 py-0.5 rounded-md"
+                        >
+                          Clear
+                        </button>
                       </div>
-                    );
-                  })}
-                </div>
+                    </div>
+
+                    {/* Category Pair Grid with vertical scrollbar */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5 max-h-56 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-zinc-800">
+                      {cat.pairs.map((pair) => {
+                        const isSelected = selectedPairs.includes(pair);
+                        const displayName = SYMBOL_DISPLAY_MAP[pair] || pair;
+                        return (
+                          <div
+                            key={pair}
+                            onClick={() => togglePair(pair)}
+                            className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
+                              isSelected
+                                ? 'bg-emerald-950/30 border-emerald-500/50 text-emerald-300 shadow-sm'
+                                : 'bg-[#060608]/80 border-zinc-800/80 text-zinc-500 hover:border-zinc-700'
+                            }`}
+                          >
+                            <span className="text-[11px] font-extrabold truncate pr-1">{displayName}</span>
+                            <CheckSquare className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-emerald-400' : 'text-zinc-750'}`} />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
