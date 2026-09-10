@@ -153,7 +153,7 @@ export async function GET(req: Request) {
     const { data: openTrades } = await supabase
       .from('deriv_trades')
       .select('*')
-      .lt('stake', 0.99)
+      .neq('stake', 1.00)
       .eq('status', 'OPEN');
 
     if (openTrades && openTrades.length > 0) {
@@ -165,7 +165,7 @@ export async function GET(req: Request) {
       const { data: stillOpen } = await supabase
         .from('deriv_trades')
         .select('*')
-        .lt('stake', 0.99)
+        .neq('stake', 1.00)
         .eq('status', 'OPEN');
 
       if (stillOpen && stillOpen.length > 0) {
@@ -313,7 +313,7 @@ export async function GET(req: Request) {
       }
 
       // If ONE_BY_ONE mode trade placed, break outer pair loop as well
-      const { data: checkOpen } = await supabase.from('deriv_trades').select('id').lt('stake', 0.99).eq('status', 'OPEN');
+      const { data: checkOpen } = await supabase.from('deriv_trades').select('id').neq('stake', 1.00).eq('status', 'OPEN');
       if (config.execution_mode === 'ONE_BY_ONE' && checkOpen && checkOpen.length > 0) {
         break;
       }

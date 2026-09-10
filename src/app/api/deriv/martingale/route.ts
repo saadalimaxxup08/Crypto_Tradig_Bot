@@ -84,11 +84,11 @@ export async function GET() {
       progression_active_steps: Array.isArray(ov.deriv_progression_active_steps) ? ov.deriv_progression_active_steps : DEFAULT_MARTINGALE_CONFIG.progression_active_steps
     };
 
-    // Fetch Martingale stats from deriv_trades (lt stake 0.99)
+    // Fetch Martingale stats from deriv_trades (stake != 1.00)
     const { data: martingaleTrades } = await supabase
       .from('deriv_trades')
       .select('*')
-      .lt('stake', 0.99)
+      .neq('stake', 1.00)
       .order('created_at', { ascending: false })
       .limit(100);
 
