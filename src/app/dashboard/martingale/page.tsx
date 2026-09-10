@@ -267,9 +267,9 @@ export default function MartingaleStrategyPage() {
     derived: true,
     synthetics_jump_boom: false,
     forex: false,
-    stocks: false,
     commodities: false
   });
+  const [isStrategiesExpanded, setIsStrategiesExpanded] = useState<boolean>(false);
 
   const toggleCategoryExpand = (catId: string) => {
     setExpandedCategories(prev => ({
@@ -1236,30 +1236,30 @@ export default function MartingaleStrategyPage() {
       </div>
 
       {/* Control 3: Dedicated Martingale Active Strategy Engines */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
-          <div>
-            <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-emerald-400" />
-              <span>Dedicated Martingale Active Strategy Engines ({selectedStrategies.length} Active)</span>
+      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
+          <div
+            onClick={() => setIsStrategiesExpanded(!isStrategiesExpanded)}
+            className="flex-1 flex flex-wrap items-center gap-2.5 cursor-pointer"
+          >
+            <Sliders className="w-5 h-5 text-emerald-400 shrink-0" />
+            <h3 className="text-md sm:text-lg font-bold text-zinc-200 hover:text-emerald-400 transition-colors">
+              Dedicated Martingale Active Strategy Engines ({selectedStrategies.length} / 4 Active)
             </h3>
-            <p className="text-xs text-zinc-400 mt-1">
-              Tick whichever strategy engines you want to run for Martingale trade execution. You can tick one, multiple, or all 4 strategies.
-            </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={selectAllStrategies}
-              className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold px-3 py-2 rounded-xl transition-all cursor-pointer"
+              className="text-[10px] sm:text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer hidden sm:inline-block"
             >
               Select All
             </button>
             <button
               type="button"
               onClick={clearAllStrategies}
-              className="text-xs bg-zinc-800/60 hover:bg-zinc-800 text-zinc-400 font-bold px-3 py-2 rounded-xl transition-all cursor-pointer"
+              className="text-[10px] sm:text-xs bg-zinc-800/60 hover:bg-zinc-800 text-zinc-400 font-bold px-3 py-1.5 rounded-xl transition-all cursor-pointer hidden sm:inline-block"
             >
               Clear All
             </button>
@@ -1267,40 +1267,78 @@ export default function MartingaleStrategyPage() {
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] sm:text-xs font-extrabold px-3.5 py-1.5 rounded-xl shadow-md transition-all cursor-pointer active:scale-95 disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5" />
-              <span>{isSaving ? 'Saving...' : 'Save Strategy Configuration'}</span>
+              <span>{isSaving ? 'Saving...' : 'Save Strategy'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsStrategiesExpanded(!isStrategiesExpanded)}
+              className="flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/30 px-3 py-1 rounded-xl transition-all cursor-pointer"
+            >
+              <span>{isStrategiesExpanded ? 'Hide' : 'Expand'}</span>
+              {isStrategiesExpanded ? (
+                <ChevronUp className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-emerald-400" />
+              )}
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {MARTINGALE_STRATEGIES_LIST.map((strat) => {
-            const isSelected = selectedStrategies.includes(strat.id);
-            return (
-              <div
-                key={strat.id}
-                onClick={() => toggleStrategy(strat.id)}
-                className={`p-4 rounded-2xl border cursor-pointer transition-all space-y-2 ${
-                  isSelected
-                    ? 'bg-emerald-950/20 border-emerald-500/50 text-emerald-300'
-                    : 'bg-[#09090b]/60 border-zinc-800/80 text-zinc-500 hover:border-zinc-700'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-zinc-100 flex items-center gap-1.5">
-                    <span>{strat.name}</span>
-                  </span>
-                  <CheckSquare className={`w-4.5 h-4.5 shrink-0 ${isSelected ? 'text-emerald-400' : 'text-zinc-700'}`} />
-                </div>
-                <p className="text-[10px] text-zinc-400 leading-relaxed">
-                  {strat.desc}
-                </p>
+        {isStrategiesExpanded && (
+          <div className="pt-3 border-t border-zinc-800/50 space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-zinc-400">
+                Tick whichever strategy engines you want to run for Martingale trade execution. You can tick one, multiple, or all 4 strategies.
+              </p>
+              <div className="flex items-center gap-1.5 sm:hidden shrink-0">
+                <button
+                  type="button"
+                  onClick={selectAllStrategies}
+                  className="text-[10px] bg-zinc-800 text-zinc-200 font-bold px-2 py-0.5 rounded-md"
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={clearAllStrategies}
+                  className="text-[10px] bg-zinc-900 text-zinc-500 font-bold px-2 py-0.5 rounded-md"
+                >
+                  Clear
+                </button>
               </div>
-            );
-          })}
-        </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {MARTINGALE_STRATEGIES_LIST.map((strat) => {
+                const isSelected = selectedStrategies.includes(strat.id);
+                return (
+                  <div
+                    key={strat.id}
+                    onClick={() => toggleStrategy(strat.id)}
+                    className={`p-4 rounded-2xl border cursor-pointer transition-all space-y-2 ${
+                      isSelected
+                        ? 'bg-emerald-950/20 border-emerald-500/50 text-emerald-300'
+                        : 'bg-[#09090b]/60 border-zinc-800/80 text-zinc-500 hover:border-zinc-700'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-zinc-100 flex items-center gap-1.5">
+                        <span>{strat.name}</span>
+                      </span>
+                      <CheckSquare className={`w-4.5 h-4.5 shrink-0 ${isSelected ? 'text-emerald-400' : 'text-zinc-700'}`} />
+                    </div>
+                    <p className="text-[10px] text-zinc-400 leading-relaxed">
+                      {strat.desc}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Control 4: Dedicated Martingale Pair Selector (5 Market Categories) */}
