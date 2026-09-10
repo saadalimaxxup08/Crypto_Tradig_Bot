@@ -179,7 +179,7 @@ export async function GET() {
         activeBalance: config.trading_mode === 'REAL' ? realBalance : demoBalance
       },
       openTrades: openTradesList,
-      recentTrades: tradesList.slice(0, 50)
+      recentTrades: tradesList.slice(0, 100)
     });
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
