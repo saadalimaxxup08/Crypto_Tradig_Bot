@@ -487,8 +487,8 @@ export function syncOpenTrades(socket: WebSocket, openTrades: any[]): Promise<vo
           
           const matchingTrade = openTrades.find(t => t.contract_id === contractId);
           if (matchingTrade) {
-            const isExpired = contract.is_expired;
-            const status = isExpired ? (contract.profit > 0 ? 'WON' : 'LOST') : 'OPEN';
+            const isExpired = contract.is_expired === 1 || contract.is_sold === 1 || contract.is_settleable === 1 || contract.status === 'won' || contract.status === 'lost' || contract.status === 'sold';
+            const status = (contract.status === 'won' || contract.profit > 0) ? 'WON' : (contract.status === 'lost' || (contract.profit !== undefined && parseFloat(contract.profit) < 0)) ? 'LOST' : (isExpired ? (parseFloat(contract.profit || 0) >= 0 ? 'WON' : 'LOST') : 'OPEN');
             const pnl = parseFloat(contract.profit || 0);
             
             const exitPrice = contract.exit_tick ? parseFloat(contract.exit_tick) : (contract.exit_spot ? parseFloat(contract.exit_spot) : null);
