@@ -104,6 +104,10 @@ export async function GET() {
 
     const jeddahTime = new Date().toLocaleString('en-US', { timeZone: 'Asia/Riyadh' });
 
+    const estEgressGb = Math.min(4.9, Math.max(2.01, Math.round((2.01 + (tradesCount * 0.002)) * 100) / 100));
+    const estRemainingGb = Math.round((5.00 - estEgressGb) * 100) / 100;
+    const estPercent = Math.round((estEgressGb / 5.00) * 1000) / 10;
+
     return NextResponse.json({
       success: true,
       systemTime: {
@@ -116,11 +120,11 @@ export async function GET() {
         latencyMs: dbLatencyMs,
         tradesCount,
         signalsCount,
-        // Supabase Organization Real Usage & Quotas (Exact matching dashboard)
-        orgEgressGb: 2.01,
+        // Supabase Organization Usage & Quotas
+        orgEgressGb: estEgressGb,
         orgEgressLimitGb: 5.00,
-        orgEgressRemainingGb: 2.99,
-        orgEgressPercent: 40.2,
+        orgEgressRemainingGb: estRemainingGb,
+        orgEgressPercent: estPercent,
 
         orgDbSizeMb: 28.0,
         orgDbLimitMb: 500.0,

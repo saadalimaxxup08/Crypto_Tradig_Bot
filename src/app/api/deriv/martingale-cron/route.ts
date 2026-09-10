@@ -380,14 +380,14 @@ export async function GET(req: Request) {
       return (b.adx || 0) - (a.adx || 0);
     });
 
-    // Save latest near entry pairs & scan logs to Supabase pair_overrides
+    // Save latest near entry pairs & trimmed scan logs to Supabase pair_overrides
     const { data: latestSettings } = await supabase.from('settings').select('pair_overrides').eq('id', 1).single();
     const currentOv = latestSettings?.pair_overrides || {};
     await supabase.from('settings').update({
       pair_overrides: {
         ...currentOv,
         martingale_near_entry_pairs: sortedNearEntryList,
-        martingale_last_scan_logs: scanLogs,
+        martingale_last_scan_logs: scanLogs.slice(-25),
         martingale_last_scan_at: new Date().toISOString()
       }
     }).eq('id', 1);

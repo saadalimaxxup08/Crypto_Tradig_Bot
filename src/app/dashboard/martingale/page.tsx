@@ -339,8 +339,8 @@ export default function MartingaleStrategyPage() {
     };
     initPage();
 
-    const dataInterval = setInterval(() => fetchMartingaleData(false), 25000);
-    const scanInterval = setInterval(() => handleRunInstantScan(), 20000);
+    const dataInterval = setInterval(() => fetchMartingaleData(false), 45000);
+    const scanInterval = setInterval(() => handleRunInstantScan(), 60000);
 
     return () => {
       clearInterval(dataInterval);
