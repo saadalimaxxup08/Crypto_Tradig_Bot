@@ -264,7 +264,7 @@ export default function MartingaleStrategyPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
-    derived: true,
+    derived: false,
     synthetics_jump_boom: false,
     forex: false,
     commodities: false
