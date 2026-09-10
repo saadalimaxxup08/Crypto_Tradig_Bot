@@ -5,7 +5,18 @@ import { DEFAULT_MARTINGALE_CONFIG } from '@/lib/deriv_martingale_engine';
 
 export const dynamic = 'force-dynamic';
 
+let balanceCache: { demoBalance: number; realBalance: number; timestamp: number } | null = null;
+
 async function getDerivBalances(appId: string, token: string) {
+  const now = Date.now();
+  if (balanceCache && (now - balanceCache.timestamp < 35000)) {
+    return { demoBalance: balanceCache.demoBalance, realBalance: balanceCache.realBalance };
+  }
+
+  if (!appId || !token) {
+    return balanceCache ? { demoBalance: balanceCache.demoBalance, realBalance: balanceCache.realBalance } : { demoBalance: 0.00, realBalance: 0.00 };
+  }
+
   try {
     const response = await fetch("https://api.derivws.com/trading/v1/options/accounts", {
       method: 'GET',
@@ -13,7 +24,8 @@ async function getDerivBalances(appId: string, token: string) {
         'Deriv-App-ID': appId,
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
-      }
+      },
+      cache: 'no-store'
     });
 
     if (response.status === 200) {
@@ -21,16 +33,19 @@ async function getDerivBalances(appId: string, token: string) {
       if (resData && resData.data) {
         const demo = resData.data.find((a: any) => a.account_type === 'demo');
         const real = resData.data.find((a: any) => a.account_type === 'real');
-        return {
-          demoBalance: demo ? parseFloat(demo.balance) : 0.00,
-          realBalance: real ? parseFloat(real.balance) : 0.00
-        };
+        const demoBalance = demo ? parseFloat(demo.balance) : (balanceCache?.demoBalance || 0.00);
+        const realBalance = real ? parseFloat(real.balance) : (balanceCache?.realBalance || 0.00);
+
+        balanceCache = { demoBalance, realBalance, timestamp: Date.now() };
+        return { demoBalance, realBalance };
       }
+    } else {
+      console.warn(`Deriv balances HTTP ${response.status} in martingale route: Rate limit or error response. Using cached balance.`);
     }
   } catch (e) {
     console.error("Failed to fetch Deriv balances in martingale route:", e);
   }
-  return { demoBalance: 0.00, realBalance: 0.00 };
+  return balanceCache ? { demoBalance: balanceCache.demoBalance, realBalance: balanceCache.realBalance } : { demoBalance: 0.00, realBalance: 0.00 };
 }
 
 export async function GET() {

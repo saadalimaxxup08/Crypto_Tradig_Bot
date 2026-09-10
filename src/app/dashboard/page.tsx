@@ -243,7 +243,7 @@ export default function DerivDashboard() {
     const interval = setInterval(() => {
       syncTradesSilently();
       fetchSettings(false); // Auto-refresh scan logs, settings, and watchlist without overwriting user drafts
-    }, 10000);
+    }, 25000);
 
     return () => clearInterval(interval);
   }, []);
