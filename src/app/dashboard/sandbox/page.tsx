@@ -383,7 +383,7 @@ export default function DerivSandboxPage() {
                     {filteredClosedTrades.map((t) => (
                       <tr key={t.id} className="hover:bg-zinc-900/20 transition-colors">
                         <td className="p-3 text-[10px] font-mono text-zinc-400">
-                          {new Date(t.timestamp).toLocaleTimeString('en-US', { hour12: false })}
+                          {new Date(t.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true })}
                         </td>
                         <td className="p-3 font-bold text-zinc-200 font-mono">{t.symbol}</td>
                         <td className="p-3 font-mono">

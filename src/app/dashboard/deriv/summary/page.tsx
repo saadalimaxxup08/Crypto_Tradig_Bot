@@ -476,7 +476,7 @@ export default function DerivSummaryPage() {
           currentY = 20;
         }
         const curPrice = livePrices[t.pair] || t.entry_price;
-        const entryTime = new Date(t.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false });
+        const entryTime = new Date(t.timestamp).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.timestamp).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true });
         
         const timeInMarket = new Date(t.timestamp);
         const durationMs = Date.now() - timeInMarket.getTime();
@@ -549,7 +549,7 @@ export default function DerivSummaryPage() {
         doc.addPage();
         currentY = 20;
       }
-      const closeTime = new Date(t.closed_at).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false });
+      const closeTime = new Date(t.closed_at).toLocaleDateString('en-US', { timeZone: 'Asia/Riyadh' }) + ' ' + new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true });
       const displayName = getDisplaySymbolName(t.pair);
       const durStr = `${t.duration || 15}${t.duration_unit || 'm'}`;
 

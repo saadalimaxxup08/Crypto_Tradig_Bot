@@ -133,7 +133,7 @@ export default function DerivConsolePage() {
 
   const getJeddahTimeStr = () => {
     return new Date().toLocaleTimeString('en-US', {
-      hour12: false,
+      hour12: true,
       timeZone: 'Asia/Riyadh',
     });
   };

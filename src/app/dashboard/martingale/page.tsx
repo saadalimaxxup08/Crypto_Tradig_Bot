@@ -1553,7 +1553,7 @@ export default function MartingaleStrategyPage() {
                   <span className="font-bold text-zinc-200">{t.entry_price ? parseFloat(t.entry_price).toFixed(4) : 'N/A'}</span>
                 </div>
                 <div className="text-[10px] text-zinc-500 font-mono text-right pt-1">
-                  Open Time: {new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+                  Open Time: {new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
                 </div>
               </div>
             ))}
@@ -1659,7 +1659,7 @@ export default function MartingaleStrategyPage() {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-zinc-500 text-[11px] text-right font-mono">
-                          {t.closed_at ? new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false }) : new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: false })}
+                          {t.closed_at ? new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true }) : new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true })}
                         </td>
                       </tr>
                     );
