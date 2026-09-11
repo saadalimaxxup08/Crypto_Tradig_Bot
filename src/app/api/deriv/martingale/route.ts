@@ -148,12 +148,12 @@ export async function GET() {
     const winRate = (wonCount + lostCount) > 0 ? (wonCount / (wonCount + lostCount)) * 100 : 0;
 
     const riskFilters = {
-      news: ov.deriv_news_filter_enabled !== false,
-      session: ov.deriv_session_filter_enabled !== false,
-      cooldown: ov.deriv_cooldown_filter_enabled !== false,
-      daily: ov.deriv_daily_limit_enabled !== false,
-      pairLossCooldown: ov.deriv_pair_loss_cooldown_enabled !== false,
-      pairRotationGuard: ov.deriv_pair_rotation_guard_enabled !== false
+      news: ov.martingale_news_filter_enabled !== undefined ? ov.martingale_news_filter_enabled !== false : (ov.deriv_news_filter_enabled !== false),
+      session: ov.martingale_session_filter_enabled !== undefined ? ov.martingale_session_filter_enabled !== false : (ov.deriv_session_filter_enabled !== false),
+      cooldown: ov.martingale_cooldown_filter_enabled !== undefined ? ov.martingale_cooldown_filter_enabled !== false : (ov.deriv_cooldown_filter_enabled !== false),
+      daily: ov.martingale_daily_limit_enabled !== undefined ? ov.martingale_daily_limit_enabled !== false : (ov.deriv_daily_limit_enabled !== false),
+      pairLossCooldown: ov.martingale_pair_loss_cooldown_enabled !== undefined ? ov.martingale_pair_loss_cooldown_enabled !== false : (ov.deriv_pair_loss_cooldown_enabled !== false),
+      pairRotationGuard: ov.martingale_pair_rotation_guard_enabled !== undefined ? ov.martingale_pair_rotation_guard_enabled !== false : (ov.deriv_pair_rotation_guard_enabled !== false)
     };
 
     const openTradesList = tradesList.filter(t => t.status === 'OPEN');
@@ -226,12 +226,12 @@ export async function POST(req: Request) {
       martingale_selected_pairs: Array.isArray(selected_pairs) ? selected_pairs : (currentOv.martingale_selected_pairs || DEFAULT_MARTINGALE_CONFIG.selected_pairs),
       deriv_progression_steps: Array.isArray(progression_steps) ? progression_steps : (currentOv.deriv_progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps),
       deriv_progression_active_steps: Array.isArray(progression_active_steps) ? progression_active_steps : (currentOv.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps),
-      deriv_news_filter_enabled: riskFilters?.news !== undefined ? Boolean(riskFilters.news) : (currentOv.deriv_news_filter_enabled !== false),
-      deriv_session_filter_enabled: riskFilters?.session !== undefined ? Boolean(riskFilters.session) : (currentOv.deriv_session_filter_enabled !== false),
-      deriv_cooldown_filter_enabled: riskFilters?.cooldown !== undefined ? Boolean(riskFilters.cooldown) : (currentOv.deriv_cooldown_filter_enabled !== false),
-      deriv_daily_limit_enabled: riskFilters?.daily !== undefined ? Boolean(riskFilters.daily) : (currentOv.deriv_daily_limit_enabled !== false),
-      deriv_pair_loss_cooldown_enabled: riskFilters?.pairLossCooldown !== undefined ? Boolean(riskFilters.pairLossCooldown) : (currentOv.deriv_pair_loss_cooldown_enabled !== false),
-      deriv_pair_rotation_guard_enabled: riskFilters?.pairRotationGuard !== undefined ? Boolean(riskFilters.pairRotationGuard) : (currentOv.deriv_pair_rotation_guard_enabled !== false)
+      martingale_news_filter_enabled: riskFilters?.news !== undefined ? Boolean(riskFilters.news) : (currentOv.martingale_news_filter_enabled !== undefined ? currentOv.martingale_news_filter_enabled !== false : (currentOv.deriv_news_filter_enabled !== false)),
+      martingale_session_filter_enabled: riskFilters?.session !== undefined ? Boolean(riskFilters.session) : (currentOv.martingale_session_filter_enabled !== undefined ? currentOv.martingale_session_filter_enabled !== false : (currentOv.deriv_session_filter_enabled !== false)),
+      martingale_cooldown_filter_enabled: riskFilters?.cooldown !== undefined ? Boolean(riskFilters.cooldown) : (currentOv.martingale_cooldown_filter_enabled !== undefined ? currentOv.martingale_cooldown_filter_enabled !== false : (currentOv.deriv_cooldown_filter_enabled !== false)),
+      martingale_daily_limit_enabled: riskFilters?.daily !== undefined ? Boolean(riskFilters.daily) : (currentOv.martingale_daily_limit_enabled !== undefined ? currentOv.martingale_daily_limit_enabled !== false : (currentOv.deriv_daily_limit_enabled !== false)),
+      martingale_pair_loss_cooldown_enabled: riskFilters?.pairLossCooldown !== undefined ? Boolean(riskFilters.pairLossCooldown) : (currentOv.martingale_pair_loss_cooldown_enabled !== undefined ? currentOv.martingale_pair_loss_cooldown_enabled !== false : (currentOv.deriv_pair_loss_cooldown_enabled !== false)),
+      martingale_pair_rotation_guard_enabled: riskFilters?.pairRotationGuard !== undefined ? Boolean(riskFilters.pairRotationGuard) : (currentOv.martingale_pair_rotation_guard_enabled !== undefined ? currentOv.martingale_pair_rotation_guard_enabled !== false : (currentOv.deriv_pair_rotation_guard_enabled !== false))
     };
 
     const { error } = await supabase
@@ -260,12 +260,12 @@ export async function POST(req: Request) {
       success: true,
       config,
       riskFilters: {
-        news: updatedOv.deriv_news_filter_enabled !== false,
-        session: updatedOv.deriv_session_filter_enabled !== false,
-        cooldown: updatedOv.deriv_cooldown_filter_enabled !== false,
-        daily: updatedOv.deriv_daily_limit_enabled !== false,
-        pairLossCooldown: updatedOv.deriv_pair_loss_cooldown_enabled !== false,
-        pairRotationGuard: updatedOv.deriv_pair_rotation_guard_enabled !== false
+        news: updatedOv.martingale_news_filter_enabled !== false,
+        session: updatedOv.martingale_session_filter_enabled !== false,
+        cooldown: updatedOv.martingale_cooldown_filter_enabled !== false,
+        daily: updatedOv.martingale_daily_limit_enabled !== false,
+        pairLossCooldown: updatedOv.martingale_pair_loss_cooldown_enabled !== false,
+        pairRotationGuard: updatedOv.martingale_pair_rotation_guard_enabled !== false
       }
     });
   } catch (err: any) {

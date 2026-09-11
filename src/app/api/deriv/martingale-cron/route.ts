@@ -99,13 +99,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, message: 'Missing credentials', logs: scanLogs });
     }
 
-    // Load risk filter toggles
-    const newsFilterEnabled = ov.deriv_news_filter_enabled !== false;
-    const sessionFilterEnabled = ov.deriv_session_filter_enabled !== false;
-    const cooldownFilterEnabled = ov.deriv_cooldown_filter_enabled !== false;
-    const dailyLimitEnabled = ov.deriv_daily_limit_enabled !== false;
-    const pairLossCooldownEnabled = ov.deriv_pair_loss_cooldown_enabled !== false;
-    const pairRotationGuardEnabled = ov.deriv_pair_rotation_guard_enabled !== false;
+    // Load risk filter toggles (prefer martingale_* override keys over global deriv_* keys)
+    const newsFilterEnabled = ov.martingale_news_filter_enabled !== undefined ? ov.martingale_news_filter_enabled !== false : (ov.deriv_news_filter_enabled !== false);
+    const sessionFilterEnabled = ov.martingale_session_filter_enabled !== undefined ? ov.martingale_session_filter_enabled !== false : (ov.deriv_session_filter_enabled !== false);
+    const cooldownFilterEnabled = ov.martingale_cooldown_filter_enabled !== undefined ? ov.martingale_cooldown_filter_enabled !== false : (ov.deriv_cooldown_filter_enabled !== false);
+    const dailyLimitEnabled = ov.martingale_daily_limit_enabled !== undefined ? ov.martingale_daily_limit_enabled !== false : (ov.deriv_daily_limit_enabled !== false);
+    const pairLossCooldownEnabled = ov.martingale_pair_loss_cooldown_enabled !== undefined ? ov.martingale_pair_loss_cooldown_enabled !== false : (ov.deriv_pair_loss_cooldown_enabled !== false);
+    const pairRotationGuardEnabled = ov.martingale_pair_rotation_guard_enabled !== undefined ? ov.martingale_pair_rotation_guard_enabled !== false : (ov.deriv_pair_rotation_guard_enabled !== false);
 
     if (sessionFilterEnabled && isAsianSessionBlocked()) {
       scanLogs.push('⏳ Session Filter: Asian session block active (21:00 - 23:59 GMT). Skipping Martingale scans.');
