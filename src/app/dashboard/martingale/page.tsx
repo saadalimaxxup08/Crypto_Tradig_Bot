@@ -1089,10 +1089,22 @@ export default function MartingaleStrategyPage() {
 
       {/* Control 1: Allocated Capital Pool & Execution Mode */}
       <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-        <h3 className="text-lg font-bold text-zinc-200 border-b border-zinc-800/50 pb-3 flex items-center gap-2">
-          <Sliders className="w-5 h-5 text-emerald-400" />
-          <span>Capital Allocation &amp; Execution Mode Controls</span>
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-3 gap-3">
+          <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
+            <Sliders className="w-5 h-5 text-emerald-400" />
+            <span>Capital Allocation &amp; Execution Mode Controls</span>
+          </h3>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold py-2 px-4 rounded-2xl shadow-lg shadow-emerald-950/40 transition-all shrink-0 active:scale-95 disabled:opacity-50 cursor-pointer"
+          >
+            <Save className="w-4 h-4" />
+            <span>{isSaving ? 'Saving...' : 'Save Capital & Controls'}</span>
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Allocated Capital Input */}
