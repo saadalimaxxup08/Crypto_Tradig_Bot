@@ -236,17 +236,28 @@ export async function GET(req: Request) {
       }
 
       if (pairRotationGuardEnabled) {
-        const { data: lastGlobalTrade } = await supabase
+        const { data: recentMartingaleTrades } = await supabase
           .from('deriv_trades')
           .select('symbol, status')
           .neq('stake', 1.00)
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(20);
 
-        if (lastGlobalTrade && lastGlobalTrade.symbol === pair && lastGlobalTrade.status === 'LOST') {
-          scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: Pair Rotation Guard active (waiting for another pair to trade after loss).`);
-          continue;
+        if (recentMartingaleTrades && recentMartingaleTrades.length > 0) {
+          const currentStreakLosingSymbols = new Set<string>();
+          for (const t of recentMartingaleTrades) {
+            if (t.status === 'WON') {
+              break; // Win resets the cycle!
+            }
+            if (t.status === 'LOST') {
+              currentStreakLosingSymbols.add(t.symbol);
+            }
+          }
+
+          if (currentStreakLosingSymbols.has(pair)) {
+            scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: Pair Rotation Lock active (already lost in current streak, waiting for a winning trade to reset cycle).`);
+            continue;
+          }
         }
       }
 
