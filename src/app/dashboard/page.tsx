@@ -2047,16 +2047,16 @@ export default function DerivDashboard() {
                 <p className="text-xs text-zinc-500 font-medium">No recent contracts in history</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-h-[420px] overflow-y-auto rounded-2xl border border-zinc-900 bg-[#050507]/60 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
                 <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                      <th className="pb-3">Contract ID</th>
-                      <th className="pb-3">Asset</th>
-                      <th className="pb-3 text-center">Type</th>
-                      <th className="pb-3 text-right">Stake</th>
-                      <th className="pb-3 text-right">Return P&L</th>
-                      <th className="pb-3 text-center">Outcome</th>
+                  <thead className="sticky top-0 z-10 bg-zinc-950 shadow-sm">
+                    <tr className="border-b border-zinc-800 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <th className="py-3 px-4">Contract ID</th>
+                      <th className="py-3 px-3">Asset</th>
+                      <th className="py-3 px-3 text-center">Type</th>
+                      <th className="py-3 px-3 text-right">Stake</th>
+                      <th className="py-3 px-3 text-right">Return P&L</th>
+                      <th className="py-3 px-4 text-center">Outcome</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/50 text-sm font-semibold">
@@ -2064,9 +2064,9 @@ export default function DerivDashboard() {
                       const isWin = t.status === 'WON';
                       return (
                         <tr key={t.id} className="hover:bg-zinc-950/20 transition-all">
-                          <td className="py-3.5 font-mono text-zinc-400 text-xs">{t.contract_id}</td>
-                          <td className="py-3.5 text-zinc-300 text-xs">{getPairDisplayName(t.symbol)}</td>
-                          <td className="py-3.5 text-center">
+                          <td className="py-3 px-4 font-mono text-zinc-400 text-xs">{t.contract_id}</td>
+                          <td className="py-3 px-3 text-zinc-300 text-xs">{getPairDisplayName(t.symbol)}</td>
+                          <td className="py-3 px-3 text-center">
                             <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${
                               t.contract_type === 'CALL'
                                 ? 'bg-emerald-950/10 border-emerald-900/20 text-emerald-400'
@@ -2075,11 +2075,11 @@ export default function DerivDashboard() {
                               {t.contract_type === 'CALL' ? 'RISE' : 'FALL'}
                             </span>
                           </td>
-                          <td className="py-3.5 text-right font-mono text-xs text-zinc-400">${t.stake.toFixed(2)}</td>
-                          <td className={`py-3.5 text-right font-mono text-xs font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <td className="py-3 px-3 text-right font-mono text-xs text-zinc-400">${t.stake.toFixed(2)}</td>
+                          <td className={`py-3 px-3 text-right font-mono text-xs font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
                             {isWin ? '+' : ''}{t.pnl.toFixed(2)} USD
                           </td>
-                          <td className="py-3.5 text-center">
+                          <td className="py-3 px-4 text-center">
                             <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase ${
                               isWin
                                 ? 'bg-emerald-500 text-emerald-950'
