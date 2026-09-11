@@ -78,6 +78,8 @@ export async function GET() {
     const derivSessionFilterEnabled = overrides.deriv_session_filter_enabled !== false;
     const derivCooldownFilterEnabled = overrides.deriv_cooldown_filter_enabled !== false;
     const derivDailyLimitEnabled = overrides.deriv_daily_limit_enabled !== false;
+    const derivPairLossCooldownEnabled = overrides.deriv_pair_loss_cooldown_enabled !== false;
+    const derivPairRotationGuardEnabled = overrides.deriv_pair_rotation_guard_enabled !== false;
     const derivNearEntryPairs = overrides.deriv_near_entry_pairs || [];
     const derivProgressionEnabled = overrides.deriv_progression_enabled === true;
     const derivProgressionSteps = overrides.deriv_progression_steps || [0.35, 0.39, 0.83, 1.75, 3.69, 7.79, 16.45, 34.73, 73.00, 150.00];
@@ -109,6 +111,8 @@ export async function GET() {
         derivSessionFilterEnabled,
         derivCooldownFilterEnabled,
         derivDailyLimitEnabled,
+        derivPairLossCooldownEnabled,
+        derivPairRotationGuardEnabled,
         derivNearEntryPairs,
         derivProgressionEnabled,
         derivProgressionSteps,
@@ -137,6 +141,8 @@ export async function GET() {
       derivSessionFilterEnabled,
       derivCooldownFilterEnabled,
       derivDailyLimitEnabled,
+      derivPairLossCooldownEnabled,
+      derivPairRotationGuardEnabled,
       derivNearEntryPairs,
       derivProgressionEnabled,
       derivProgressionSteps,
@@ -175,6 +181,8 @@ export async function POST(request: Request) {
       derivSessionFilterEnabled,
       derivCooldownFilterEnabled,
       derivDailyLimitEnabled,
+      derivPairLossCooldownEnabled,
+      derivPairRotationGuardEnabled,
       derivProgressionEnabled,
       derivProgressionSteps,
       derivProgressionActiveSteps
@@ -200,6 +208,8 @@ export async function POST(request: Request) {
       deriv_session_filter_enabled: derivSessionFilterEnabled !== undefined ? derivSessionFilterEnabled : existingOverrides.deriv_session_filter_enabled,
       deriv_cooldown_filter_enabled: derivCooldownFilterEnabled !== undefined ? derivCooldownFilterEnabled : existingOverrides.deriv_cooldown_filter_enabled,
       deriv_daily_limit_enabled: derivDailyLimitEnabled !== undefined ? derivDailyLimitEnabled : existingOverrides.deriv_daily_limit_enabled,
+      deriv_pair_loss_cooldown_enabled: derivPairLossCooldownEnabled !== undefined ? derivPairLossCooldownEnabled : existingOverrides.deriv_pair_loss_cooldown_enabled,
+      deriv_pair_rotation_guard_enabled: derivPairRotationGuardEnabled !== undefined ? derivPairRotationGuardEnabled : existingOverrides.deriv_pair_rotation_guard_enabled,
       deriv_progression_enabled: derivProgressionEnabled !== undefined ? derivProgressionEnabled : existingOverrides.deriv_progression_enabled,
       deriv_progression_steps: derivProgressionSteps !== undefined ? derivProgressionSteps : (existingOverrides.deriv_progression_steps || [0.35, 0.39, 0.83, 1.75, 3.69, 7.79, 16.45, 34.73, 73.00, 150.00]),
       deriv_progression_active_steps: derivProgressionActiveSteps !== undefined ? derivProgressionActiveSteps : (existingOverrides.deriv_progression_active_steps || [true, true, true, true, true, true, true, true, true, true])

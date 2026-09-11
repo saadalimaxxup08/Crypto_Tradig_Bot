@@ -200,6 +200,8 @@ export default function DerivDashboard() {
   const [sessionFilterEnabled, setSessionFilterEnabled] = useState(true);
   const [cooldownFilterEnabled, setCooldownFilterEnabled] = useState(true);
   const [dailyLimitEnabled, setDailyLimitEnabled] = useState(true);
+  const [pairLossCooldownEnabled, setPairLossCooldownEnabled] = useState(true);
+  const [pairRotationGuardEnabled, setPairRotationGuardEnabled] = useState(true);
   const [isSavingRiskToggles, setIsSavingRiskToggles] = useState(false);
 
   const getPairDisplayName = (symbolId: string) => {
@@ -281,6 +283,8 @@ export default function DerivDashboard() {
           setSessionFilterEnabled(data.derivSessionFilterEnabled !== false);
           setCooldownFilterEnabled(data.derivCooldownFilterEnabled !== false);
           setDailyLimitEnabled(data.derivDailyLimitEnabled !== false);
+          setPairLossCooldownEnabled(data.derivPairLossCooldownEnabled !== false);
+          setPairRotationGuardEnabled(data.derivPairRotationGuardEnabled !== false);
         }
         
         setNearEntryPairs(data.derivNearEntryPairs || []);
@@ -448,6 +452,8 @@ export default function DerivDashboard() {
     if (filterType === 'session') setSessionFilterEnabled(newValue);
     if (filterType === 'cooldown') setCooldownFilterEnabled(newValue);
     if (filterType === 'daily') setDailyLimitEnabled(newValue);
+    if (filterType === 'pairLossCooldown') setPairLossCooldownEnabled(newValue);
+    if (filterType === 'pairRotationGuard') setPairRotationGuardEnabled(newValue);
 
     try {
       await fetch('/api/deriv/settings', {
@@ -467,7 +473,9 @@ export default function DerivDashboard() {
           derivNewsFilterEnabled: filterType === 'news' ? newValue : newsFilterEnabled,
           derivSessionFilterEnabled: filterType === 'session' ? newValue : sessionFilterEnabled,
           derivCooldownFilterEnabled: filterType === 'cooldown' ? newValue : cooldownFilterEnabled,
-          derivDailyLimitEnabled: filterType === 'daily' ? newValue : dailyLimitEnabled
+          derivDailyLimitEnabled: filterType === 'daily' ? newValue : dailyLimitEnabled,
+          derivPairLossCooldownEnabled: filterType === 'pairLossCooldown' ? newValue : pairLossCooldownEnabled,
+          derivPairRotationGuardEnabled: filterType === 'pairRotationGuard' ? newValue : pairRotationGuardEnabled
         })
       });
       confetti({ particleCount: 25, spread: 25, origin: { y: 0.85 } });
@@ -1658,7 +1666,7 @@ export default function DerivDashboard() {
                 <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Active Safety & News Filters</h4>
                 {isSavingRiskToggles && <span className="text-[9px] text-emerald-400 animate-pulse font-bold">Saving settings...</span>}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
                 {/* News Filter Toggle */}
                 <button
                   type="button"
@@ -1724,6 +1732,40 @@ export default function DerivDashboard() {
                   <span className="text-[8px] opacity-60 mt-0.5">Max 10 Trades Limit</span>
                   <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${dailyLimitEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
                     {dailyLimitEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
+                </button>
+
+                {/* Pair Post-Loss 1-Hour Cooldown Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleRiskFilter('pairLossCooldown', pairLossCooldownEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    pairLossCooldownEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Pair Loss Cooldown</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">1 Loss = 60m Pair Pause</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${pairLossCooldownEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {pairLossCooldownEnabled ? 'GUARD ON' : 'GUARD OFF'}
+                  </span>
+                </button>
+
+                {/* Pair Rotation Guard Toggle */}
+                <button
+                  type="button"
+                  onClick={() => handleToggleRiskFilter('pairRotationGuard', pairRotationGuardEnabled)}
+                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                    pairRotationGuardEnabled
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                  }`}
+                >
+                  <span className="text-[9px] font-bold uppercase tracking-wider">Pair Rotation Guard</span>
+                  <span className="text-[8px] opacity-60 mt-0.5">Pair Switch After Loss</span>
+                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${pairRotationGuardEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+                    {pairRotationGuardEnabled ? 'GUARD ON' : 'GUARD OFF'}
                   </span>
                 </button>
               </div>

@@ -104,6 +104,8 @@ export async function GET(req: Request) {
     const sessionFilterEnabled = ov.deriv_session_filter_enabled !== false;
     const cooldownFilterEnabled = ov.deriv_cooldown_filter_enabled !== false;
     const dailyLimitEnabled = ov.deriv_daily_limit_enabled !== false;
+    const pairLossCooldownEnabled = ov.deriv_pair_loss_cooldown_enabled !== false;
+    const pairRotationGuardEnabled = ov.deriv_pair_rotation_guard_enabled !== false;
 
     if (sessionFilterEnabled && isAsianSessionBlocked()) {
       scanLogs.push('⏳ Session Filter: Asian session block active (21:00 - 23:59 GMT). Skipping Martingale scans.');
@@ -211,6 +213,41 @@ export async function GET(req: Request) {
       if (newsFilterEnabled && await isEconomicNewsBlocked(pair)) {
         scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: High Impact News block is active.`);
         continue;
+      }
+
+      if (pairLossCooldownEnabled) {
+        const { data: lastPairTrade } = await supabase
+          .from('deriv_trades')
+          .select('status, closed_at, created_at')
+          .eq('symbol', pair)
+          .neq('stake', 1.00)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastPairTrade && lastPairTrade.status === 'LOST') {
+          const closedTime = new Date(lastPairTrade.closed_at || lastPairTrade.created_at).getTime();
+          const elapsedMins = (Date.now() - closedTime) / (1000 * 60);
+          if (elapsedMins < 60) {
+            scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: Post-loss 1-hour pair cooldown active (${Math.round(60 - elapsedMins)}m remaining).`);
+            continue;
+          }
+        }
+      }
+
+      if (pairRotationGuardEnabled) {
+        const { data: lastGlobalTrade } = await supabase
+          .from('deriv_trades')
+          .select('symbol, status')
+          .neq('stake', 1.00)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (lastGlobalTrade && lastGlobalTrade.symbol === pair && lastGlobalTrade.status === 'LOST') {
+          scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: Pair Rotation Guard active (waiting for another pair to trade after loss).`);
+          continue;
+        }
       }
 
       scanLogs.push(`Scanning ${getDisplaySymbolName(pair)}...`);

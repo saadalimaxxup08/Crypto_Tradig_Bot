@@ -151,7 +151,9 @@ export async function GET() {
       news: ov.deriv_news_filter_enabled !== false,
       session: ov.deriv_session_filter_enabled !== false,
       cooldown: ov.deriv_cooldown_filter_enabled !== false,
-      daily: ov.deriv_daily_limit_enabled !== false
+      daily: ov.deriv_daily_limit_enabled !== false,
+      pairLossCooldown: ov.deriv_pair_loss_cooldown_enabled !== false,
+      pairRotationGuard: ov.deriv_pair_rotation_guard_enabled !== false
     };
 
     const openTradesList = tradesList.filter(t => t.status === 'OPEN');
@@ -227,7 +229,9 @@ export async function POST(req: Request) {
       deriv_news_filter_enabled: riskFilters?.news !== undefined ? Boolean(riskFilters.news) : (currentOv.deriv_news_filter_enabled !== false),
       deriv_session_filter_enabled: riskFilters?.session !== undefined ? Boolean(riskFilters.session) : (currentOv.deriv_session_filter_enabled !== false),
       deriv_cooldown_filter_enabled: riskFilters?.cooldown !== undefined ? Boolean(riskFilters.cooldown) : (currentOv.deriv_cooldown_filter_enabled !== false),
-      deriv_daily_limit_enabled: riskFilters?.daily !== undefined ? Boolean(riskFilters.daily) : (currentOv.deriv_daily_limit_enabled !== false)
+      deriv_daily_limit_enabled: riskFilters?.daily !== undefined ? Boolean(riskFilters.daily) : (currentOv.deriv_daily_limit_enabled !== false),
+      deriv_pair_loss_cooldown_enabled: riskFilters?.pairLossCooldown !== undefined ? Boolean(riskFilters.pairLossCooldown) : (currentOv.deriv_pair_loss_cooldown_enabled !== false),
+      deriv_pair_rotation_guard_enabled: riskFilters?.pairRotationGuard !== undefined ? Boolean(riskFilters.pairRotationGuard) : (currentOv.deriv_pair_rotation_guard_enabled !== false)
     };
 
     const { error } = await supabase
@@ -259,7 +263,9 @@ export async function POST(req: Request) {
         news: updatedOv.deriv_news_filter_enabled !== false,
         session: updatedOv.deriv_session_filter_enabled !== false,
         cooldown: updatedOv.deriv_cooldown_filter_enabled !== false,
-        daily: updatedOv.deriv_daily_limit_enabled !== false
+        daily: updatedOv.deriv_daily_limit_enabled !== false,
+        pairLossCooldown: updatedOv.deriv_pair_loss_cooldown_enabled !== false,
+        pairRotationGuard: updatedOv.deriv_pair_rotation_guard_enabled !== false
       }
     });
   } catch (err: any) {

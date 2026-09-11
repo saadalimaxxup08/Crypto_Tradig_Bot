@@ -201,6 +201,8 @@ export default function MartingaleStrategyPage() {
   const [sessionFilterEnabled, setSessionFilterEnabled] = useState(true);
   const [cooldownFilterEnabled, setCooldownFilterEnabled] = useState(true);
   const [dailyLimitEnabled, setDailyLimitEnabled] = useState(true);
+  const [pairLossCooldownEnabled, setPairLossCooldownEnabled] = useState(true);
+  const [pairRotationGuardEnabled, setPairRotationGuardEnabled] = useState(true);
   const [isSavingRiskToggles, setIsSavingRiskToggles] = useState(false);
 
   const [stats, setStats] = useState<any>({
@@ -306,6 +308,8 @@ export default function MartingaleStrategyPage() {
               setSessionFilterEnabled(data.riskFilters.session !== false);
               setCooldownFilterEnabled(data.riskFilters.cooldown !== false);
               setDailyLimitEnabled(data.riskFilters.daily !== false);
+              setPairLossCooldownEnabled(data.riskFilters.pairLossCooldown !== false);
+              setPairRotationGuardEnabled(data.riskFilters.pairRotationGuard !== false);
             }
             setIsInitialLoaded(true);
           }
@@ -504,11 +508,15 @@ export default function MartingaleStrategyPage() {
     let session = sessionFilterEnabled;
     let cooldown = cooldownFilterEnabled;
     let daily = dailyLimitEnabled;
+    let pairLossCooldown = pairLossCooldownEnabled;
+    let pairRotationGuard = pairRotationGuardEnabled;
 
     if (filterType === 'news') { setNewsFilterEnabled(newValue); news = newValue; }
     if (filterType === 'session') { setSessionFilterEnabled(newValue); session = newValue; }
     if (filterType === 'cooldown') { setCooldownFilterEnabled(newValue); cooldown = newValue; }
     if (filterType === 'daily') { setDailyLimitEnabled(newValue); daily = newValue; }
+    if (filterType === 'pairLossCooldown') { setPairLossCooldownEnabled(newValue); pairLossCooldown = newValue; }
+    if (filterType === 'pairRotationGuard') { setPairRotationGuardEnabled(newValue); pairRotationGuard = newValue; }
 
     try {
       const res = await fetch('/api/deriv/martingale', {
@@ -527,7 +535,9 @@ export default function MartingaleStrategyPage() {
             news,
             session,
             cooldown,
-            daily
+            daily,
+            pairLossCooldown,
+            pairRotationGuard
           }
         })
       });
@@ -562,7 +572,9 @@ export default function MartingaleStrategyPage() {
             news: newsFilterEnabled,
             session: sessionFilterEnabled,
             cooldown: cooldownFilterEnabled,
-            daily: dailyLimitEnabled
+            daily: dailyLimitEnabled,
+            pairLossCooldown: pairLossCooldownEnabled,
+            pairRotationGuard: pairRotationGuardEnabled
           }
         })
       });
@@ -812,7 +824,7 @@ export default function MartingaleStrategyPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
           {/* News Filter Toggle */}
           <button
             type="button"
@@ -878,6 +890,40 @@ export default function MartingaleStrategyPage() {
             <span className="text-[9px] opacity-60 mt-0.5">Max 10 Trades Limit</span>
             <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${dailyLimitEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
               {dailyLimitEnabled ? 'GUARD ON' : 'GUARD OFF'}
+            </span>
+          </button>
+
+          {/* Pair Post-Loss 1-Hour Cooldown Toggle */}
+          <button
+            type="button"
+            onClick={() => handleToggleRiskFilter('pairLossCooldown', pairLossCooldownEnabled)}
+            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+              pairLossCooldownEnabled
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+            }`}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider">Pair Loss Cooldown</span>
+            <span className="text-[9px] opacity-60 mt-0.5">1 Loss = 60m Pair Pause</span>
+            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${pairLossCooldownEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+              {pairLossCooldownEnabled ? 'GUARD ON' : 'GUARD OFF'}
+            </span>
+          </button>
+
+          {/* Pair Rotation Guard Toggle */}
+          <button
+            type="button"
+            onClick={() => handleToggleRiskFilter('pairRotationGuard', pairRotationGuardEnabled)}
+            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+              pairRotationGuardEnabled
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+            }`}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-wider">Pair Rotation Guard</span>
+            <span className="text-[9px] opacity-60 mt-0.5">Pair Switch After Loss</span>
+            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${pairRotationGuardEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
+              {pairRotationGuardEnabled ? 'GUARD ON' : 'GUARD OFF'}
             </span>
           </button>
         </div>
