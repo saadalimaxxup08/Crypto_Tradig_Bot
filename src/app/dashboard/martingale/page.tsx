@@ -580,6 +580,49 @@ export default function MartingaleStrategyPage() {
     }
   };
 
+  const handleToggleAutoCompound = async () => {
+    const nextState = !autoCompoundEnabled;
+    setAutoCompoundEnabled(nextState);
+    try {
+      const res = await fetch('/api/deriv/martingale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled,
+          trading_mode: tradingMode,
+          allocated_capital: parseFloat(allocatedCapital) || 20.00,
+          execution_mode: executionMode,
+          selected_strategies: selectedStrategies,
+          selected_pairs: selectedPairs,
+          progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
+          progression_active_steps: activeSteps,
+          progression_mode: progressionMode,
+          portfolio_price: parseFloat(portfolioPrice) || 20.00,
+          percentage_steps: percentageSteps,
+          auto_compound_enabled: nextState,
+          riskFilters: {
+            news: newsFilterEnabled,
+            session: sessionFilterEnabled,
+            cooldown: cooldownFilterEnabled,
+            daily: dailyLimitEnabled,
+            pairLossCooldown: pairLossCooldownEnabled,
+            pairRotationGuard: pairRotationGuardEnabled
+          }
+        })
+      });
+      if (res.ok) {
+        setStatusMsg({
+          type: 'success',
+          text: `Auto-Compound & Live Balance Distribution set to ${nextState ? 'ON (ACTIVE)' : 'OFF (PAUSED)'}!`
+        });
+        setTimeout(() => setStatusMsg({ type: '', text: '' }), 4000);
+        await fetchMartingaleData(true);
+      }
+    } catch (err) {
+      console.error('Error toggling auto-compound:', err);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setStatusMsg({ type: '', text: '' });
@@ -1307,7 +1350,7 @@ export default function MartingaleStrategyPage() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setAutoCompoundEnabled(!autoCompoundEnabled)}
+              onClick={handleToggleAutoCompound}
               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                 autoCompoundEnabled ? 'bg-emerald-500' : 'bg-zinc-700'
               }`}
