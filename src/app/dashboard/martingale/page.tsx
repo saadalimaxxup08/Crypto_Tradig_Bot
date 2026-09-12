@@ -201,6 +201,7 @@ export default function MartingaleStrategyPage() {
   const [percentageSteps, setPercentageSteps] = useState<string[]>([
     '1.75', '1.95', '4.15', '8.75', '18.45', '38.95', '82.25', '173.65', '365.00', '750.00'
   ]);
+  const [autoCompoundEnabled, setAutoCompoundEnabled] = useState<boolean>(false);
 
   const handleRecalculateUsdStakes = (priceStr: string, pctArr: string[]) => {
     const capital = parseFloat(priceStr) || 0;
@@ -327,6 +328,9 @@ export default function MartingaleStrategyPage() {
             }
             if (Array.isArray(data.config.percentage_steps) && data.config.percentage_steps.length === 10) {
               setPercentageSteps(data.config.percentage_steps.map((p: any) => String(p)));
+            }
+            if (data.config.auto_compound_enabled !== undefined) {
+              setAutoCompoundEnabled(Boolean(data.config.auto_compound_enabled));
             }
             if (data.riskFilters) {
               setNewsFilterEnabled(data.riskFilters.news !== false);
@@ -596,6 +600,7 @@ export default function MartingaleStrategyPage() {
           progression_mode: progressionMode,
           portfolio_price: parseFloat(portfolioPrice) || 20.00,
           percentage_steps: percentageSteps,
+          auto_compound_enabled: autoCompoundEnabled,
           riskFilters: {
             news: newsFilterEnabled,
             session: sessionFilterEnabled,
@@ -1293,6 +1298,48 @@ export default function MartingaleStrategyPage() {
                   USD
                 </span>
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Auto-Compound Balance Distribution Toggle & Live Status Banner */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-4 gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setAutoCompoundEnabled(!autoCompoundEnabled)}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                autoCompoundEnabled ? 'bg-emerald-500' : 'bg-zinc-700'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                  autoCompoundEnabled ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                  <RefreshCw className={`w-3.5 h-3.5 ${autoCompoundEnabled ? 'animate-spin' : ''}`} />
+                  Auto-Compound &amp; Live Balance Distribution
+                </span>
+                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
+                  autoCompoundEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-zinc-800 text-zinc-400'
+                }`}>
+                  {autoCompoundEnabled ? 'ON (ACTIVE)' : 'OFF (PAUSED)'}
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-0.5 leading-tight">
+                Automatically circulates profits after every win: scales up stage stakes in real-time as your balance grows!
+              </p>
+            </div>
+          </div>
+
+          {autoCompoundEnabled && (
+            <div className="flex items-center gap-2 bg-emerald-900/40 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-xs font-mono shrink-0">
+              <span className="text-zinc-300">Live Active Pool:</span>
+              <b className="text-emerald-300 font-bold">${((stats.allocatedCapital || 20) + (stats.totalPnL || 0)).toFixed(2)} USD</b>
             </div>
           )}
         </div>
