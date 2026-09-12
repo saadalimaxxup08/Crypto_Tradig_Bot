@@ -196,6 +196,22 @@ export default function MartingaleStrategyPage() {
   const [activeSteps, setActiveSteps] = useState<boolean[]>([
     true, true, true, true, true, true, true, true, true, true
   ]);
+  const [progressionMode, setProgressionMode] = useState<'USD' | 'PERCENTAGE'>('USD');
+  const [portfolioPrice, setPortfolioPrice] = useState('20.00');
+  const [percentageSteps, setPercentageSteps] = useState<string[]>([
+    '1.75', '1.95', '4.15', '8.75', '18.45', '38.95', '82.25', '173.65', '365.00', '750.00'
+  ]);
+
+  const handleRecalculateUsdStakes = (priceStr: string, pctArr: string[]) => {
+    const capital = parseFloat(priceStr) || 0;
+    const newUsdSteps = pctArr.map(pctStr => {
+      const pct = parseFloat(pctStr) || 0;
+      const computed = (capital * pct) / 100;
+      const finalUsd = Math.max(0.35, Math.round(computed * 100) / 100);
+      return finalUsd.toFixed(2);
+    });
+    setProgressionSteps(newUsdSteps);
+  };
 
   const [newsFilterEnabled, setNewsFilterEnabled] = useState(true);
   const [sessionFilterEnabled, setSessionFilterEnabled] = useState(true);
@@ -302,6 +318,15 @@ export default function MartingaleStrategyPage() {
             }
             if (Array.isArray(data.config.progression_active_steps) && data.config.progression_active_steps.length === 10) {
               setActiveSteps(data.config.progression_active_steps.map((b: any) => Boolean(b)));
+            }
+            if (data.config.progression_mode) {
+              setProgressionMode(data.config.progression_mode === 'PERCENTAGE' ? 'PERCENTAGE' : 'USD');
+            }
+            if (data.config.portfolio_price) {
+              setPortfolioPrice(String(data.config.portfolio_price));
+            }
+            if (Array.isArray(data.config.percentage_steps) && data.config.percentage_steps.length === 10) {
+              setPercentageSteps(data.config.percentage_steps.map((p: any) => String(p)));
             }
             if (data.riskFilters) {
               setNewsFilterEnabled(data.riskFilters.news !== false);
@@ -568,6 +593,9 @@ export default function MartingaleStrategyPage() {
           selected_pairs: selectedPairs,
           progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
           progression_active_steps: activeSteps,
+          progression_mode: progressionMode,
+          portfolio_price: parseFloat(portfolioPrice) || 20.00,
+          percentage_steps: percentageSteps,
           riskFilters: {
             news: newsFilterEnabled,
             session: sessionFilterEnabled,
@@ -1208,6 +1236,67 @@ export default function MartingaleStrategyPage() {
           </button>
         </div>
 
+        {/* Mode Toggle Switch & Total Portfolio Input Bar */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-zinc-950/60 border border-zinc-800/80 rounded-2xl p-3.5 gap-4">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-xs font-bold text-zinc-300">Progression Mode:</span>
+            <div className="flex items-center bg-[#09090b] border border-zinc-800 rounded-xl p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => setProgressionMode('USD')}
+                className={`text-xs font-extrabold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  progressionMode === 'USD'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <span>💵 USD Fixed Mode ($)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setProgressionMode('PERCENTAGE');
+                  handleRecalculateUsdStakes(portfolioPrice, percentageSteps);
+                }}
+                className={`text-xs font-extrabold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                  progressionMode === 'PERCENTAGE'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                <span>📊 Percentage Mode (%)</span>
+              </button>
+            </div>
+          </div>
+
+          {progressionMode === 'PERCENTAGE' && (
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <label className="text-xs font-bold text-amber-400 shrink-0 flex items-center gap-1">
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Total Portfolio / Capital Price:</span>
+              </label>
+              <div className="relative flex-1 md:w-36">
+                <input
+                  type="number"
+                  step="1"
+                  min="5"
+                  value={portfolioPrice}
+                  onChange={(e) => {
+                    const newPrice = e.target.value;
+                    setPortfolioPrice(newPrice);
+                    handleRecalculateUsdStakes(newPrice, percentageSteps);
+                  }}
+                  className="w-full bg-[#0c0c0f] border border-amber-500/60 rounded-xl py-1.5 pl-3 pr-10 font-mono text-xs font-bold text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  placeholder="20.00"
+                />
+                <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-extrabold text-amber-400">
+                  USD
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* 10 Step Inputs Grid with Checkboxes */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {progressionSteps.map((stepVal, idx) => {
@@ -1255,32 +1344,66 @@ export default function MartingaleStrategyPage() {
                   ) : null}
                 </div>
 
-                <div className="relative">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.35"
-                    disabled={!isChecked}
-                    value={stepVal}
-                    onChange={(e) => {
-                      const newSteps = [...progressionSteps];
-                      newSteps[idx] = e.target.value;
-                      setProgressionSteps(newSteps);
-                    }}
-                    className={`w-full border rounded-xl py-2 px-3 font-mono text-xs focus:outline-none transition-all ${
-                      isActiveStep
-                        ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
-                        : isChecked
-                        ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 text-zinc-100'
-                        : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
-                    }`}
-                  />
-                  <span className={`absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold ${
-                    isActiveStep ? 'text-amber-400' : 'text-zinc-500'
-                  }`}>
-                    USD
-                  </span>
-                </div>
+                {progressionMode === 'PERCENTAGE' ? (
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.1"
+                        disabled={!isChecked}
+                        value={percentageSteps[idx] || '0'}
+                        onChange={(e) => {
+                          const newPcts = [...percentageSteps];
+                          newPcts[idx] = e.target.value;
+                          setPercentageSteps(newPcts);
+                          handleRecalculateUsdStakes(portfolioPrice, newPcts);
+                        }}
+                        className={`w-full border rounded-xl py-1.5 px-3 font-mono text-xs focus:outline-none transition-all ${
+                          isActiveStep
+                            ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
+                            : isChecked
+                            ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 text-zinc-100'
+                            : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
+                        }`}
+                      />
+                      <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold text-emerald-400">
+                        %
+                      </span>
+                    </div>
+                    <div className="text-[10px] font-mono text-zinc-400 flex items-center justify-between px-1">
+                      <span>Calculated:</span>
+                      <b className="text-emerald-400 font-bold">${stepVal} USD</b>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.35"
+                      disabled={!isChecked}
+                      value={stepVal}
+                      onChange={(e) => {
+                        const newSteps = [...progressionSteps];
+                        newSteps[idx] = e.target.value;
+                        setProgressionSteps(newSteps);
+                      }}
+                      className={`w-full border rounded-xl py-2 px-3 font-mono text-xs focus:outline-none transition-all ${
+                        isActiveStep
+                          ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
+                          : isChecked
+                          ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 text-zinc-100'
+                          : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
+                      }`}
+                    />
+                    <span className={`absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold ${
+                      isActiveStep ? 'text-amber-400' : 'text-zinc-500'
+                    }`}>
+                      USD
+                    </span>
+                  </div>
+                )}
               </div>
             );
           })}

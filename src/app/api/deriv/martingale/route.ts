@@ -81,7 +81,10 @@ export async function GET() {
       selected_strategies: Array.isArray(ov.martingale_active_strategies) ? ov.martingale_active_strategies : (ov.deriv_active_strategies || ['FOREX_15M_PRO_V1', 'FOREX_15M_MTF', 'FOREX_15M_MTF_V2', 'FOREX_30M_MTF_V3']),
       selected_pairs: Array.isArray(ov.martingale_selected_pairs) ? ov.martingale_selected_pairs : DEFAULT_MARTINGALE_CONFIG.selected_pairs,
       progression_steps: Array.isArray(ov.deriv_progression_steps) ? ov.deriv_progression_steps : DEFAULT_MARTINGALE_CONFIG.progression_steps,
-      progression_active_steps: Array.isArray(ov.deriv_progression_active_steps) ? ov.deriv_progression_active_steps : DEFAULT_MARTINGALE_CONFIG.progression_active_steps
+      progression_active_steps: Array.isArray(ov.deriv_progression_active_steps) ? ov.deriv_progression_active_steps : DEFAULT_MARTINGALE_CONFIG.progression_active_steps,
+      progression_mode: ov.deriv_progression_mode || 'USD',
+      portfolio_price: ov.deriv_portfolio_price !== undefined ? String(ov.deriv_portfolio_price) : '20.00',
+      percentage_steps: Array.isArray(ov.deriv_percentage_steps) ? ov.deriv_percentage_steps : ['1.75', '1.95', '4.15', '8.75', '18.45', '38.95', '82.25', '173.65', '365.00', '750.00']
     };
 
     // Fetch Martingale stats from deriv_trades (essential columns only, limit 200 for complete historical stats)
@@ -205,6 +208,9 @@ export async function POST(req: Request) {
       selected_pairs,
       progression_steps,
       progression_active_steps,
+      progression_mode,
+      portfolio_price,
+      percentage_steps,
       riskFilters
     } = body;
 
@@ -226,6 +232,9 @@ export async function POST(req: Request) {
       martingale_selected_pairs: Array.isArray(selected_pairs) ? selected_pairs : (currentOv.martingale_selected_pairs || DEFAULT_MARTINGALE_CONFIG.selected_pairs),
       deriv_progression_steps: Array.isArray(progression_steps) ? progression_steps : (currentOv.deriv_progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps),
       deriv_progression_active_steps: Array.isArray(progression_active_steps) ? progression_active_steps : (currentOv.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps),
+      deriv_progression_mode: progression_mode || currentOv.deriv_progression_mode || 'USD',
+      deriv_portfolio_price: portfolio_price !== undefined ? parseFloat(portfolio_price) : (currentOv.deriv_portfolio_price || 20.00),
+      deriv_percentage_steps: Array.isArray(percentage_steps) ? percentage_steps : (currentOv.deriv_percentage_steps || ['1.75', '1.95', '4.15', '8.75', '18.45', '38.95', '82.25', '173.65', '365.00', '750.00']),
       martingale_news_filter_enabled: riskFilters?.news !== undefined ? Boolean(riskFilters.news) : (currentOv.martingale_news_filter_enabled !== undefined ? currentOv.martingale_news_filter_enabled !== false : (currentOv.deriv_news_filter_enabled !== false)),
       martingale_session_filter_enabled: riskFilters?.session !== undefined ? Boolean(riskFilters.session) : (currentOv.martingale_session_filter_enabled !== undefined ? currentOv.martingale_session_filter_enabled !== false : (currentOv.deriv_session_filter_enabled !== false)),
       martingale_cooldown_filter_enabled: riskFilters?.cooldown !== undefined ? Boolean(riskFilters.cooldown) : (currentOv.martingale_cooldown_filter_enabled !== undefined ? currentOv.martingale_cooldown_filter_enabled !== false : (currentOv.deriv_cooldown_filter_enabled !== false)),
