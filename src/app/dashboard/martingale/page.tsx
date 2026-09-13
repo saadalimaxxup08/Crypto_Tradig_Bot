@@ -1406,12 +1406,28 @@ export default function MartingaleStrategyPage() {
 
             const liveScaledStake = Math.max(0.35, Math.round((stepBaseUsd * growthMult) * 100) / 100).toFixed(2);
 
+            // Compute Cumulative Required Balance up to current step
+            let cumulativeNeeded = 0;
+            for (let i = 0; i <= idx; i++) {
+              let sUsd = parseFloat(progressionSteps[i]) || 0.35;
+              if (progressionMode === 'PERCENTAGE') {
+                const p = parseFloat(percentageSteps[i]) || 0;
+                sUsd = Math.max(0.35, Math.round(((baseCap * p) / 100) * 100) / 100);
+              }
+              const sScaled = Math.max(0.35, Math.round((sUsd * growthMult) * 100) / 100);
+              cumulativeNeeded += sScaled;
+            }
+
+            const isInsufficient = isChecked && (livePool < cumulativeNeeded);
+
             return (
               <div
                 key={idx}
                 className={`border rounded-2xl p-3.5 space-y-2.5 transition-all relative ${
                   isActiveStep
-                    ? 'bg-amber-950/30 border-amber-400/90 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/50 text-amber-100'
+                    ? 'bg-amber-950/30 border-amber-400/90 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/50 text-amber-100 animate-pulse'
+                    : isInsufficient
+                    ? 'bg-rose-950/40 border-rose-500/80 shadow-xl shadow-rose-950/50 ring-2 ring-rose-500/50 text-rose-100 animate-pulse'
                     : isChecked
                     ? 'bg-[#09090b]/80 border-emerald-500/40 text-zinc-100'
                     : 'bg-zinc-950/40 border-zinc-800/60 opacity-60 text-zinc-500'
@@ -1430,7 +1446,7 @@ export default function MartingaleStrategyPage() {
                       className="rounded border-zinc-800 text-emerald-500 focus:ring-0 accent-emerald-500 w-3.5 h-3.5 cursor-pointer"
                     />
                     <span className={`text-[11px] font-extrabold uppercase tracking-wide ${
-                      isActiveStep ? 'text-amber-300' : isChecked ? 'text-emerald-400' : 'text-zinc-500'
+                      isActiveStep ? 'text-amber-300' : isInsufficient ? 'text-rose-400 font-black' : isChecked ? 'text-emerald-400' : 'text-zinc-500'
                     }`}>
                       Step {idx + 1}
                     </span>
@@ -1439,6 +1455,10 @@ export default function MartingaleStrategyPage() {
                   {isActiveStep ? (
                     <span className="text-[9px] font-black bg-amber-400 text-black px-1.5 py-0.5 rounded-md tracking-wider flex items-center gap-0.5 shadow-sm">
                       ⚡ NEXT TRADE
+                    </span>
+                  ) : isInsufficient ? (
+                    <span className="text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded-md tracking-wider flex items-center gap-0.5 shadow-sm animate-bounce">
+                      ⚠️ SHORT POOL
                     </span>
                   ) : idx === 0 ? (
                     <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md">
@@ -1465,6 +1485,8 @@ export default function MartingaleStrategyPage() {
                         className={`w-full border rounded-xl py-1.5 px-3 font-mono text-xs focus:outline-none transition-all ${
                           isActiveStep
                             ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
+                            : isInsufficient
+                            ? 'bg-[#0c0c0f] border-rose-500/80 text-rose-200 font-black ring-1 ring-rose-400/40'
                             : isChecked
                             ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 text-zinc-100'
                             : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
@@ -1495,13 +1517,15 @@ export default function MartingaleStrategyPage() {
                       className={`w-full border rounded-xl py-2 px-3 font-mono text-xs focus:outline-none transition-all ${
                         isActiveStep
                           ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
+                          : isInsufficient
+                          ? 'bg-[#0c0c0f] border-rose-500/80 text-rose-200 font-black ring-1 ring-rose-400/40'
                           : isChecked
                           ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 text-zinc-100'
                           : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
                       }`}
                     />
                     <span className={`absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold ${
-                      isActiveStep ? 'text-amber-400' : 'text-zinc-500'
+                      isActiveStep ? 'text-amber-400' : isInsufficient ? 'text-rose-400' : 'text-zinc-500'
                     }`}>
                       USD
                     </span>
@@ -1510,11 +1534,23 @@ export default function MartingaleStrategyPage() {
 
                 {/* Dynamic Real-time Live Scaled Execution Stake Badge */}
                 {autoCompoundEnabled && isChecked && (
-                  <div className="mt-1.5 pt-1.5 border-t border-emerald-500/20 text-[10px] font-mono flex items-center justify-between bg-emerald-950/40 px-2 py-1 rounded-lg">
-                    <span className="flex items-center gap-1 font-bold text-emerald-400">
-                      <RefreshCw className="w-2.5 h-2.5 text-emerald-400 animate-spin" /> Live Stake:
+                  <div className={`mt-1.5 pt-1.5 border-t text-[10px] font-mono flex items-center justify-between px-2 py-1 rounded-lg ${
+                    isInsufficient ? 'border-rose-500/30 bg-rose-950/60 text-rose-300' : 'border-emerald-500/20 bg-emerald-950/40 text-emerald-300'
+                  }`}>
+                    <span className="flex items-center gap-1 font-bold">
+                      <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Live Stake:
                     </span>
-                    <b className="text-emerald-300 font-extrabold text-[11px]">${liveScaledStake} USD</b>
+                    <b className="font-extrabold text-[11px]">${liveScaledStake} USD</b>
+                  </div>
+                )}
+
+                {/* Insufficient Capital Warning Badge */}
+                {isInsufficient && (
+                  <div className="mt-1 text-[9px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/50 px-1.5 py-1 rounded-lg flex items-center justify-between shadow-sm">
+                    <span className="flex items-center gap-1 font-bold text-rose-300">
+                      <XCircle className="w-3 h-3 text-rose-400 shrink-0" /> Pool Required:
+                    </span>
+                    <b className="text-rose-200 font-extrabold font-mono">${cumulativeNeeded.toFixed(2)} USD</b>
                   </div>
                 )}
               </div>
