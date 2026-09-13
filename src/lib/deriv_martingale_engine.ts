@@ -60,6 +60,12 @@ export async function getMartingaleExecutionStake(
   }
 
   try {
+    // 0. Fetch pair_overrides to check streak reset timestamp & starting step override
+    const { data: settings } = await supabase.from('settings').select('pair_overrides').eq('id', 1).single();
+    const ov = settings?.pair_overrides || {};
+    const streakResetAt = ov.martingale_streak_reset_at ? new Date(ov.martingale_streak_reset_at).getTime() : 0;
+    const startStepIndex = typeof ov.martingale_start_step_index === 'number' ? ov.martingale_start_step_index : 0;
+
     // 1. Fetch Martingale specific trades from database (stake != 1.00)
     const { data: martingaleTrades, error } = await supabase
       .from('deriv_trades')
@@ -83,15 +89,16 @@ export async function getMartingaleExecutionStake(
     }
 
     if (error || !martingaleTrades || martingaleTrades.length === 0) {
+      const initialIdx = Math.min(startStepIndex, activeStepObjects.length - 1);
       return {
-        stake: activeStepObjects[0].stake,
-        stepIndex: activeStepObjects[0].originalIndex,
+        stake: activeStepObjects[initialIdx]?.stake || 0.35,
+        stepIndex: activeStepObjects[initialIdx]?.originalIndex || 0,
         isHalted: false
       };
     }
 
-    // 2. Count consecutive losses starting from the most recently closed Martingale trade
-    let consecutiveLosses = 0;
+    // 2. Count consecutive losses starting from trades after streakResetAt
+    let consecutiveLossesSinceReset = 0;
     let totalPnL = 0;
     let streakActive = true;
 
@@ -102,16 +109,24 @@ export async function getMartingaleExecutionStake(
         totalPnL += (parseFloat(t.pnl) || 0);
       }
 
+      const tradeTime = new Date(t.created_at).getTime();
+      if (streakResetAt > 0 && tradeTime < streakResetAt) {
+        // Trade occurred before user reset streak, ignore for loss counting!
+        continue;
+      }
+
       const isLoss = t.status === 'LOST' || (t.pnl !== null && parseFloat(t.pnl) < 0);
       if (isLoss && streakActive) {
-        consecutiveLosses++;
+        consecutiveLossesSinceReset++;
       } else {
         streakActive = false; // WIN or PnL >= 0 resets streak
       }
     }
 
+    const effectiveStepPos = startStepIndex + consecutiveLossesSinceReset;
+
     // Check if consecutive losses exceeded or reached total active checked steps
-    if (consecutiveLosses >= activeStepObjects.length) {
+    if (effectiveStepPos >= activeStepObjects.length) {
       return {
         stake: 0,
         stepIndex: -1,
@@ -120,7 +135,7 @@ export async function getMartingaleExecutionStake(
       };
     }
 
-    const currentStepObj = activeStepObjects[consecutiveLosses];
+    const currentStepObj = activeStepObjects[effectiveStepPos];
     let finalStake = currentStepObj.stake;
 
     // 3. Auto-Compounding & Live Balance Distribution

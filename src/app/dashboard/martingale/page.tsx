@@ -529,6 +529,48 @@ export default function MartingaleStrategyPage() {
     }
   };
 
+  const handleResetStreakToStep = async (startStepIndex = 0) => {
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/deriv/martingale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled,
+          trading_mode: tradingMode,
+          allocated_capital: parseFloat(allocatedCapital) || 20.00,
+          execution_mode: executionMode,
+          selected_strategies: selectedStrategies,
+          selected_pairs: selectedPairs,
+          progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
+          progression_active_steps: activeSteps,
+          progression_mode: progressionMode,
+          portfolio_price: parseFloat(portfolioPrice) || 20.00,
+          percentage_steps: percentageSteps,
+          auto_compound_enabled: autoCompoundEnabled,
+          reset_streak: true,
+          start_step_index: startStepIndex,
+          riskFilters: {
+            news: newsFilterEnabled,
+            session: sessionFilterEnabled,
+            cooldown: cooldownFilterEnabled,
+            daily: dailyLimitEnabled,
+            pairLossCooldown: pairLossCooldownEnabled,
+            pairRotationGuard: pairRotationGuardEnabled
+          }
+        })
+      });
+      if (res.ok) {
+        setStatusMsg({ type: 'success', text: `🎯 Martingale sequence reset! Next trade will start from Step ${startStepIndex + 1}.` });
+        await fetchMartingaleData(true);
+      }
+    } catch (err) {
+      console.error('Error resetting streak:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleToggleRiskFilter = async (filterType: string, currentValue: boolean) => {
     setIsSavingRiskToggles(true);
     const newValue = !currentValue;
@@ -1262,26 +1304,58 @@ export default function MartingaleStrategyPage() {
 
       {/* Control 2: Custom 10-Step Progression & Recovery Table */}
       <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-zinc-800/50 pb-4 gap-4">
           <div>
             <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
               <Layers className="w-5 h-5 text-emerald-400" />
               <span>Custom 10-Step Progression &amp; Recovery Table</span>
             </h3>
             <p className="text-xs text-zinc-400 mt-1 max-w-3xl">
-              Tick the steps you want to activate. When a trade loses, the bot moves to the next <b>ticked step</b>. As soon as <b>ANY trade WINS</b>, the bot resets back to Step 1. If <b>all ticked steps lose</b>, trading is automatically HALTED for risk protection!
+              Tick the steps you want to activate. When a trade loses, the bot moves to the next <b>ticked step</b>. As soon as <b>ANY trade WINS</b>, the bot resets back to Step 1.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold py-2.5 px-5 rounded-2xl shadow-lg shadow-emerald-950/40 transition-all shrink-0 active:scale-95 disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Saving Steps...' : 'Save Progression Steps'}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Start Next Trade From Step Selector */}
+            <div className="flex items-center bg-zinc-950/80 border border-amber-500/50 rounded-2xl px-3 py-1.5 gap-2">
+              <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
+                <Zap className="w-3.5 h-3.5" />
+                Start Trade From:
+              </span>
+              <select
+                value={stats.currentStepIndex ?? 0}
+                onChange={(e) => handleResetStreakToStep(parseInt(e.target.value, 10))}
+                className="bg-[#09090b] border border-amber-500/40 text-amber-300 text-xs font-extrabold rounded-xl px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer"
+              >
+                {progressionSteps.map((_, i) => (
+                  <option key={i} value={i} disabled={activeSteps[i] === false}>
+                    Step {i + 1} (${progressionSteps[i]} USD)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Quick Force Reset to Step 1 Button */}
+            <button
+              type="button"
+              onClick={() => handleResetStreakToStep(0)}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 text-xs font-extrabold py-2.5 px-3.5 rounded-2xl shadow-md transition-all shrink-0 active:scale-95 disabled:opacity-50"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+              <span>Reset to Step 1</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold py-2.5 px-5 rounded-2xl shadow-lg shadow-emerald-950/40 transition-all shrink-0 active:scale-95 disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              <span>{isSaving ? 'Saving Steps...' : 'Save Progression Steps'}</span>
+            </button>
+          </div>
         </div>
 
         {/* Mode Toggle Switch & Total Portfolio Input Bar */}
