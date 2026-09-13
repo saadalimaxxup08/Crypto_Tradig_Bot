@@ -57,13 +57,29 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, message: 'Scan already running', logs: scanLogs });
     }
 
-    // Claim atomic scan lock in DB
+    // Write unique scan_id to claim atomic scan lock in DB
+    const currentScanId = `${nowMs}_${Math.random().toString(36).substring(2, 9)}`;
     await supabase.from('settings').update({
       pair_overrides: {
         ...ov,
-        martingale_scan_started_at: new Date().toISOString()
+        martingale_scan_started_at: new Date().toISOString(),
+        martingale_scan_id: currentScanId
       }
     }).eq('id', 1);
+
+    // Sub-second Race Condition Verification: Wait 200ms and verify scan_id lock ownership
+    await new Promise(resolve => setTimeout(resolve, 200));
+    const { data: verifySettings } = await supabase
+      .from('settings')
+      .select('pair_overrides')
+      .eq('id', 1)
+      .single();
+
+    const verifyOv = verifySettings?.pair_overrides || {};
+    if (verifyOv.martingale_scan_id !== currentScanId) {
+      scanLogs.push('⏳ Sub-second race condition detected. Parallel scan request halted by atomic lock.');
+      return NextResponse.json({ success: true, message: 'Race condition lock halted', logs: scanLogs });
+    }
 
     const config: MartingaleConfig = {
       enabled: ov.deriv_progression_enabled === true,
