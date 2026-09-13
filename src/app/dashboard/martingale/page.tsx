@@ -320,14 +320,21 @@ export default function MartingaleStrategyPage() {
             if (Array.isArray(data.config.selected_pairs)) {
               setSelectedPairs(data.config.selected_pairs);
             }
-            if (Array.isArray(data.config.progression_steps) && data.config.progression_steps.length === 10) {
+            if (data.config.progression_mode) {
+              const isPctMode = data.config.progression_mode === 'PERCENTAGE';
+              setProgressionMode(isPctMode ? 'PERCENTAGE' : 'USD');
+              if (isPctMode) {
+                const pPrice = data.config.portfolio_price ? String(data.config.portfolio_price) : '20.00';
+                const pPcts = Array.isArray(data.config.percentage_steps) && data.config.percentage_steps.length === 10 ? data.config.percentage_steps : ['1.75', '1.95', '4.15', '8.75', '18.45', '38.95', '82.25', '173.65', '365.00', '750.00'];
+                handleRecalculateUsdStakes(pPrice, pPcts);
+              } else if (Array.isArray(data.config.progression_steps) && data.config.progression_steps.length === 10) {
+                setProgressionSteps(data.config.progression_steps.map((s: any) => String(s)));
+              }
+            } else if (Array.isArray(data.config.progression_steps) && data.config.progression_steps.length === 10) {
               setProgressionSteps(data.config.progression_steps.map((s: any) => String(s)));
             }
             if (Array.isArray(data.config.progression_active_steps) && data.config.progression_active_steps.length === 10) {
               setActiveSteps(data.config.progression_active_steps.map((b: any) => Boolean(b)));
-            }
-            if (data.config.progression_mode) {
-              setProgressionMode(data.config.progression_mode === 'PERCENTAGE' ? 'PERCENTAGE' : 'USD');
             }
             if (data.config.portfolio_price) {
               setPortfolioPrice(String(data.config.portfolio_price));
