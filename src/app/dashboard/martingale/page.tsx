@@ -1387,18 +1387,31 @@ export default function MartingaleStrategyPage() {
           )}
         </div>
 
-        {/* 10 Step Inputs Grid with Checkboxes */}
+        {/* 10 Step Inputs Grid with Checkboxes & Live Auto-Compound Recalculation Badges */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           {progressionSteps.map((stepVal, idx) => {
             const isChecked = activeSteps[idx] !== false;
             const isActiveStep = idx === (stats.currentStepIndex ?? 0);
+
+            // Compute Real-time Live Scaled Stake based on Portfolio Price & Auto-Compound Growth Multiplier
+            const baseCap = parseFloat(portfolioPrice) || 20.00;
+            const livePool = autoCompoundEnabled ? Math.max(baseCap, baseCap + (stats.totalPnL || 0)) : baseCap;
+            const growthMult = baseCap > 0 ? livePool / baseCap : 1.0;
+
+            let stepBaseUsd = parseFloat(stepVal) || 0.35;
+            if (progressionMode === 'PERCENTAGE') {
+              const pct = parseFloat(percentageSteps[idx]) || 0;
+              stepBaseUsd = Math.max(0.35, Math.round(((baseCap * pct) / 100) * 100) / 100);
+            }
+
+            const liveScaledStake = Math.max(0.35, Math.round((stepBaseUsd * growthMult) * 100) / 100).toFixed(2);
 
             return (
               <div
                 key={idx}
                 className={`border rounded-2xl p-3.5 space-y-2.5 transition-all relative ${
                   isActiveStep
-                    ? 'bg-amber-950/30 border-amber-400/90 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/50 animate-pulse text-amber-100'
+                    ? 'bg-amber-950/30 border-amber-400/90 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/50 text-amber-100'
                     : isChecked
                     ? 'bg-[#09090b]/80 border-emerald-500/40 text-zinc-100'
                     : 'bg-zinc-950/40 border-zinc-800/60 opacity-60 text-zinc-500'
@@ -1462,8 +1475,8 @@ export default function MartingaleStrategyPage() {
                       </span>
                     </div>
                     <div className="text-[10px] font-mono text-zinc-400 flex items-center justify-between px-1">
-                      <span>Calculated:</span>
-                      <b className="text-emerald-400 font-bold">${stepVal} USD</b>
+                      <span>Base USD:</span>
+                      <b className="text-emerald-400 font-bold">${stepBaseUsd.toFixed(2)} USD</b>
                     </div>
                   </div>
                 ) : (
@@ -1492,6 +1505,16 @@ export default function MartingaleStrategyPage() {
                     }`}>
                       USD
                     </span>
+                  </div>
+                )}
+
+                {/* Dynamic Real-time Live Scaled Execution Stake Badge */}
+                {autoCompoundEnabled && isChecked && (
+                  <div className="mt-1.5 pt-1.5 border-t border-emerald-500/20 text-[10px] font-mono flex items-center justify-between bg-emerald-950/40 px-2 py-1 rounded-lg">
+                    <span className="flex items-center gap-1 font-bold text-emerald-400">
+                      <RefreshCw className="w-2.5 h-2.5 text-emerald-400 animate-spin" /> Live Stake:
+                    </span>
+                    <b className="text-emerald-300 font-extrabold text-[11px]">${liveScaledStake} USD</b>
                   </div>
                 )}
               </div>
