@@ -423,6 +423,50 @@ export default function MartingaleStrategyPage() {
     setSelectedStrategies([]);
   };
 
+  const handleResetAllStats = async () => {
+    if (typeof window !== 'undefined' && !window.confirm('Are you sure you want to reset all historical Martingale stats and PnL back to $0.00?')) {
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/deriv/martingale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled,
+          trading_mode: tradingMode,
+          allocated_capital: parseFloat(allocatedCapital) || 20.00,
+          execution_mode: executionMode,
+          selected_strategies: selectedStrategies,
+          selected_pairs: selectedPairs,
+          progression_steps: progressionSteps.map(s => parseFloat(s) || 0.35),
+          progression_active_steps: activeSteps,
+          progression_mode: progressionMode,
+          portfolio_price: parseFloat(portfolioPrice) || 20.00,
+          percentage_steps: percentageSteps,
+          auto_compound_enabled: autoCompoundEnabled,
+          reset_all_stats: true,
+          riskFilters: {
+            news: newsFilterEnabled,
+            session: sessionFilterEnabled,
+            cooldown: cooldownFilterEnabled,
+            daily: dailyLimitEnabled,
+            pairLossCooldown: pairLossCooldownEnabled,
+            pairRotationGuard: pairRotationGuardEnabled
+          }
+        })
+      });
+      if (res.ok) {
+        setStatusMsg({ type: 'success', text: '🔄 All Martingale stats and PnL reset to $0.00!' });
+        await fetchMartingaleData(true);
+      }
+    } catch (err) {
+      console.error('Error resetting stats:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleTradingModeChange = async (mode: 'DEMO' | 'REAL') => {
     setTradingMode(mode);
     try {
@@ -933,10 +977,10 @@ export default function MartingaleStrategyPage() {
         {/* Card 3: Martingale Isolated Total PnL */}
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
           <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Martingale Isolated PnL</span>
-          <div className={`text-xl font-black font-mono ${stats.totalPnL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {stats.totalPnL >= 0 ? '+' : ''}${stats.totalPnL.toFixed(2)}
+          <div className={`text-xl font-black font-mono ${(stats?.totalPnL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {(stats?.totalPnL || 0) >= 0 ? '+' : ''}${(parseFloat(String(stats?.totalPnL || 0)) || 0).toFixed(2)}
           </div>
-          <p className="text-[9px] text-zinc-500">{stats.wonCount} Won / {stats.lostCount} Lost (Isolated)</p>
+          <p className="text-[9px] text-zinc-500">{(stats?.wonCount || 0)} Won / {(stats?.lostCount || 0)} Lost (Isolated)</p>
         </div>
 
         {/* Card 4: Execution Mode */}
@@ -953,9 +997,9 @@ export default function MartingaleStrategyPage() {
         <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1 col-span-2 lg:col-span-1">
           <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Martingale Win Rate</span>
           <div className="text-xl font-black font-mono text-zinc-100">
-            {stats.winRate.toFixed(1)}%
+            {(parseFloat(String(stats?.winRate || 0)) || 0).toFixed(1)}%
           </div>
-          <p className="text-[9px] text-zinc-500">Total {stats.totalTrades} Martingale trades</p>
+          <p className="text-[9px] text-zinc-500">Total {(stats?.totalTrades || 0)} Martingale trades</p>
         </div>
       </div>
 
