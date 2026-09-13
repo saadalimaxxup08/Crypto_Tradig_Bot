@@ -18,7 +18,8 @@ import {
   DollarSign,
   Terminal,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -2047,6 +2048,15 @@ export default function MartingaleStrategyPage() {
                 <div className="text-[10px] text-zinc-500 font-mono text-right pt-1">
                   Open Time: {new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
                 </div>
+                <a
+                  href={`https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${t.symbol}&trade_type=rise_fall`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 flex items-center justify-center gap-1.5 w-full py-1.5 px-3 text-[11px] font-extrabold text-amber-400 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/40 rounded-xl transition-all uppercase tracking-wider font-mono shadow-sm active:scale-95 cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                  <span>View Live Trade Chart ↗</span>
+                </a>
               </div>
             ))}
           </div>
