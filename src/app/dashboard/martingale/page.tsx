@@ -1468,7 +1468,9 @@ export default function MartingaleStrategyPage() {
           {autoCompoundEnabled && (
             <div className="flex items-center gap-2 bg-emerald-900/40 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-xs font-mono shrink-0">
               <span className="text-zinc-300">Live Active Pool:</span>
-              <b className="text-emerald-300 font-bold">${((tradingMode === 'REAL' ? stats.realBalance : stats.demoBalance) || (stats.allocatedCapital || 20) + (stats.totalPnL || 0)).toFixed(2)} USD</b>
+              <b className="text-emerald-300 font-bold">
+                ${(parseFloat(String(tradingMode === 'REAL' ? stats.realBalance : stats.demoBalance)) || (parseFloat(String(stats.allocatedCapital)) || 20) + (parseFloat(String(stats.totalPnL)) || 0)).toFixed(2)} USD
+              </b>
             </div>
           )}
         </div>
@@ -1480,10 +1482,10 @@ export default function MartingaleStrategyPage() {
             const isActiveStep = idx === (stats.currentStepIndex ?? 0);
 
             // Compute Real-time Live Scaled Stake based on Portfolio Price & Auto-Compound Growth Multiplier
-            const baseCap = parseFloat(portfolioPrice) || 20.00;
-            const actualAccountBal = (tradingMode === 'REAL' ? stats.realBalance : stats.demoBalance) || 0;
+            const baseCap = parseFloat(String(portfolioPrice)) || 20.00;
+            const actualAccountBal = parseFloat(String(tradingMode === 'REAL' ? stats.realBalance : stats.demoBalance)) || 0;
             const livePool = autoCompoundEnabled
-              ? (actualAccountBal > 0 ? actualAccountBal : Math.max(baseCap, baseCap + (stats.totalPnL || 0)))
+              ? (actualAccountBal > 0 ? actualAccountBal : Math.max(baseCap, baseCap + (parseFloat(String(stats.totalPnL)) || 0)))
               : (actualAccountBal > 0 ? actualAccountBal : baseCap);
 
             const growthMult = baseCap > 0 ? (livePool >= baseCap ? livePool / baseCap : 1.0) : 1.0;
