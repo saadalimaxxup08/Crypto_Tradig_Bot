@@ -4,12 +4,13 @@ import { getSessionUser } from '@/lib/auth';
 import { DEFAULT_MARTINGALE_CONFIG } from '@/lib/deriv_martingale_engine';
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 let balanceCache: { demoBalance: number; realBalance: number; timestamp: number } | null = null;
 
 async function getDerivBalances(appId: string, token: string) {
   const now = Date.now();
-  if (balanceCache && (now - balanceCache.timestamp < 35000)) {
+  if (balanceCache && (now - balanceCache.timestamp < 12000)) {
     return { demoBalance: balanceCache.demoBalance, realBalance: balanceCache.realBalance };
   }
 

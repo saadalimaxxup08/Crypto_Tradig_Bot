@@ -299,7 +299,13 @@ export default function MartingaleStrategyPage() {
 
   const fetchMartingaleData = async (forceUpdateState = false) => {
     try {
-      const res = await fetch('/api/deriv/martingale');
+      const res = await fetch(`/api/deriv/martingale?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache'
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.success && data.config) {
@@ -372,10 +378,19 @@ export default function MartingaleStrategyPage() {
     };
     initPage();
 
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchMartingaleData(false);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('focus', handleVisibilityChange);
+    }
+
     const dataInterval = setInterval(() => {
-      if (typeof document !== 'undefined' && document.hidden) return;
       fetchMartingaleData(false);
-    }, 25000);
+    }, 10000);
 
     const scanInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.hidden) return;
@@ -383,6 +398,10 @@ export default function MartingaleStrategyPage() {
     }, 60000);
 
     return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('visibilitychange', handleVisibilityChange);
+        window.removeEventListener('focus', handleVisibilityChange);
+      }
       clearInterval(dataInterval);
       clearInterval(scanInterval);
     };
