@@ -102,7 +102,15 @@ export async function GET() {
     let lostCount = 0;
     let openCount = 0;
 
+    const statsResetAt = ov.martingale_stats_reset_at ? new Date(ov.martingale_stats_reset_at).getTime() : 0;
+    const streakResetAt = ov.martingale_streak_reset_at ? new Date(ov.martingale_streak_reset_at).getTime() : statsResetAt;
+    const startStepIndex = typeof ov.martingale_start_step_index === 'number' ? ov.martingale_start_step_index : 0;
+
     tradesList.forEach(t => {
+      const tradeTime = new Date(t.created_at).getTime();
+      if (statsResetAt > 0 && tradeTime < statsResetAt) {
+        return;
+      }
       if (t.status === 'WON') {
         wonCount++;
         totalPnL += (parseFloat(t.pnl) || 0);
@@ -116,9 +124,6 @@ export async function GET() {
 
     // Check if any trade is currently OPEN
     const currentOpenTrade = tradesList.find(t => t.status === 'OPEN');
-
-    const streakResetAt = ov.martingale_streak_reset_at ? new Date(ov.martingale_streak_reset_at).getTime() : 0;
-    const startStepIndex = typeof ov.martingale_start_step_index === 'number' ? ov.martingale_start_step_index : 0;
 
     // Calculate current consecutive losses on Martingale engine from closed trades since reset
     let consecutiveLosses = 0;
@@ -221,6 +226,7 @@ export async function POST(req: Request) {
       percentage_steps,
       auto_compound_enabled,
       reset_streak,
+      reset_all_stats,
       start_step_index,
       riskFilters
     } = body;
@@ -247,8 +253,9 @@ export async function POST(req: Request) {
       deriv_portfolio_price: portfolio_price !== undefined ? parseFloat(portfolio_price) : (currentOv.deriv_portfolio_price || 20.00),
       deriv_percentage_steps: Array.isArray(percentage_steps) ? percentage_steps : (currentOv.deriv_percentage_steps || ['1.75', '1.95', '4.15', '8.75', '18.45', '38.95', '82.25', '173.65', '365.00', '750.00']),
       deriv_auto_compound_enabled: auto_compound_enabled !== undefined ? Boolean(auto_compound_enabled) : (currentOv.deriv_auto_compound_enabled === true),
-      martingale_streak_reset_at: (reset_streak === true || start_step_index !== undefined) ? new Date().toISOString() : (currentOv.martingale_streak_reset_at || null),
-      martingale_start_step_index: typeof start_step_index === 'number' ? start_step_index : (currentOv.martingale_start_step_index || 0),
+      martingale_stats_reset_at: (reset_all_stats === true) ? new Date().toISOString() : (currentOv.martingale_stats_reset_at || null),
+      martingale_streak_reset_at: (reset_all_stats === true || reset_streak === true || start_step_index !== undefined) ? new Date().toISOString() : (currentOv.martingale_streak_reset_at || null),
+      martingale_start_step_index: reset_all_stats === true ? 0 : (typeof start_step_index === 'number' ? start_step_index : (currentOv.martingale_start_step_index || 0)),
       martingale_news_filter_enabled: riskFilters?.news !== undefined ? Boolean(riskFilters.news) : (currentOv.martingale_news_filter_enabled !== undefined ? currentOv.martingale_news_filter_enabled !== false : (currentOv.deriv_news_filter_enabled !== false)),
       martingale_session_filter_enabled: riskFilters?.session !== undefined ? Boolean(riskFilters.session) : (currentOv.martingale_session_filter_enabled !== undefined ? currentOv.martingale_session_filter_enabled !== false : (currentOv.deriv_session_filter_enabled !== false)),
       martingale_cooldown_filter_enabled: riskFilters?.cooldown !== undefined ? Boolean(riskFilters.cooldown) : (currentOv.martingale_cooldown_filter_enabled !== undefined ? currentOv.martingale_cooldown_filter_enabled !== false : (currentOv.deriv_cooldown_filter_enabled !== false)),

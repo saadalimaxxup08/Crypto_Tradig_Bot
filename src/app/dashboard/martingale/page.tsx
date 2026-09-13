@@ -761,7 +761,7 @@ export default function MartingaleStrategyPage() {
               <TrendingUp className="w-7 h-7" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-2xl sm:text-3xl font-black text-zinc-100 tracking-tight">
                   Martingale Strategy Engine
                 </h1>
@@ -772,6 +772,18 @@ export default function MartingaleStrategyPage() {
                 }`}>
                   {enabled ? 'WORK ON (ACTIVE)' : 'WORK OFF (INACTIVE)'}
                 </span>
+
+                {/* Master Reset All Stats to $0.00 Button */}
+                <button
+                  type="button"
+                  onClick={handleResetAllStats}
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-extrabold py-1 px-3 rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
+                  title="Reset all historical Martingale stats and PnL back to $0.00"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Reset All Stats ($0.00)</span>
+                </button>
               </div>
               <p className="text-xs text-zinc-400 mt-1">
                 Isolated Martingale progression sandbox. Runs independently with custom capital allocation and sequential One-by-One safety lock.

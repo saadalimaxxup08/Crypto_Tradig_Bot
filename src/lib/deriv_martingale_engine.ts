@@ -63,7 +63,8 @@ export async function getMartingaleExecutionStake(
     // 0. Fetch pair_overrides to check streak reset timestamp & starting step override
     const { data: settings } = await supabase.from('settings').select('pair_overrides').eq('id', 1).single();
     const ov = settings?.pair_overrides || {};
-    const streakResetAt = ov.martingale_streak_reset_at ? new Date(ov.martingale_streak_reset_at).getTime() : 0;
+    const statsResetAt = ov.martingale_stats_reset_at ? new Date(ov.martingale_stats_reset_at).getTime() : 0;
+    const streakResetAt = ov.martingale_streak_reset_at ? new Date(ov.martingale_streak_reset_at).getTime() : statsResetAt;
     const startStepIndex = typeof ov.martingale_start_step_index === 'number' ? ov.martingale_start_step_index : 0;
 
     // 1. Fetch Martingale specific trades from database (stake != 1.00)
@@ -97,19 +98,24 @@ export async function getMartingaleExecutionStake(
       };
     }
 
-    // 2. Count consecutive losses starting from trades after streakResetAt
+    // 2. Count consecutive losses & calculate PnL starting from trades after statsResetAt
     let consecutiveLossesSinceReset = 0;
     let totalPnL = 0;
     let streakActive = true;
 
     for (const t of martingaleTrades) {
       if (t.status === 'OPEN') continue;
+      const tradeTime = new Date(t.created_at).getTime();
+
+      if (statsResetAt > 0 && tradeTime < statsResetAt) {
+        // Trade occurred before user reset all stats, ignore for PnL!
+        continue;
+      }
 
       if (t.status === 'WON' || t.status === 'LOST') {
         totalPnL += (parseFloat(t.pnl) || 0);
       }
 
-      const tradeTime = new Date(t.created_at).getTime();
       if (streakResetAt > 0 && tradeTime < streakResetAt) {
         // Trade occurred before user reset streak, ignore for loss counting!
         continue;
