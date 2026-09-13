@@ -65,13 +65,17 @@ export async function GET(req: Request) {
       }
     }).eq('id', 1);
 
-    const config: MartingaleConfig = settings.martingale_config || {
+    const config: MartingaleConfig = {
       enabled: ov.deriv_progression_enabled === true,
-      allocated_capital: ov.martingale_allocated_capital || 20.00,
+      allocated_capital: ov.martingale_allocated_capital ? parseFloat(ov.martingale_allocated_capital) : 20.00,
       execution_mode: ov.martingale_execution_mode || 'ONE_BY_ONE',
       selected_pairs: ov.martingale_selected_pairs || DEFAULT_MARTINGALE_CONFIG.selected_pairs,
       progression_steps: ov.deriv_progression_steps || DEFAULT_MARTINGALE_CONFIG.progression_steps,
-      progression_active_steps: ov.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps
+      progression_active_steps: ov.deriv_progression_active_steps || DEFAULT_MARTINGALE_CONFIG.progression_active_steps,
+      progression_mode: ov.deriv_progression_mode || 'USD',
+      portfolio_price: ov.deriv_portfolio_price ? parseFloat(ov.deriv_portfolio_price) : 20.00,
+      percentage_steps: Array.isArray(ov.deriv_percentage_steps) ? ov.deriv_percentage_steps : DEFAULT_MARTINGALE_CONFIG.percentage_steps,
+      auto_compound_enabled: ov.deriv_auto_compound_enabled === true
     };
 
     if (!config.enabled) {
