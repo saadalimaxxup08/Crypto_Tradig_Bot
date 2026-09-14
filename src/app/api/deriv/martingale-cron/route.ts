@@ -228,8 +228,32 @@ export async function GET(req: Request) {
     const nearEntryPairs: any[] = [];
     const activeStrategies = (ov.martingale_active_strategies || ov.deriv_active_strategies || ['FOREX_15M_PRO_V1', 'FOREX_15M_MTF', 'FOREX_15M_MTF_V2', 'FOREX_30M_MTF_V3']) as string[];
 
+    const executedPairsInThisScan = new Set<string>();
+
     // Scan pairs for entry using active strategy models
     for (const pair of selectedPairs) {
+      if (executedPairsInThisScan.has(pair)) {
+        continue;
+      }
+
+      // 20-Second Duplicate Trade Guard: Block execution if a trade on this symbol was created in the last 20 seconds
+      const { data: recentSamePair } = await supabase
+        .from('deriv_trades')
+        .select('created_at')
+        .eq('symbol', pair)
+        .neq('stake', 1.00)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (recentSamePair && recentSamePair.created_at) {
+        const msSinceLast = Date.now() - new Date(recentSamePair.created_at).getTime();
+        if (msSinceLast < 20000) {
+          scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: Trade executed on this pair ${Math.round(msSinceLast / 1000)}s ago. Blocking duplicate.`);
+          continue;
+        }
+      }
+
       if (newsFilterEnabled && await isEconomicNewsBlocked(pair)) {
         scanLogs.push(`- Skip ${getDisplaySymbolName(pair)}: High Impact News block is active.`);
         continue;
@@ -383,6 +407,7 @@ export async function GET(req: Request) {
               };
 
               await supabase.from('deriv_trades').insert([newTrade]);
+              executedPairsInThisScan.add(pair);
               scanLogs.push(`🎉 Martingale Trade Executed! ID: ${result.contract_id}`);
 
               // Send Telegram Alert
@@ -399,11 +424,8 @@ export async function GET(req: Request) {
 
               await sendTelegramAlert(signalMsg);
 
-              // If ONE_BY_ONE mode, stop scanning remaining pairs once trade is placed!
-              if (config.execution_mode === 'ONE_BY_ONE') {
-                scanLogs.push('🔒 One-by-One trade executed. Halting further pair scans in this cycle.');
-                break;
-              }
+              // Stop evaluating further strategies for this pair in this cycle once a trade is placed!
+              break;
             } catch (buyErr: any) {
               scanLogs.push(`❌ Buy error on ${getDisplaySymbolName(pair)}: ${buyErr.message}`);
             }
@@ -411,9 +433,9 @@ export async function GET(req: Request) {
         }
       }
 
-      // If ONE_BY_ONE mode trade placed, break outer pair loop as well
-      const { data: checkOpen } = await supabase.from('deriv_trades').select('id').neq('stake', 1.00).eq('status', 'OPEN');
-      if (config.execution_mode === 'ONE_BY_ONE' && checkOpen && checkOpen.length > 0) {
+      // If ONE_BY_ONE mode trade placed, break outer pair loop immediately!
+      if (config.execution_mode === 'ONE_BY_ONE' && executedPairsInThisScan.size > 0) {
+        scanLogs.push('🔒 One-by-One trade executed. Halting further pair scans in this cycle.');
         break;
       }
     }
