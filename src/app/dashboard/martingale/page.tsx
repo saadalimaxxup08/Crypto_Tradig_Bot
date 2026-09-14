@@ -1659,39 +1659,47 @@ export default function MartingaleStrategyPage() {
                         %
                       </span>
                     </div>
-                    <div className="text-[10px] font-mono text-zinc-400 flex items-center justify-between px-1">
-                      <span>Base USD:</span>
-                      <b className="text-emerald-400 font-bold">${stepBaseUsd.toFixed(2)} USD</b>
+                    <div className="text-[10px] font-mono flex items-center justify-between px-1">
+                      <span className="text-zinc-400">{autoCompoundEnabled ? 'Live Pool:' : 'Base USD:'}</span>
+                      <b className="text-emerald-400 font-extrabold">${liveScaledStake} USD</b>
                     </div>
                   </div>
                 ) : (
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.35"
-                      disabled={!isChecked}
-                      value={stepVal}
-                      onChange={(e) => {
-                        const newSteps = [...progressionSteps];
-                        newSteps[idx] = e.target.value;
-                        setProgressionSteps(newSteps);
-                      }}
-                      className={`w-full border rounded-xl py-2 px-3 font-mono text-xs focus:outline-none transition-all ${
-                        isActiveStep
-                          ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
-                          : isInsufficient
-                          ? 'bg-[#0c0c0f] border-rose-500/80 text-rose-200 font-black ring-1 ring-rose-400/40'
-                          : isChecked
-                          ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 text-zinc-100'
-                          : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
-                      }`}
-                    />
-                    <span className={`absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold ${
-                      isActiveStep ? 'text-amber-400' : isInsufficient ? 'text-rose-400' : 'text-zinc-500'
-                    }`}>
-                      USD
-                    </span>
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.35"
+                        disabled={!isChecked}
+                        value={autoCompoundEnabled ? liveScaledStake : stepVal}
+                        onChange={(e) => {
+                          const newSteps = [...progressionSteps];
+                          newSteps[idx] = e.target.value;
+                          setProgressionSteps(newSteps);
+                        }}
+                        className={`w-full border rounded-xl py-2 px-3 font-mono text-xs focus:outline-none transition-all ${
+                          isActiveStep
+                            ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
+                            : isInsufficient
+                            ? 'bg-[#0c0c0f] border-rose-500/80 text-rose-200 font-black ring-1 ring-rose-400/40'
+                            : isChecked
+                            ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 text-zinc-100 font-bold'
+                            : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
+                        }`}
+                      />
+                      <span className={`absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold ${
+                        isActiveStep ? 'text-amber-400' : isInsufficient ? 'text-rose-400' : 'text-emerald-400'
+                      }`}>
+                        USD
+                      </span>
+                    </div>
+                    {autoCompoundEnabled && (
+                      <div className="text-[9px] font-mono text-zinc-500 flex items-center justify-between px-1">
+                        <span>Base: ${stepBaseUsd.toFixed(2)}</span>
+                        <span className="text-emerald-400 font-bold">Scaled ✨</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1701,9 +1709,9 @@ export default function MartingaleStrategyPage() {
                     isInsufficient ? 'border-rose-500/30 bg-rose-950/60 text-rose-300' : 'border-emerald-500/20 bg-emerald-950/40 text-emerald-300'
                   }`}>
                     <span className="flex items-center gap-1 font-bold">
-                      <RefreshCw className="w-2.5 h-2.5 animate-spin" /> Live Stake:
+                      <RefreshCw className="w-2.5 h-2.5 animate-spin text-emerald-400" /> Active Pool Stake:
                     </span>
-                    <b className="font-extrabold text-[11px]">${liveScaledStake} USD</b>
+                    <b className="font-extrabold text-[11px] text-emerald-300">${liveScaledStake} USD</b>
                   </div>
                 )}
 
@@ -1728,9 +1736,28 @@ export default function MartingaleStrategyPage() {
           </span>
           <span className="text-xs font-mono font-bold text-amber-400 flex items-center gap-1.5 bg-amber-950/40 border border-amber-500/30 px-3 py-1.5 rounded-xl animate-pulse">
             <span>⚡ Next Trade Execution Stake:</span>
-            <b className="text-amber-300 underline font-black">
-              Step {(stats.currentStepIndex ?? 0) + 1} (${stats.nextStake !== undefined ? Number(stats.nextStake).toFixed(2) : (progressionSteps[stats.currentStepIndex ?? 0] || '0.35')})
-            </b>
+            {(() => {
+              const currentIdx = stats.currentStepIndex ?? 0;
+              const baseCap = parseFloat(String(progressionMode === 'PERCENTAGE' ? portfolioPrice : allocatedCapital)) || 20.00;
+              const allocatedPoolWithPnL = Math.max(0, baseCap + (parseFloat(String(stats?.totalPnL)) || 0));
+              const livePool = autoCompoundEnabled ? allocatedPoolWithPnL : baseCap;
+              const growthMult = baseCap > 0 ? (livePool >= baseCap ? livePool / baseCap : 1.0) : 1.0;
+
+              let currentStepBaseUsd = parseFloat(progressionSteps[currentIdx]) || 0.35;
+              if (progressionMode === 'PERCENTAGE') {
+                const pct = parseFloat(percentageSteps[currentIdx]) || 0;
+                currentStepBaseUsd = Math.max(0.35, Math.round(((baseCap * pct) / 100) * 100) / 100);
+              }
+              const nextExecStake = autoCompoundEnabled
+                ? Math.max(0.35, Math.round((currentStepBaseUsd * growthMult) * 100) / 100)
+                : currentStepBaseUsd;
+
+              return (
+                <b className="text-amber-300 underline font-black">
+                  Step {currentIdx + 1} (${nextExecStake.toFixed(2)} USD)
+                </b>
+              );
+            })()}
           </span>
         </div>
       </div>
