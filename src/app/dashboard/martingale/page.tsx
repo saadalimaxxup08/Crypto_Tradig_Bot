@@ -1594,7 +1594,7 @@ export default function MartingaleStrategyPage() {
                 }
               }
 
-              const isInsufficient = isChecked && (livePool < cumulativeNeeded);
+              const isInsufficient = isChecked && ((livePool + 0.05) < cumulativeNeeded);
 
             return (
               <div
