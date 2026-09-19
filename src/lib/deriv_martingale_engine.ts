@@ -146,7 +146,7 @@ export async function getMartingaleExecutionStake(
 
     // 3. Auto-Compounding & Live Balance Distribution across active selected steps
     if (config.auto_compound_enabled === true) {
-      const baseCapital = Number(config.portfolio_price) || Number(config.allocated_capital) || 20.00;
+      const baseCapital = Number(config.allocated_capital) || Number(config.portfolio_price) || 20.00;
       const activeBalance = Math.max(0.35, baseCapital + totalPnL);
 
       let activeBaseSum = 0;
