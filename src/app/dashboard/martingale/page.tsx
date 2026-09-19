@@ -1716,15 +1716,17 @@ export default function MartingaleStrategyPage() {
                   </div>
                 )}
 
-                {/* Dynamic Real-time Live Scaled Execution Stake Badge */}
+                {/* Live Capital Pool Remaining Cushion Badge */}
                 {autoCompoundEnabled && isChecked && (
                   <div className={`mt-1.5 pt-1.5 border-t text-[10px] font-mono flex items-center justify-between px-2 py-1 rounded-lg ${
                     isInsufficient ? 'border-rose-500/30 bg-rose-950/60 text-rose-300' : 'border-emerald-500/20 bg-emerald-950/40 text-emerald-300'
                   }`}>
-                    <span className="flex items-center gap-1 font-bold">
-                      <RefreshCw className="w-2.5 h-2.5 animate-spin text-emerald-400" /> Active Pool Stake:
+                    <span className="flex items-center gap-1 font-bold text-zinc-300">
+                      <Shield className="w-2.5 h-2.5 text-emerald-400 shrink-0" /> Pool Remaining:
                     </span>
-                    <b className="font-extrabold text-[11px] text-emerald-300">${liveScaledStake} USD</b>
+                    <b className="font-extrabold text-[11px] text-emerald-300">
+                      ${Math.max(0, livePool - cumulativeNeeded).toFixed(2)} USD
+                    </b>
                   </div>
                 )}
 
