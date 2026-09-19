@@ -144,17 +144,22 @@ export async function getMartingaleExecutionStake(
     const currentStepObj = activeStepObjects[effectiveStepPos];
     let finalStake = currentStepObj.stake;
 
-    // 3. Auto-Compounding & Live Balance Distribution
+    // 3. Auto-Compounding & Live Balance Distribution across active selected steps
     if (config.auto_compound_enabled === true) {
       const baseCapital = Number(config.portfolio_price) || Number(config.allocated_capital) || 20.00;
-      const activeBalance = Math.max(baseCapital, baseCapital + totalPnL);
+      const activeBalance = Math.max(0.35, baseCapital + totalPnL);
+
+      let activeBaseSum = 0;
+      activeStepObjects.forEach(obj => {
+        activeBaseSum += obj.stake;
+      });
 
       if (config.progression_mode === 'PERCENTAGE' && config.percentage_steps && config.percentage_steps[currentStepObj.originalIndex]) {
         const pct = parseFloat(config.percentage_steps[currentStepObj.originalIndex]) || 0;
         finalStake = Math.max(0.35, Math.round((activeBalance * (pct / 100)) * 100) / 100);
-      } else {
-        const growthFactor = activeBalance / baseCapital;
-        finalStake = Math.max(0.35, Math.round((currentStepObj.stake * growthFactor) * 100) / 100);
+      } else if (activeBaseSum > 0) {
+        const stepRatio = currentStepObj.stake / activeBaseSum;
+        finalStake = Math.max(0.35, Math.round((activeBalance * stepRatio) * 100) / 100);
       }
     }
 

@@ -54,7 +54,7 @@ export default function LoginPage() {
             <TrendingUp className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-emerald-400 via-teal-300 to-blue-500 bg-clip-text text-transparent">
-            CryptoAI Trader 100$
+            ForexAI VIP Trader
           </h1>
           <p className="text-sm text-zinc-400 mt-2 font-medium">
             VIP Trading Interface & Strategy Scanner

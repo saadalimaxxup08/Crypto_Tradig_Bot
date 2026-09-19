@@ -14,8 +14,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'CryptoAI Trader 100$ - VIP Dashboard',
-  description: 'VIP Crypto Trading Bot & Real-time Strategy Scanner',
+  title: 'ForexAI Trader - VIP Dashboard',
+  description: 'VIP Forex Trading Bot & Real-time Strategy Scanner',
 };
 
 export const viewport: Viewport = {

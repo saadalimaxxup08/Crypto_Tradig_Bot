@@ -1548,40 +1548,53 @@ export default function MartingaleStrategyPage() {
 
         {/* 10 Step Inputs Grid with Checkboxes & Live Auto-Compound Recalculation Badges */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          {progressionSteps.map((stepVal, idx) => {
-            const isChecked = activeSteps[idx] !== false;
-            const isActiveStep = idx === (stats.currentStepIndex ?? 0);
+          {(() => {
+            const activeBaseSum = progressionSteps.reduce((acc, sVal, i) => {
+              return activeSteps[i] !== false ? acc + (parseFloat(sVal) || 0.35) : acc;
+            }, 0);
 
-            // Compute Real-time Live Scaled Stake based on Allocated Capital Pool & Auto-Compound Growth Multiplier
-            const baseCap = parseFloat(String(progressionMode === 'PERCENTAGE' ? portfolioPrice : allocatedCapital)) || 20.00;
-            const allocatedPoolWithPnL = Math.max(0, baseCap + (parseFloat(String(stats?.totalPnL)) || 0));
-            const livePool = autoCompoundEnabled
-              ? allocatedPoolWithPnL
-              : baseCap;
+            return progressionSteps.map((stepVal, idx) => {
+              const isChecked = activeSteps[idx] !== false;
+              const isActiveStep = idx === (stats.currentStepIndex ?? 0);
 
-            const growthMult = baseCap > 0 ? (livePool >= baseCap ? livePool / baseCap : 1.0) : 1.0;
+              // Compute Real-time Live Scaled Stake based on Allocated Capital Pool & Auto-Compound Live Pool Distribution
+              const baseCap = parseFloat(String(progressionMode === 'PERCENTAGE' ? portfolioPrice : allocatedCapital)) || 20.00;
+              const allocatedPoolWithPnL = Math.max(0.35, baseCap + (parseFloat(String(stats?.totalPnL)) || 0));
+              const livePool = autoCompoundEnabled
+                ? allocatedPoolWithPnL
+                : baseCap;
 
-            let stepBaseUsd = parseFloat(stepVal) || 0.35;
-            if (progressionMode === 'PERCENTAGE') {
-              const pct = parseFloat(percentageSteps[idx]) || 0;
-              stepBaseUsd = Math.max(0.35, Math.round(((baseCap * pct) / 100) * 100) / 100);
-            }
-
-            const liveScaledStake = Math.max(0.35, Math.round((stepBaseUsd * growthMult) * 100) / 100).toFixed(2);
-
-            // Compute Cumulative Required Balance up to current step
-            let cumulativeNeeded = 0;
-            for (let i = 0; i <= idx; i++) {
-              let sUsd = parseFloat(progressionSteps[i]) || 0.35;
+              let stepBaseUsd = parseFloat(stepVal) || 0.35;
               if (progressionMode === 'PERCENTAGE') {
-                const p = parseFloat(percentageSteps[i]) || 0;
-                sUsd = Math.max(0.35, Math.round(((baseCap * p) / 100) * 100) / 100);
+                const pct = parseFloat(percentageSteps[idx]) || 0;
+                stepBaseUsd = Math.max(0.35, Math.round(((baseCap * pct) / 100) * 100) / 100);
               }
-              const sScaled = Math.max(0.35, Math.round((sUsd * growthMult) * 100) / 100);
-              cumulativeNeeded += sScaled;
-            }
 
-            const isInsufficient = isChecked && (livePool < cumulativeNeeded);
+              let liveScaledStakeNum = stepBaseUsd;
+              if (autoCompoundEnabled && activeBaseSum > 0 && isChecked) {
+                const stepRatio = stepBaseUsd / activeBaseSum;
+                liveScaledStakeNum = Math.max(0.35, Math.round((livePool * stepRatio) * 100) / 100);
+              }
+              const liveScaledStake = liveScaledStakeNum.toFixed(2);
+
+              // Compute Cumulative Required Balance up to current step
+              let cumulativeNeeded = 0;
+              for (let i = 0; i <= idx; i++) {
+                if (activeSteps[i] !== false) {
+                  let sUsd = parseFloat(progressionSteps[i]) || 0.35;
+                  if (progressionMode === 'PERCENTAGE') {
+                    const p = parseFloat(percentageSteps[i]) || 0;
+                    sUsd = Math.max(0.35, Math.round(((baseCap * p) / 100) * 100) / 100);
+                  }
+                  let sScaled = sUsd;
+                  if (autoCompoundEnabled && activeBaseSum > 0) {
+                    sScaled = Math.max(0.35, Math.round((livePool * (sUsd / activeBaseSum)) * 100) / 100);
+                  }
+                  cumulativeNeeded += sScaled;
+                }
+              }
+
+              const isInsufficient = isChecked && (livePool < cumulativeNeeded);
 
             return (
               <div
@@ -1715,7 +1728,6 @@ export default function MartingaleStrategyPage() {
                   </div>
                 )}
 
-                {/* Insufficient Capital Warning Badge */}
                 {isInsufficient && (
                   <div className="mt-1 text-[9px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/50 px-1.5 py-1 rounded-lg flex items-center justify-between shadow-sm">
                     <span className="flex items-center gap-1 font-bold text-rose-300">
@@ -1726,7 +1738,8 @@ export default function MartingaleStrategyPage() {
                 )}
               </div>
             );
-          })}
+          });
+        })()}
         </div>
 
         {/* Progression Table Active Steps Summary Bar */}
@@ -1739,18 +1752,23 @@ export default function MartingaleStrategyPage() {
             {(() => {
               const currentIdx = stats.currentStepIndex ?? 0;
               const baseCap = parseFloat(String(progressionMode === 'PERCENTAGE' ? portfolioPrice : allocatedCapital)) || 20.00;
-              const allocatedPoolWithPnL = Math.max(0, baseCap + (parseFloat(String(stats?.totalPnL)) || 0));
+              const allocatedPoolWithPnL = Math.max(0.35, baseCap + (parseFloat(String(stats?.totalPnL)) || 0));
               const livePool = autoCompoundEnabled ? allocatedPoolWithPnL : baseCap;
-              const growthMult = baseCap > 0 ? (livePool >= baseCap ? livePool / baseCap : 1.0) : 1.0;
+
+              const activeBaseSum = progressionSteps.reduce((acc, sVal, i) => {
+                return activeSteps[i] !== false ? acc + (parseFloat(sVal) || 0.35) : acc;
+              }, 0);
 
               let currentStepBaseUsd = parseFloat(progressionSteps[currentIdx]) || 0.35;
               if (progressionMode === 'PERCENTAGE') {
                 const pct = parseFloat(percentageSteps[currentIdx]) || 0;
                 currentStepBaseUsd = Math.max(0.35, Math.round(((baseCap * pct) / 100) * 100) / 100);
               }
-              const nextExecStake = autoCompoundEnabled
-                ? Math.max(0.35, Math.round((currentStepBaseUsd * growthMult) * 100) / 100)
-                : currentStepBaseUsd;
+              let nextExecStake = currentStepBaseUsd;
+              if (autoCompoundEnabled && activeBaseSum > 0) {
+                const stepRatio = currentStepBaseUsd / activeBaseSum;
+                nextExecStake = Math.max(0.35, Math.round((livePool * stepRatio) * 100) / 100);
+              }
 
               return (
                 <b className="text-amber-300 underline font-black">
