@@ -38,7 +38,8 @@ export interface MartingaleStakeResult {
  * Calculates current Martingale progression stake and handles ONE_BY_ONE sequential blocking.
  */
 export async function getMartingaleExecutionStake(
-  config: MartingaleConfig
+  config: MartingaleConfig,
+  candidateSymbol?: string
 ): Promise<MartingaleStakeResult> {
   if (!config.enabled) {
     return { stake: 0, stepIndex: 0, isHalted: true, haltReason: 'Martingale Strategy Engine is set to OFF.' };
@@ -102,8 +103,14 @@ export async function getMartingaleExecutionStake(
     let consecutiveLossesSinceReset = 0;
     let totalPnL = 0;
     let streakActive = true;
+    let lastLossTime = 0;
 
-    for (const t of martingaleTrades) {
+    // Optional per-pair symbol isolation: filter trades for candidateSymbol if provided
+    const filteredTrades = candidateSymbol 
+      ? martingaleTrades.filter(t => t.symbol === candidateSymbol || t.status === 'OPEN') 
+      : martingaleTrades;
+
+    for (const t of filteredTrades) {
       if (t.status === 'OPEN') continue;
       const tradeTime = new Date(t.created_at).getTime();
 
@@ -123,10 +130,19 @@ export async function getMartingaleExecutionStake(
 
       const isLoss = t.status === 'LOST' || (t.pnl !== null && parseFloat(t.pnl) < 0);
       if (isLoss && streakActive) {
+        if (lastLossTime === 0) {
+          lastLossTime = tradeTime;
+        }
         consecutiveLossesSinceReset++;
       } else {
         streakActive = false; // WIN or PnL >= 0 resets streak
       }
+    }
+
+    // ⏱️ STREAK EXPIRATION GUARD: If the most recent loss happened > 45 minutes ago, expire loss streak back to Step 1!
+    const STREAK_EXPIRY_MS = 45 * 60 * 1000; // 45 minutes
+    if (lastLossTime > 0 && (Date.now() - lastLossTime > STREAK_EXPIRY_MS)) {
+      consecutiveLossesSinceReset = 0;
     }
 
     const effectiveStepPos = startStepIndex + consecutiveLossesSinceReset;

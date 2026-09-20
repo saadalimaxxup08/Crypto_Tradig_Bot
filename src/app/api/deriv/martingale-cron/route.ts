@@ -383,7 +383,15 @@ export async function GET(req: Request) {
               continue;
             }
 
-            scanLogs.push(`🔥 [Martingale Engine] Triggering $${effectiveStake.toFixed(2)} ${stratResult.direction} on ${getDisplaySymbolName(pair)}`);
+            // Calculate exact candidate pair stake considering per-pair streak isolation & 45m expiration
+            const pairStakeResult = await getMartingaleExecutionStake(config, pair);
+            if (pairStakeResult.isHalted || pairStakeResult.stake <= 0) {
+              scanLogs.push(pairStakeResult.haltReason || `Martingale Halted for ${getDisplaySymbolName(pair)}.`);
+              continue;
+            }
+            const effectiveStake = pairStakeResult.stake;
+
+            scanLogs.push(`🔥 [Martingale Engine] Triggering $${effectiveStake.toFixed(2)} ${stratResult.direction} on ${getDisplaySymbolName(pair)} (Step ${pairStakeResult.stepIndex + 1})`);
             try {
               const result = await buyContract(socket, pair, stratResult.direction, effectiveStake, tradeDuration);
               
@@ -415,7 +423,7 @@ export async function GET(req: Request) {
               const signalMsg = `🚀 <b>MARTINGALE ENGINE ALERT</b> 🚀\n` +
                 `-------------------------------------\n` +
                 `<b>Asset Pair:</b> ${getDisplaySymbolName(pair)}\n` +
-                `<b>Progression Step:</b> Step ${freshStakeResult.stepIndex + 1}\n` +
+                `<b>Progression Step:</b> Step ${pairStakeResult.stepIndex + 1}\n` +
                 `<b>Stake Amount:</b> $${effectiveStake.toFixed(2)}\n` +
                 `<b>Direction:</b> ${stratResult.direction === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}\n` +
                 `<b>Execution Mode:</b> ${config.execution_mode === 'ONE_BY_ONE' ? 'One-By-One (Sequential)' : 'Multi-Trade'}\n` +
