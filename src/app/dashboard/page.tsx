@@ -1995,6 +1995,7 @@ export default function DerivDashboard() {
                       <th className="pb-3 text-right">Target Payout</th>
                       <th className="pb-3 text-right">Duration</th>
                       <th className="pb-3 text-center">Status</th>
+                      <th className="pb-3 text-right">Entry Time (Jeddah)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/50 text-sm font-semibold">
@@ -2018,6 +2019,11 @@ export default function DerivDashboard() {
                           <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold bg-zinc-800/60 border border-zinc-700/50 text-zinc-300 uppercase animate-pulse">
                             ACTIVE
                           </span>
+                        </td>
+                        <td className="py-3.5 text-right font-mono text-xs text-zinc-400">
+                          {t.created_at
+                            ? new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true })
+                            : 'N/A'}
                         </td>
                       </tr>
                     ))}
@@ -2057,6 +2063,7 @@ export default function DerivDashboard() {
                       <th className="py-3 px-3 text-right">Stake</th>
                       <th className="py-3 px-3 text-right">Return P&L</th>
                       <th className="py-3 px-4 text-center">Outcome</th>
+                      <th className="py-3 px-4 text-right">Close Time (Jeddah)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/50 text-sm font-semibold">
@@ -2087,6 +2094,13 @@ export default function DerivDashboard() {
                             }`}>
                               {t.status}
                             </span>
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-xs text-zinc-400">
+                            {t.closed_at
+                              ? new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true })
+                              : t.created_at
+                              ? new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true })
+                              : 'N/A'}
                           </td>
                         </tr>
                       );
