@@ -1572,8 +1572,27 @@ export default function MartingaleStrategyPage() {
 
               let liveScaledStakeNum = stepBaseUsd;
               if (autoCompoundEnabled && activeBaseSum > 0 && isChecked) {
-                const stepRatio = stepBaseUsd / activeBaseSum;
-                liveScaledStakeNum = Math.max(0.35, Math.round((livePool * stepRatio) * 100) / 100);
+                // Find if this is the last active checked step
+                const activeIndices: number[] = [];
+                activeSteps.forEach((act, i) => { if (act !== false) activeIndices.push(i); });
+                const isLastActive = activeIndices.length > 1 && activeIndices[activeIndices.length - 1] === idx;
+
+                if (isLastActive) {
+                  let precSum = 0;
+                  for (let i = 0; i < activeIndices.length - 1; i++) {
+                    const actIdx = activeIndices[i];
+                    let sBase = parseFloat(progressionSteps[actIdx]) || 0.35;
+                    if (progressionMode === 'PERCENTAGE') {
+                      const p = parseFloat(percentageSteps[actIdx]) || 0;
+                      sBase = Math.max(0.35, Math.round(((baseCap * p) / 100) * 100) / 100);
+                    }
+                    precSum += Math.max(0.35, Math.round((livePool * (sBase / activeBaseSum)) * 100) / 100);
+                  }
+                  liveScaledStakeNum = Math.max(0.35, Math.round((livePool - precSum) * 100) / 100);
+                } else {
+                  const stepRatio = stepBaseUsd / activeBaseSum;
+                  liveScaledStakeNum = Math.max(0.35, Math.round((livePool * stepRatio) * 100) / 100);
+                }
               }
               const liveScaledStake = liveScaledStakeNum.toFixed(2);
 

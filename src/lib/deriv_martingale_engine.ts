@@ -180,8 +180,18 @@ export async function getMartingaleExecutionStake(
         const pct = parseFloat(config.percentage_steps[currentStepObj.originalIndex]) || 0;
         finalStake = Math.max(0.35, Math.round((activeBalance * (pct / 100)) * 100) / 100);
       } else if (activeBaseSum > 0) {
-        const stepRatio = currentStepObj.stake / activeBaseSum;
-        finalStake = Math.max(0.35, Math.round((activeBalance * stepRatio) * 100) / 100);
+        if (effectiveStepPos === activeStepObjects.length - 1 && activeStepObjects.length > 1) {
+          // Last active step consumes 100% of remaining balance to prevent 1-cent rounding shortfall
+          let precedingSum = 0;
+          for (let i = 0; i < effectiveStepPos; i++) {
+            const ratio = activeStepObjects[i].stake / activeBaseSum;
+            precedingSum += Math.max(0.35, Math.round((activeBalance * ratio) * 100) / 100);
+          }
+          finalStake = Math.max(0.35, Math.round((activeBalance - precedingSum) * 100) / 100);
+        } else {
+          const stepRatio = currentStepObj.stake / activeBaseSum;
+          finalStake = Math.max(0.35, Math.round((activeBalance * stepRatio) * 100) / 100);
+        }
       }
     }
 
