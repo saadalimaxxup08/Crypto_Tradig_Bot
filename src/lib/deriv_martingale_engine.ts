@@ -80,13 +80,19 @@ export async function getMartingaleExecutionStake(
     if (config.execution_mode === 'ONE_BY_ONE' && martingaleTrades) {
       const openMartingaleTrade = martingaleTrades.find(t => t.status === 'OPEN');
       if (openMartingaleTrade) {
-        return {
-          stake: 0,
-          stepIndex: 0,
-          isHalted: false,
-          isOpenBlocked: true,
-          haltReason: `⏳ [One-by-One Lock] Martingale trade on ${openMartingaleTrade.symbol} is currently OPEN. Waiting for expiry before next entry.`
-        };
+        const openAgeMs = Date.now() - new Date(openMartingaleTrade.created_at).getTime();
+        if (openAgeMs > 45 * 60 * 1000) {
+          // Auto-expire stuck trade in DB if older than 45 minutes
+          await supabase.from('deriv_trades').update({ status: 'LOST', closed_at: new Date().toISOString() }).eq('id', openMartingaleTrade.id);
+        } else {
+          return {
+            stake: 0,
+            stepIndex: 0,
+            isHalted: false,
+            isOpenBlocked: true,
+            haltReason: `⏳ [One-by-One Lock] Martingale trade on ${openMartingaleTrade.symbol} is currently OPEN. Waiting for expiry before next entry.`
+          };
+        }
       }
     }
 

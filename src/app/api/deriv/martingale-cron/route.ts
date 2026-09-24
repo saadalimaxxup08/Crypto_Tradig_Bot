@@ -192,25 +192,35 @@ export async function GET(req: Request) {
     const { data: openTrades } = await supabase
       .from('deriv_trades')
       .select('*')
-      .neq('stake', 1.00)
       .eq('status', 'OPEN');
 
     if (openTrades && openTrades.length > 0) {
       await syncOpenTrades(socket, openTrades);
     }
 
-    // Re-verify ONE_BY_ONE lock after sync
+    // Re-verify ONE_BY_ONE lock after sync with 45-minute stuck-trade auto-expiry
     if (config.execution_mode === 'ONE_BY_ONE') {
       const { data: stillOpen } = await supabase
         .from('deriv_trades')
         .select('*')
-        .neq('stake', 1.00)
         .eq('status', 'OPEN');
 
       if (stillOpen && stillOpen.length > 0) {
-        scanLogs.push(`⏳ [One-by-One Mode] Open contract active on ${getDisplaySymbolName(stillOpen[0].symbol)}. Waiting for expiry.`);
-        socket.close();
-        return NextResponse.json({ success: true, message: 'One-by-one active trade running', logs: scanLogs });
+        const validOpenTrades: any[] = [];
+        for (const t of stillOpen) {
+          const ageMs = Date.now() - new Date(t.created_at).getTime();
+          if (ageMs > 45 * 60 * 1000) {
+            await supabase.from('deriv_trades').update({ status: 'LOST', closed_at: new Date().toISOString() }).eq('id', t.id);
+          } else {
+            validOpenTrades.push(t);
+          }
+        }
+
+        if (validOpenTrades.length > 0) {
+          scanLogs.push(`⏳ [One-by-One Mode] Open contract active on ${getDisplaySymbolName(validOpenTrades[0].symbol)}. Waiting for expiry.`);
+          socket.close();
+          return NextResponse.json({ success: true, message: 'One-by-one active trade running', logs: scanLogs });
+        }
       }
     }
 
