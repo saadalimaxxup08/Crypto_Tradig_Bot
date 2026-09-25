@@ -188,28 +188,30 @@ export async function GET(req: Request) {
 
     (socket as any).setMaxListeners?.(200);
 
-    // Sync open Martingale trades
+    // Sync open Martingale trades (stake !== 1.00)
     const { data: openTrades } = await supabase
       .from('deriv_trades')
       .select('*')
+      .neq('stake', 1.00)
       .eq('status', 'OPEN');
 
     if (openTrades && openTrades.length > 0) {
       await syncOpenTrades(socket, openTrades);
     }
 
-    // Re-verify ONE_BY_ONE lock after sync with 45-minute stuck-trade auto-expiry
+    // Re-verify ONE_BY_ONE lock after sync with 30-minute stuck-trade auto-expiry
     if (config.execution_mode === 'ONE_BY_ONE') {
       const { data: stillOpen } = await supabase
         .from('deriv_trades')
         .select('*')
+        .neq('stake', 1.00)
         .eq('status', 'OPEN');
 
       if (stillOpen && stillOpen.length > 0) {
         const validOpenTrades: any[] = [];
         for (const t of stillOpen) {
           const ageMs = Date.now() - new Date(t.created_at).getTime();
-          if (ageMs > 45 * 60 * 1000) {
+          if (ageMs > 30 * 60 * 1000) {
             await supabase.from('deriv_trades').update({ status: 'LOST', closed_at: new Date().toISOString() }).eq('id', t.id);
           } else {
             validOpenTrades.push(t);

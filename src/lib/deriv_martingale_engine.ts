@@ -81,8 +81,8 @@ export async function getMartingaleExecutionStake(
       const openMartingaleTrade = martingaleTrades.find(t => t.status === 'OPEN');
       if (openMartingaleTrade) {
         const openAgeMs = Date.now() - new Date(openMartingaleTrade.created_at).getTime();
-        if (openAgeMs > 45 * 60 * 1000) {
-          // Auto-expire stuck trade in DB if older than 45 minutes
+        if (openAgeMs > 30 * 60 * 1000) {
+          // Auto-expire stuck trade in DB if older than 30 minutes
           await supabase.from('deriv_trades').update({ status: 'LOST', closed_at: new Date().toISOString() }).eq('id', openMartingaleTrade.id);
         } else {
           return {
