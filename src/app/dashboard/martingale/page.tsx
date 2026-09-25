@@ -822,374 +822,392 @@ export default function MartingaleStrategyPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-16 w-full max-w-full overflow-x-hidden">
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between bg-[#0c0c0f]/80 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-4 sm:p-8 gap-6 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+      {/* Unified Command Center Ribbon */}
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 relative overflow-hidden shadow-2xl">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
         
-        <div className="space-y-2 relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-emerald-400">
-              <TrendingUp className="w-7 h-7" />
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative z-10">
+          {/* Left: Branding & Status */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner">
+              <TrendingUp className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl sm:text-3xl font-black text-zinc-100 tracking-tight">
-                  Martingale Strategy Engine
+                <h1 className="text-base sm:text-lg font-bold text-zinc-100 tracking-tight">
+                  Martingale Progression Engine
                 </h1>
-                <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border ${
+                
+                {/* Engine Live Status Pill */}
+                <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border flex items-center gap-1.5 ${
                   enabled
-                    ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/40'
-                    : 'bg-zinc-900 text-zinc-500 border-zinc-800'
+                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/40 shadow-sm shadow-emerald-500/10'
+                    : 'bg-zinc-900/80 text-zinc-500 border-zinc-800'
                 }`}>
-                  {enabled ? 'WORK ON (ACTIVE)' : 'WORK OFF (INACTIVE)'}
+                  <span className={`w-1.5 h-1.5 rounded-full ${enabled ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+                  {enabled ? 'SYSTEM ACTIVE' : 'PAUSED'}
                 </span>
 
-                {/* Master Reset All Stats to $0.00 Button */}
-                <button
-                  type="button"
-                  onClick={handleResetAllStats}
-                  disabled={isSaving}
-                  className="flex items-center gap-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-extrabold py-1 px-3 rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
-                  title="Reset all historical Martingale stats and PnL back to $0.00"
-                >
-                  <RefreshCw className="w-3.5 h-3.5 text-rose-400" />
-                  <span>Reset All Stats ($0.00)</span>
-                </button>
+                {/* Account Mode Pill */}
+                <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                  tradingMode === 'REAL'
+                    ? 'bg-rose-950/60 text-rose-300 border-rose-500/40'
+                    : 'bg-amber-950/60 text-amber-300 border-amber-500/40'
+                }`}>
+                  {tradingMode === 'REAL' ? 'REAL LIVE' : 'DEMO VIRTUAL'}
+                </span>
+
+                {/* Execution Mode Lock Pill */}
+                <span className="text-[10px] font-medium text-zinc-400 bg-zinc-900/60 border border-zinc-800/80 px-2 py-0.5 rounded-md flex items-center gap-1 font-mono">
+                  {executionMode === 'ONE_BY_ONE' ? <Lock className="w-3 h-3 text-emerald-400" /> : <Zap className="w-3 h-3 text-amber-400" />}
+                  <span>{executionMode === 'ONE_BY_ONE' ? '1-by-1 Lock' : 'Concurrent'}</span>
+                </span>
               </div>
-              <p className="text-xs text-zinc-400 mt-1">
-                Isolated Martingale progression sandbox. Runs independently with custom capital allocation and sequential One-by-One safety lock.
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Isolated dynamic multi-step recovery sandbox · 1-By-1 execution guard
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Master ON / OFF Switch */}
-        <div className="flex items-center gap-4 bg-[#09090b]/90 border border-zinc-800 p-3 rounded-2xl relative z-10 self-start md:self-auto">
-          <div className="text-right">
-            <span className="block text-xs font-bold text-zinc-300">Engine Status</span>
-            <span className={`text-[10px] font-extrabold uppercase ${enabled ? 'text-emerald-400' : 'text-zinc-500'}`}>
-              {enabled ? 'RUNNING' : 'PAUSED'}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={handleToggleEngine}
-            className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-300 focus:outline-none ${
-              enabled ? 'bg-emerald-500' : 'bg-zinc-700'
-            }`}
-          >
-            <span
-              className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform duration-300 ${
-                enabled ? 'translate-x-8' : 'translate-x-1'
+          {/* Right: Command Actions Ribbon */}
+          <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-auto">
+            {/* Account Switcher Pill */}
+            <div className="flex items-center bg-zinc-950/90 border border-zinc-800/90 p-1 rounded-xl shadow-inner">
+              <button
+                type="button"
+                onClick={() => handleTradingModeChange('DEMO')}
+                className={`px-3 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                  tradingMode === 'DEMO'
+                    ? 'bg-amber-500 text-zinc-950 shadow-sm font-extrabold'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                DEMO
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTradingModeChange('REAL')}
+                className={`px-3 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                  tradingMode === 'REAL'
+                    ? 'bg-rose-500 text-white shadow-sm font-extrabold'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                REAL
+              </button>
+            </div>
+
+            {/* Master Engine ON/OFF Switch */}
+            <button
+              type="button"
+              onClick={handleToggleEngine}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm cursor-pointer ${
+                enabled
+                  ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/60'
+                  : 'bg-zinc-900/80 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200'
               }`}
-            />
-          </button>
-        </div>
-      </div>
+            >
+              <span className={`w-2 h-2 rounded-full ${enabled ? 'bg-emerald-400 animate-ping' : 'bg-zinc-600'}`} />
+              <span>{enabled ? 'STOP ENGINE' : 'START ENGINE'}</span>
+            </button>
 
-      {/* Martingale Account Mode Switch Card (DEMO vs REAL) */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-extrabold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
-              <Shield className="w-4 h-4 text-emerald-400" />
-              <span>Independent Martingale Trading Account Mode</span>
-            </h3>
-            <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md border ${
-              tradingMode === 'REAL'
-                ? 'bg-rose-950/60 text-rose-400 border-rose-500/40 animate-pulse'
-                : 'bg-amber-950/60 text-amber-400 border-amber-500/40'
-            }`}>
-              {tradingMode === 'REAL' ? 'REAL LIVE ACCOUNT' : 'DEMO VIRTUAL SANDBOX'}
-            </span>
+            {/* Reset Stats to $0.00 */}
+            <button
+              type="button"
+              onClick={handleResetAllStats}
+              disabled={isSaving}
+              className="flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[11px] font-bold py-1.5 px-3 rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
+              title="Reset all historical Martingale stats and PnL back to $0.00"
+            >
+              <RefreshCw className="w-3 h-3 text-rose-400" />
+              <span>Reset Stats</span>
+            </button>
           </div>
-          <p className="text-xs text-zinc-400">
-            Switch Martingale Engine between Demo Virtual Practice and Real Live Account independently without affecting main bot testing.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 bg-zinc-950/80 border border-zinc-800 p-1 rounded-2xl shrink-0">
-          <button
-            type="button"
-            onClick={() => handleTradingModeChange('DEMO')}
-            className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
-              tradingMode === 'DEMO'
-                ? 'bg-amber-500 text-zinc-950 shadow-md shadow-amber-500/10'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            DEMO VIRTUAL
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTradingModeChange('REAL')}
-            className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${
-              tradingMode === 'REAL'
-                ? 'bg-emerald-500 text-zinc-950 shadow-md shadow-emerald-500/20'
-                : 'text-zinc-400 hover:text-zinc-200'
-            }`}
-          >
-            REAL LIVE CAPITAL
-          </button>
         </div>
       </div>
 
       {/* Notification Toast */}
       {statusMsg.text && (
-        <div className={`p-4 rounded-2xl border text-sm font-semibold flex items-center gap-3 transition-all ${
+        <div className={`p-3.5 rounded-xl border text-xs font-semibold flex items-center gap-2.5 transition-all shadow-md ${
           statusMsg.type === 'success'
             ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300'
             : 'bg-rose-950/40 border-rose-500/50 text-rose-300'
         }`}>
-          {statusMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+          {statusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" /> : <XCircle className="w-4 h-4 shrink-0 text-rose-400" />}
           <span>{statusMsg.text}</span>
         </div>
       )}
 
       {/* Martingale Dedicated Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {/* Card 1: Total Deriv Wallet Balance (Chota label + Badge) */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
+        {/* Card 1: Total Deriv Wallet Balance */}
+        <div className="fintech-card rounded-xl p-3.5 flex flex-col justify-between space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Total Deriv Wallet</span>
-            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border uppercase ${
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Deriv Wallet</span>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase font-mono ${
               tradingMode === 'REAL' ? 'bg-rose-950/60 text-rose-400 border-rose-500/30' : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
             }`}>
               {tradingMode === 'REAL' ? 'REAL' : 'DEMO'}
             </span>
           </div>
-          <div className="text-xl font-black font-mono text-zinc-100 flex items-center gap-1">
-            <DollarSign className="w-4 h-4 text-emerald-400" />
+          <div className="text-lg font-bold font-mono text-zinc-100 flex items-center gap-0.5">
+            <span className="text-zinc-500 font-normal">$</span>
             <span>{(tradingMode === 'REAL' ? (stats.realBalance || 0) : (stats.demoBalance || 0)).toFixed(2)}</span>
           </div>
-          <p className="text-[9px] text-zinc-500">Deriv main account wallet balance</p>
+          <p className="text-[10px] text-zinc-400 truncate">Total account capital</p>
         </div>
 
-        {/* Card 2: Allocated Martingale Capital Pool (Dynamic Pool) */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
+        {/* Card 2: Allocated Martingale Capital Pool */}
+        <div className="fintech-card rounded-xl p-3.5 flex flex-col justify-between space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Remaining Capital Pool</span>
-            <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border ${
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Active Pool</span>
+            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border font-mono ${
               (stats.totalPnL || 0) >= 0 ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30' : 'bg-rose-950/60 text-rose-400 border-rose-500/30'
             }`}>
-              {(stats.totalPnL || 0) >= 0 ? 'PROFIT' : 'DRAWDOWN'}
+              {(stats.totalPnL || 0) >= 0 ? '+PROFIT' : 'DRAWDOWN'}
             </span>
           </div>
-          <div className={`text-xl font-black font-mono flex items-center gap-1 ${(parseFloat(allocatedCapital) + (stats.totalPnL || 0)) >= parseFloat(allocatedCapital) ? 'text-emerald-400' : 'text-rose-400'}`}>
-            <DollarSign className="w-4 h-4" />
+          <div className={`text-lg font-bold font-mono flex items-center gap-0.5 ${(parseFloat(allocatedCapital) + (stats.totalPnL || 0)) >= parseFloat(allocatedCapital) ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <span className="text-zinc-500 font-normal">$</span>
             <span>{(parseFloat(allocatedCapital) + (stats.totalPnL || 0)).toFixed(2)}</span>
           </div>
-          <p className="text-[9px] text-zinc-500">Base: ${parseFloat(allocatedCapital).toFixed(2)} | Net: {(stats.totalPnL || 0) >= 0 ? '+' : ''}${(stats.totalPnL || 0).toFixed(2)}</p>
+          <p className="text-[10px] text-zinc-400 truncate font-mono">
+            Base: ${parseFloat(allocatedCapital).toFixed(2)}
+          </p>
         </div>
 
         {/* Card 3: Martingale Isolated Total PnL */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
-          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Martingale Isolated PnL</span>
-          <div className={`text-xl font-black font-mono ${(stats?.totalPnL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+        <div className="fintech-card rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Isolated PnL</span>
+            <span className="text-[9px] font-mono text-zinc-400">
+              {stats?.wonCount || 0}W / {stats?.lostCount || 0}L
+            </span>
+          </div>
+          <div className={`text-lg font-bold font-mono ${(stats?.totalPnL || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
             {(stats?.totalPnL || 0) >= 0 ? '+' : ''}${(parseFloat(String(stats?.totalPnL || 0)) || 0).toFixed(2)}
           </div>
-          <p className="text-[9px] text-zinc-500">{(stats?.wonCount || 0)} Won / {(stats?.lostCount || 0)} Lost (Isolated)</p>
+          <p className="text-[10px] text-zinc-400 truncate font-mono">
+            {stats?.wonCount || 0} Won · {stats?.lostCount || 0} Lost
+          </p>
         </div>
 
         {/* Card 4: Execution Mode */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1">
-          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Execution Mode</span>
-          <div className="text-md font-black text-emerald-400 flex items-center gap-1.5 pt-0.5">
-            {executionMode === 'ONE_BY_ONE' ? <Lock className="w-3.5 h-3.5 text-emerald-400" /> : <Zap className="w-3.5 h-3.5 text-emerald-400" />}
-            <span>{executionMode === 'ONE_BY_ONE' ? 'One-By-One' : 'Multi-Trade'}</span>
+        <div className="fintech-card rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Exec Mode</span>
+            <span className="text-[9px] font-bold text-emerald-400 font-mono">LOCKED</span>
           </div>
-          <p className="text-[9px] text-zinc-500">Sequential trade entry lock</p>
+          <div className="text-base font-bold text-emerald-400 flex items-center gap-1.5">
+            {executionMode === 'ONE_BY_ONE' ? <Lock className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />}
+            <span className="truncate">{executionMode === 'ONE_BY_ONE' ? 'One-By-One' : 'Concurrent'}</span>
+          </div>
+          <p className="text-[10px] text-zinc-400 truncate">Sequential safety guard</p>
         </div>
 
         {/* Card 5: Martingale Win Rate */}
-        <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-2xl p-4 space-y-1 col-span-2 lg:col-span-1">
-          <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Martingale Win Rate</span>
-          <div className="text-xl font-black font-mono text-zinc-100">
+        <div className="fintech-card rounded-xl p-3.5 flex flex-col justify-between space-y-2 col-span-2 lg:col-span-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Win Rate</span>
+            <span className="text-[9px] font-mono text-zinc-400">{(stats?.totalTrades || 0)} trades</span>
+          </div>
+          <div className="text-lg font-bold font-mono text-zinc-100">
             {(parseFloat(String(stats?.winRate || 0)) || 0).toFixed(1)}%
           </div>
-          <p className="text-[9px] text-zinc-500">Total {(stats?.totalTrades || 0)} Martingale trades</p>
+          <p className="text-[10px] text-zinc-400 truncate">
+            Across {(stats?.totalTrades || 0)} closed trades
+          </p>
         </div>
       </div>
 
       {/* Active Safety & News Filters Card */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-zinc-800/50 pb-3">
-          <div>
-            <h3 className="text-md font-bold text-zinc-200 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-emerald-400" />
-              <span>Active Safety &amp; News Filters</span>
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-3.5">
+        <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+              Active Risk &amp; Safety Guards
             </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Live automated risk control filters protecting your Martingale Strategy capital.
-            </p>
           </div>
+          <span className="text-[10px] text-zinc-400 font-mono">
+            {[newsFilterEnabled, sessionFilterEnabled, cooldownFilterEnabled, dailyLimitEnabled, pairLossCooldownEnabled, pairRotationGuardEnabled].filter(Boolean).length} / 6 Active
+          </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
           {/* News Filter Toggle */}
           <button
             type="button"
             onClick={() => handleToggleRiskFilter('news', newsFilterEnabled)}
-            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+            className={`p-3 rounded-xl border transition-all text-left flex flex-col justify-between h-[82px] cursor-pointer ${
               newsFilterEnabled
-                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
             }`}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider">News Blocker</span>
-            <span className="text-[9px] opacity-60 mt-0.5">USD/EUR/GBP High Impact</span>
-            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${newsFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-              {newsFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-200">News Blocker</span>
+              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded ${newsFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                {newsFilterEnabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <p className="text-[9px] text-zinc-400 truncate">USD/EUR/GBP High Impact</p>
           </button>
 
           {/* Session Filter Toggle */}
           <button
             type="button"
             onClick={() => handleToggleRiskFilter('session', sessionFilterEnabled)}
-            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+            className={`p-3 rounded-xl border transition-all text-left flex flex-col justify-between h-[82px] cursor-pointer ${
               sessionFilterEnabled
-                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
             }`}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider">Asian Session</span>
-            <span className="text-[9px] opacity-60 mt-0.5">21:00 - 23:59 GMT Block</span>
-            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${sessionFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-              {sessionFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-200">Asian Session</span>
+              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded ${sessionFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                {sessionFilterEnabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <p className="text-[9px] text-zinc-400 truncate">21:00 - 23:59 GMT Block</p>
           </button>
 
           {/* Loss Cooldown Guard Toggle */}
           <button
             type="button"
             onClick={() => handleToggleRiskFilter('cooldown', cooldownFilterEnabled)}
-            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+            className={`p-3 rounded-xl border transition-all text-left flex flex-col justify-between h-[82px] cursor-pointer ${
               cooldownFilterEnabled
-                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
             }`}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider">Loss Cooldown</span>
-            <span className="text-[9px] opacity-60 mt-0.5">2 Losses = 60m Cooldown</span>
-            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${cooldownFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-              {cooldownFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-200">Loss Cooldown</span>
+              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded ${cooldownFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                {cooldownFilterEnabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <p className="text-[9px] text-zinc-400 truncate">2 Losses = 60m Rest</p>
           </button>
 
           {/* Daily Trades Limit Toggle */}
           <button
             type="button"
             onClick={() => handleToggleRiskFilter('daily', dailyLimitEnabled)}
-            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+            className={`p-3 rounded-xl border transition-all text-left flex flex-col justify-between h-[82px] cursor-pointer ${
               dailyLimitEnabled
-                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
             }`}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider">Daily Trade Limit</span>
-            <span className="text-[9px] opacity-60 mt-0.5">Max 10 Trades Limit</span>
-            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${dailyLimitEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-              {dailyLimitEnabled ? 'GUARD ON' : 'GUARD OFF'}
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-200">Daily Limit</span>
+              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded ${dailyLimitEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                {dailyLimitEnabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <p className="text-[9px] text-zinc-400 truncate">Max 10 Trades Limit</p>
           </button>
 
           {/* Pair Post-Loss 1-Hour Cooldown Toggle */}
           <button
             type="button"
             onClick={() => handleToggleRiskFilter('pairLossCooldown', pairLossCooldownEnabled)}
-            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+            className={`p-3 rounded-xl border transition-all text-left flex flex-col justify-between h-[82px] cursor-pointer ${
               pairLossCooldownEnabled
-                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
             }`}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider">Pair Loss Cooldown</span>
-            <span className="text-[9px] opacity-60 mt-0.5">1 Loss = 60m Pair Pause</span>
-            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${pairLossCooldownEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-              {pairLossCooldownEnabled ? 'GUARD ON' : 'GUARD OFF'}
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-200">Pair Pause</span>
+              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded ${pairLossCooldownEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                {pairLossCooldownEnabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <p className="text-[9px] text-zinc-400 truncate">1 Loss = 60m Pair Pause</p>
           </button>
 
           {/* Pair Rotation Guard Toggle */}
           <button
             type="button"
             onClick={() => handleToggleRiskFilter('pairRotationGuard', pairRotationGuardEnabled)}
-            className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border transition-all text-center cursor-pointer ${
+            className={`p-3 rounded-xl border transition-all text-left flex flex-col justify-between h-[82px] cursor-pointer ${
               pairRotationGuardEnabled
-                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
             }`}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider">Pair Rotation Guard</span>
-            <span className="text-[9px] opacity-60 mt-0.5">Pair Switch After Loss</span>
-            <span className={`text-[10px] font-black mt-2.5 px-2.5 py-0.5 rounded-lg ${pairRotationGuardEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-              {pairRotationGuardEnabled ? 'GUARD ON' : 'GUARD OFF'}
-            </span>
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-200">Pair Rotate</span>
+              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded ${pairRotationGuardEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                {pairRotationGuardEnabled ? 'ON' : 'OFF'}
+              </span>
+            </div>
+            <p className="text-[9px] text-zinc-400 truncate">Switch Pair After Loss</p>
           </button>
         </div>
       </div>
 
       {/* Martingale Pairs Near Entry Watchlist Table Card */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-3 gap-2">
-          <div>
-            <h3 className="text-md font-bold text-zinc-200 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-              <span>Martingale Pairs Near Entry Watchlist ({sortedNearEntryPairs.length} Active)</span>
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/60 pb-2.5 gap-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+              Near Entry Watchlist ({sortedNearEntryPairs.length} Active)
             </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Live monitoring of pairs evaluated near trade entry thresholds for Martingale execution.
-            </p>
           </div>
-          <span className="text-[10px] text-zinc-500 font-mono">
-            {sortedNearEntryPairs.length > 0 ? `${sortedNearEntryPairs.length} unique active pairs analyzed in current scan cycle` : 'Scanning active pairs...'}
+          <span className="text-[10px] text-zinc-400 font-mono">
+            {sortedNearEntryPairs.length > 0 ? `${sortedNearEntryPairs.length} pairs analyzed in current scan` : 'Scanning active pairs...'}
           </span>
         </div>
 
-        <div className="overflow-x-auto max-h-[310px] overflow-y-auto rounded-2xl border border-zinc-900 bg-[#050507]/60 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+        <div className="overflow-x-auto max-h-[280px] overflow-y-auto rounded-xl border border-zinc-800/80 bg-[#070709] scrollbar-thin">
           <table className="w-full text-left border-collapse text-xs font-mono">
-            <thead className="sticky top-0 z-10 bg-zinc-950 shadow-sm">
-              <tr className="border-b border-zinc-800 bg-zinc-950 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
-                <th className="py-3 px-4">Asset Pair</th>
-                <th className="py-3 px-3">Signal Direction</th>
-                <th className="py-3 px-3">Proximity Status</th>
-                <th className="py-3 px-3 text-right">Confirmations (T A S)</th>
-                <th className="py-3 px-3 text-right">ADX</th>
-                <th className="py-3 px-4 text-right">Stoch %K / %D</th>
-                <th className="py-3 px-4 text-center">Deriv Live Chart</th>
+            <thead className="sticky top-0 z-10 bg-[#09090c] shadow-sm">
+              <tr className="border-b border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[9px]">
+                <th className="py-2.5 px-3">Asset Pair</th>
+                <th className="py-2.5 px-2">Signal Direction</th>
+                <th className="py-2.5 px-3">Proximity Status</th>
+                <th className="py-2.5 px-2 text-right">Confirmations (T A S)</th>
+                <th className="py-2.5 px-2 text-right">ADX</th>
+                <th className="py-2.5 px-3 text-right">Stoch %K / %D</th>
+                <th className="py-2.5 px-3 text-center">Chart</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-900 text-zinc-300 font-medium">
+            <tbody className="divide-y divide-zinc-900 text-zinc-300 font-medium text-[11px]">
               {sortedNearEntryPairs.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-zinc-500 text-xs italic">
-                    No pairs currently near entry criteria. Click "Run Scan &amp; Analysis Now" below to run live scanner!
+                    No pairs currently near entry criteria. Running automated background scans...
                   </td>
                 </tr>
               ) : (
                 sortedNearEntryPairs.map((pair: any, idx: number) => (
                   <tr key={idx} className="hover:bg-zinc-800/20 transition-colors">
-                    <td className="py-3 px-4 font-extrabold text-zinc-100">
+                    <td className="py-2.5 px-3 font-bold text-zinc-100">
                       {SYMBOL_DISPLAY_MAP[pair.symbol] || pair.symbol}
                     </td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                    <td className="py-2.5 px-2">
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
                         pair.direction === 'RISE' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30' :
                         pair.direction === 'FALL' ? 'bg-rose-950/60 text-rose-400 border border-rose-500/30' :
                         'bg-amber-950/60 text-amber-400 border border-amber-500/30'
                       }`}>
-                        {pair.direction === 'RISE' ? '↗️ RISE (CALL)' : pair.direction === 'FALL' ? '↘️ FALL (PUT)' : '🔍 ANALYZING'}
+                        {pair.direction === 'RISE' ? '↗ RISE' : pair.direction === 'FALL' ? '↘ FALL' : 'ANALYZING'}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-zinc-400 text-xs">
+                    <td className="py-2.5 px-3 text-zinc-400 text-[10px] truncate max-w-[200px]">
                       {pair.reason}
                     </td>
-                    <td className="py-3 px-3">
-                      <div className="flex items-center justify-end gap-1.5">
+                    <td className="py-2.5 px-2">
+                      <div className="flex items-center justify-end gap-1">
                         <span
                           title="Trend Alignment"
-                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border ${
+                          className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border ${
                             pair.confirmations?.trend ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-zinc-900 text-zinc-600 border-zinc-800'
                           }`}
                         >
@@ -1197,7 +1215,7 @@ export default function MartingaleStrategyPage() {
                         </span>
                         <span
                           title="ADX Momentum"
-                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border ${
+                          className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border ${
                             pair.confirmations?.adx ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-zinc-900 text-zinc-600 border-zinc-800'
                           }`}
                         >
@@ -1205,7 +1223,7 @@ export default function MartingaleStrategyPage() {
                         </span>
                         <span
                           title="Stochastic Zone"
-                          className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black border ${
+                          className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border ${
                             pair.confirmations?.stochZone ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-zinc-900 text-zinc-600 border-zinc-800'
                           }`}
                         >
@@ -1213,20 +1231,20 @@ export default function MartingaleStrategyPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-right font-mono font-bold text-zinc-200">
+                    <td className="py-2.5 px-2 text-right font-mono font-bold text-zinc-200">
                       {parseFloat(pair.adx || 0).toFixed(1)}
                     </td>
-                    <td className="py-3 px-4 text-right font-mono font-bold text-zinc-400">
+                    <td className="py-2.5 px-3 text-right font-mono font-bold text-zinc-400">
                       {parseFloat(pair.stochK || 50).toFixed(0)} / {parseFloat(pair.stochD || 50).toFixed(0)}
                     </td>
-                    <td className="py-3 px-4 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       <a
                         href={`https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair.symbol}&trade_type=rise_fall`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-block px-3 py-1 text-[10px] font-black text-amber-400 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/30 rounded-lg transition-all uppercase tracking-wider font-mono"
+                        className="inline-block px-2.5 py-0.5 text-[9px] font-bold text-amber-400 bg-amber-950/30 hover:bg-amber-900/50 border border-amber-500/30 rounded-lg transition-all uppercase tracking-wider font-mono"
                       >
-                        Go Live Chart
+                        Chart ↗
                       </a>
                     </td>
                   </tr>
@@ -1236,33 +1254,32 @@ export default function MartingaleStrategyPage() {
           </table>
         </div>
       </div>
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-3 gap-3">
-          <div>
-            <h3 className="text-md font-bold text-zinc-200 flex items-center gap-2">
-              <Terminal className="w-5 h-5 text-emerald-400" />
-              <span>Live Martingale Analysis &amp; Scanner Feed</span>
+
+      {/* Live Scanner Feed Terminal */}
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-3 shadow-sm">
+        <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+          <div className="flex items-center gap-2">
+            <Terminal className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+              Live Scanner &amp; Signal Feed
             </h3>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Real-time console monitoring all active pair scans, signal evaluations, filter rejections, and One-By-One trade locks.
-            </p>
           </div>
 
           <button
             type="button"
             onClick={handleRunInstantScan}
             disabled={isScanning}
-            className="flex items-center gap-2 bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 text-xs font-bold py-2 px-4 rounded-xl transition-all cursor-pointer disabled:opacity-50 shrink-0"
+            className="flex items-center gap-1.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 text-[11px] font-bold py-1 px-3 rounded-lg transition-all cursor-pointer disabled:opacity-50 shrink-0"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isScanning ? 'animate-spin' : ''}`} />
-            <span>{isScanning ? 'Scanning Pairs...' : 'Run Scan & Analysis Now'}</span>
+            <RefreshCw className={`w-3 h-3 ${isScanning ? 'animate-spin' : ''}`} />
+            <span>{isScanning ? 'Scanning...' : 'Run Scan Now'}</span>
           </button>
         </div>
 
-        <div className="bg-[#08080a] border border-zinc-900 rounded-2xl p-4 font-mono text-xs max-h-60 overflow-y-auto space-y-1.5 leading-relaxed text-zinc-300">
+        <div className="bg-[#070709] border border-zinc-900 rounded-xl p-3 font-mono text-[11px] max-h-48 overflow-y-auto space-y-1 leading-relaxed text-zinc-300">
           {scanLogs.length === 0 ? (
-            <div className="text-zinc-600 text-center py-6">
-              No recent scan logs. Click "Run Scan &amp; Analysis Now" or wait for automated background scanner execution.
+            <div className="text-zinc-600 text-center py-4">
+              No recent scan logs. Click "Run Scan Now" or wait for automated scan cycle.
             </div>
           ) : (
             scanLogs.map((logLine, idx) => {
@@ -1273,7 +1290,7 @@ export default function MartingaleStrategyPage() {
               return (
                 <div
                   key={idx}
-                  className={`flex items-start gap-2 ${
+                  className={`flex items-start gap-1.5 ${
                     isTrade ? 'text-emerald-400 font-bold' :
                     isReject ? 'text-amber-400/90' :
                     isInfo ? 'text-cyan-400/90' : 'text-zinc-400'
@@ -1289,29 +1306,31 @@ export default function MartingaleStrategyPage() {
       </div>
 
       {/* Control 1: Allocated Capital Pool & Execution Mode */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-3 gap-3">
-          <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-            <Sliders className="w-5 h-5 text-emerald-400" />
-            <span>Capital Allocation &amp; Execution Mode Controls</span>
-          </h3>
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+        <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+          <div className="flex items-center gap-2">
+            <Sliders className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+              Capital Pool &amp; Execution Controls
+            </h3>
+          </div>
 
           <button
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold py-2 px-4 rounded-2xl shadow-lg shadow-emerald-950/40 transition-all shrink-0 active:scale-95 disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-1.5 px-3.5 rounded-xl shadow-md transition-all shrink-0 active:scale-95 disabled:opacity-50 cursor-pointer"
           >
-            <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Saving...' : 'Save Capital & Controls'}</span>
+            <Save className="w-3.5 h-3.5" />
+            <span>{isSaving ? 'Saving...' : 'Save Settings'}</span>
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Allocated Capital Input */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-              <span>Allocated Martingale Capital Pool</span>
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+              <span>Martingale Capital Allocation Pool</span>
               <span title="Amount in USD dedicated solely for Martingale execution"><HelpCircle className="w-3.5 h-3.5 text-zinc-600" /></span>
             </label>
             <div className="relative">
@@ -1321,62 +1340,62 @@ export default function MartingaleStrategyPage() {
                 min="5.00"
                 value={allocatedCapital}
                 onChange={(e) => setAllocatedCapital(e.target.value)}
-                className="w-full bg-[#09090b]/80 border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-3 px-4 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none text-sm"
+                className="w-full bg-[#070709] border border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 rounded-xl py-2 px-3 font-mono text-zinc-100 placeholder-zinc-600 focus:outline-none text-xs"
               />
-              <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-xs font-bold text-zinc-500">
+              <span className="absolute inset-y-0 right-0 pr-3 flex items-center text-[11px] font-bold text-zinc-500">
                 USD
               </span>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[10px] text-zinc-500 gap-1 pt-1">
-              <span>Only this pool will be tracked. Main strategy testing funds remain completely untouched.</span>
-              <span className="font-mono font-bold text-zinc-300 shrink-0">
-                Deriv Wallet ({tradingMode}): ${(tradingMode === 'REAL' ? (stats.realBalance || 0) : (stats.demoBalance || 0)).toFixed(2)}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between text-[10px] text-zinc-500 gap-1 pt-0.5">
+              <span>Dedicated pool. Main strategy testing funds remain untouched.</span>
+              <span className="font-mono font-bold text-zinc-400 shrink-0">
+                Wallet ({tradingMode}): ${(tradingMode === 'REAL' ? (stats.realBalance || 0) : (stats.demoBalance || 0)).toFixed(2)}
               </span>
             </div>
           </div>
 
           {/* Execution Mode Radio Cards */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
               <span>Trade Execution Mode</span>
               <span title="Controls single trade sequential locking vs multi-trade entries"><HelpCircle className="w-3.5 h-3.5 text-zinc-600" /></span>
             </label>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5">
               <div
                 onClick={() => handleExecutionModeChange('ONE_BY_ONE')}
-                className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
                   executionMode === 'ONE_BY_ONE'
                     ? 'bg-emerald-950/20 border-emerald-500/50 text-emerald-400'
-                    : 'bg-[#09090b]/60 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                    : 'bg-[#070709] border-zinc-800 text-zinc-400 hover:border-zinc-700'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-0.5">
                   <span className="text-xs font-bold flex items-center gap-1">
                     <Lock className="w-3.5 h-3.5" /> One-By-One
                   </span>
-                  <CheckSquare className={`w-4 h-4 ${executionMode === 'ONE_BY_ONE' ? 'text-emerald-400' : 'text-zinc-600'}`} />
+                  <CheckSquare className={`w-3.5 h-3.5 ${executionMode === 'ONE_BY_ONE' ? 'text-emerald-400' : 'text-zinc-600'}`} />
                 </div>
-                <p className="text-[10px] text-zinc-500 leading-tight">
-                  Single trade sequential lock. Waits for expiry before next entry.
+                <p className="text-[9px] text-zinc-500 leading-tight">
+                  Single sequential trade lock. Waits for expiry.
                 </p>
               </div>
 
               <div
                 onClick={() => handleExecutionModeChange('ALL_CONCURRENT')}
-                className={`p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
                   executionMode === 'ALL_CONCURRENT'
                     ? 'bg-emerald-950/20 border-emerald-500/50 text-emerald-400'
-                    : 'bg-[#09090b]/60 border-zinc-800 text-zinc-400 hover:border-zinc-700'
+                    : 'bg-[#070709] border-zinc-800 text-zinc-400 hover:border-zinc-700'
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-0.5">
                   <span className="text-xs font-bold flex items-center gap-1">
                     <Zap className="w-3.5 h-3.5" /> All Concurrent
                   </span>
-                  <CheckSquare className={`w-4 h-4 ${executionMode === 'ALL_CONCURRENT' ? 'text-emerald-400' : 'text-zinc-600'}`} />
+                  <CheckSquare className={`w-3.5 h-3.5 ${executionMode === 'ALL_CONCURRENT' ? 'text-emerald-400' : 'text-zinc-600'}`} />
                 </div>
-                <p className="text-[10px] text-zinc-500 leading-tight">
+                <p className="text-[9px] text-zinc-500 leading-tight">
                   Allows multiple concurrent trades across pairs.
                 </p>
               </div>
@@ -1386,33 +1405,35 @@ export default function MartingaleStrategyPage() {
       </div>
 
       {/* Control 2: Custom 10-Step Progression & Recovery Table */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-zinc-800/50 pb-4 gap-4">
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-zinc-800/60 pb-3 gap-3">
           <div>
-            <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-              <Layers className="w-5 h-5 text-emerald-400" />
-              <span>Custom 10-Step Progression &amp; Recovery Table</span>
-            </h3>
-            <p className="text-xs text-zinc-400 mt-1 max-w-3xl">
-              Tick the steps you want to activate. When a trade loses, the bot moves to the next <b>ticked step</b>. As soon as <b>ANY trade WINS</b>, the bot resets back to Step 1.
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs sm:text-sm font-bold text-zinc-200 uppercase tracking-wider">
+                10-Step Progression &amp; Recovery Table
+              </h3>
+            </div>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Loss moves to next active step. ANY winning trade resets back to Step 1.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             {/* Start Next Trade From Step Selector */}
-            <div className="flex items-center bg-zinc-950/80 border border-amber-500/50 rounded-2xl px-3 py-1.5 gap-2">
-              <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
-                <Zap className="w-3.5 h-3.5" />
-                Start Trade From:
+            <div className="flex items-center bg-zinc-950/80 border border-amber-500/40 rounded-xl px-2.5 py-1 gap-1.5">
+              <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                <Zap className="w-3 h-3" />
+                Start From:
               </span>
               <select
                 value={stats.currentStepIndex ?? 0}
                 onChange={(e) => handleResetStreakToStep(parseInt(e.target.value, 10))}
-                className="bg-[#09090b] border border-amber-500/40 text-amber-300 text-xs font-extrabold rounded-xl px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400 cursor-pointer"
+                className="bg-[#070709] border border-amber-500/40 text-amber-300 text-xs font-bold rounded-lg px-2 py-0.5 focus:outline-none cursor-pointer"
               >
                 {progressionSteps.map((_, i) => (
                   <option key={i} value={i} disabled={activeSteps[i] === false}>
-                    Step {i + 1} (${progressionSteps[i]} USD)
+                    Step {i + 1} (${progressionSteps[i]})
                   </option>
                 ))}
               </select>
@@ -1423,9 +1444,9 @@ export default function MartingaleStrategyPage() {
               type="button"
               onClick={() => handleResetStreakToStep(0)}
               disabled={isSaving}
-              className="flex items-center gap-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 text-xs font-extrabold py-2.5 px-3.5 rounded-2xl shadow-md transition-all shrink-0 active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold py-1.5 px-3 rounded-xl transition-all shrink-0 active:scale-95 disabled:opacity-50 cursor-pointer"
             >
-              <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+              <RefreshCw className="w-3 h-3 text-amber-400" />
               <span>Reset to Step 1</span>
             </button>
 
@@ -1433,29 +1454,29 @@ export default function MartingaleStrategyPage() {
               type="button"
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold py-2.5 px-5 rounded-2xl shadow-lg shadow-emerald-950/40 transition-all shrink-0 active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-1.5 px-3.5 rounded-xl shadow-md transition-all shrink-0 active:scale-95 disabled:opacity-50 cursor-pointer"
             >
-              <Save className="w-4 h-4" />
-              <span>{isSaving ? 'Saving Steps...' : 'Save Progression Steps'}</span>
+              <Save className="w-3.5 h-3.5" />
+              <span>{isSaving ? 'Saving...' : 'Save Steps'}</span>
             </button>
           </div>
         </div>
 
         {/* Mode Toggle Switch & Total Portfolio Input Bar */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-zinc-950/60 border border-zinc-800/80 rounded-2xl p-3.5 gap-4">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="text-xs font-bold text-zinc-300">Progression Mode:</span>
-            <div className="flex items-center bg-[#09090b] border border-zinc-800 rounded-xl p-1 gap-1">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-zinc-950/60 border border-zinc-800/80 rounded-xl p-2.5 gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] font-bold text-zinc-400">Mode:</span>
+            <div className="flex items-center bg-[#070709] border border-zinc-800 rounded-lg p-0.5 gap-1">
               <button
                 type="button"
                 onClick={() => setProgressionMode('USD')}
-                className={`text-xs font-extrabold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                   progressionMode === 'USD'
-                    ? 'bg-emerald-600 text-white shadow-md'
+                    ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <span>💵 USD Fixed Mode ($)</span>
+                USD Fixed ($)
               </button>
               <button
                 type="button"
@@ -1463,24 +1484,21 @@ export default function MartingaleStrategyPage() {
                   setProgressionMode('PERCENTAGE');
                   handleRecalculateUsdStakes(portfolioPrice, percentageSteps);
                 }}
-                className={`text-xs font-extrabold px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                   progressionMode === 'PERCENTAGE'
-                    ? 'bg-emerald-600 text-white shadow-md'
+                    ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
-                <span>📊 Percentage Mode (%)</span>
+                Percentage (%)
               </button>
             </div>
           </div>
 
           {progressionMode === 'PERCENTAGE' && (
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <label className="text-xs font-bold text-amber-400 shrink-0 flex items-center gap-1">
-                <DollarSign className="w-3.5 h-3.5" />
-                <span>Total Portfolio / Capital Price:</span>
-              </label>
-              <div className="relative flex-1 md:w-36">
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <label className="text-[11px] font-bold text-amber-400 shrink-0">Portfolio Capital:</label>
+              <div className="relative flex-1 sm:w-28">
                 <input
                   type="number"
                   step="1"
@@ -1491,10 +1509,10 @@ export default function MartingaleStrategyPage() {
                     setPortfolioPrice(newPrice);
                     handleRecalculateUsdStakes(newPrice, percentageSteps);
                   }}
-                  className="w-full bg-[#0c0c0f] border border-amber-500/60 rounded-xl py-1.5 pl-3 pr-10 font-mono text-xs font-bold text-amber-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                  className="w-full bg-[#070709] border border-amber-500/60 rounded-lg py-1 pl-2.5 pr-8 font-mono text-xs font-bold text-amber-300 focus:outline-none"
                   placeholder="20.00"
                 />
-                <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-extrabold text-amber-400">
+                <span className="absolute inset-y-0 right-0 pr-2 flex items-center text-[10px] font-bold text-amber-400">
                   USD
                 </span>
               </div>
@@ -1502,52 +1520,52 @@ export default function MartingaleStrategyPage() {
           )}
         </div>
 
-        {/* Auto-Compound Balance Distribution Toggle & Live Status Banner */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-4 gap-4">
+        {/* Auto-Compound Balance Distribution Toggle */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-3 gap-3">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={handleToggleAutoCompound}
-              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                 autoCompoundEnabled ? 'bg-emerald-500' : 'bg-zinc-700'
               }`}
             >
               <span
-                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
                   autoCompoundEnabled ? 'translate-x-5' : 'translate-x-0'
                 }`}
               />
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1">
-                  <RefreshCw className={`w-3.5 h-3.5 ${autoCompoundEnabled ? 'animate-spin' : ''}`} />
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
+                  <RefreshCw className={`w-3 h-3 ${autoCompoundEnabled ? 'animate-spin' : ''}`} />
                   Auto-Compound &amp; Live Balance Distribution
                 </span>
-                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${
+                <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
                   autoCompoundEnabled ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-zinc-800 text-zinc-400'
                 }`}>
-                  {autoCompoundEnabled ? 'ON (ACTIVE)' : 'OFF (PAUSED)'}
+                  {autoCompoundEnabled ? 'ACTIVE' : 'OFF'}
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-400 mt-0.5 leading-tight">
-                Automatically circulates profits after every win: scales up stage stakes in real-time as your balance grows!
+              <p className="text-[10px] text-zinc-400 mt-0.5">
+                Automatically circulates profits after wins: scales up step stakes in real-time as pool grows.
               </p>
             </div>
           </div>
 
           {autoCompoundEnabled && (
-            <div className="flex items-center gap-2 bg-emerald-900/40 border border-emerald-500/40 px-3 py-1.5 rounded-xl text-xs font-mono shrink-0">
-              <span className="text-zinc-300">Live Active Pool:</span>
+            <div className="flex items-center gap-1.5 bg-emerald-900/40 border border-emerald-500/40 px-2.5 py-1 rounded-lg text-xs font-mono shrink-0">
+              <span className="text-zinc-300">Live Pool:</span>
               <b className="text-emerald-300 font-bold">
-                ${((parseFloat(String(progressionMode === 'PERCENTAGE' ? portfolioPrice : allocatedCapital)) || 20) + (parseFloat(String(stats?.totalPnL)) || 0)).toFixed(2)} USD
+                ${((parseFloat(String(progressionMode === 'PERCENTAGE' ? portfolioPrice : allocatedCapital)) || 20) + (parseFloat(String(stats?.totalPnL)) || 0)).toFixed(2)}
               </b>
             </div>
           )}
         </div>
 
-        {/* 10 Step Inputs Grid with Checkboxes & Live Auto-Compound Recalculation Badges */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {/* 10 Step Cards Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
           {(() => {
             const activeBaseSum = progressionSteps.reduce((acc, sVal, i) => {
               return activeSteps[i] !== false ? acc + (parseFloat(sVal) || 0.35) : acc;
@@ -1618,16 +1636,17 @@ export default function MartingaleStrategyPage() {
             return (
               <div
                 key={idx}
-                className={`border rounded-2xl p-3.5 space-y-2.5 transition-all relative ${
+                className={`fintech-card rounded-xl p-3 flex flex-col justify-between space-y-2 relative transition-all ${
                   isActiveStep
-                    ? 'bg-amber-950/30 border-amber-400/90 shadow-xl shadow-amber-500/20 ring-2 ring-amber-400/50 text-amber-100 animate-pulse'
+                    ? 'border-amber-400/90 ring-1 ring-amber-400/50 bg-amber-950/20 shadow-lg shadow-amber-950/40 text-amber-100'
                     : isInsufficient
-                    ? 'bg-rose-950/40 border-rose-500/80 shadow-xl shadow-rose-950/50 ring-2 ring-rose-500/50 text-rose-100 animate-pulse'
+                    ? 'border-rose-500/80 ring-1 ring-rose-500/40 bg-rose-950/20 text-rose-100'
                     : isChecked
-                    ? 'bg-[#09090b]/80 border-emerald-500/40 text-zinc-100'
-                    : 'bg-zinc-950/40 border-zinc-800/60 opacity-60 text-zinc-500'
+                    ? 'border-zinc-800 hover:border-zinc-700 text-zinc-100'
+                    : 'border-zinc-900 bg-zinc-950/40 opacity-50 text-zinc-500'
                 }`}
               >
+                {/* Step Header */}
                 <div className="flex items-center justify-between">
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input
@@ -1640,30 +1659,31 @@ export default function MartingaleStrategyPage() {
                       }}
                       className="rounded border-zinc-800 text-emerald-500 focus:ring-0 accent-emerald-500 w-3.5 h-3.5 cursor-pointer"
                     />
-                    <span className={`text-[11px] font-extrabold uppercase tracking-wide ${
-                      isActiveStep ? 'text-amber-300' : isInsufficient ? 'text-rose-400 font-black' : isChecked ? 'text-emerald-400' : 'text-zinc-500'
+                    <span className={`text-[11px] font-bold font-mono uppercase ${
+                      isActiveStep ? 'text-amber-300' : isInsufficient ? 'text-rose-400' : isChecked ? 'text-zinc-200' : 'text-zinc-500'
                     }`}>
                       Step {idx + 1}
                     </span>
                   </label>
 
                   {isActiveStep ? (
-                    <span className="text-[9px] font-black bg-amber-400 text-black px-1.5 py-0.5 rounded-md tracking-wider flex items-center gap-0.5 shadow-sm">
-                      ⚡ NEXT TRADE
+                    <span className="text-[8px] font-black bg-amber-400 text-zinc-950 px-1.5 py-0.5 rounded tracking-wider shadow-sm">
+                      ⚡ NEXT
                     </span>
                   ) : isInsufficient ? (
-                    <span className="text-[9px] font-black bg-rose-600 text-white px-1.5 py-0.5 rounded-md tracking-wider flex items-center gap-0.5 shadow-sm animate-bounce">
-                      ⚠️ SHORT POOL
+                    <span className="text-[8px] font-black bg-rose-500 text-white px-1.5 py-0.5 rounded tracking-wider shadow-sm">
+                      ⚠️ SHORT
                     </span>
                   ) : idx === 0 ? (
-                    <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-md">
+                    <span className="text-[8px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded">
                       RESET
                     </span>
                   ) : null}
                 </div>
 
+                {/* Input Field */}
                 {progressionMode === 'PERCENTAGE' ? (
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <div className="relative">
                       <input
                         type="number"
@@ -1677,27 +1697,23 @@ export default function MartingaleStrategyPage() {
                           setPercentageSteps(newPcts);
                           handleRecalculateUsdStakes(portfolioPrice, newPcts);
                         }}
-                        className={`w-full border rounded-xl py-1.5 px-3 font-mono text-xs focus:outline-none transition-all ${
+                        className={`w-full bg-[#070709] border rounded-lg py-1.5 px-2.5 font-mono text-xs focus:outline-none transition-all ${
                           isActiveStep
-                            ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
+                            ? 'border-amber-500/80 text-amber-200 font-bold'
                             : isInsufficient
-                            ? 'bg-[#0c0c0f] border-rose-500/80 text-rose-200 font-black ring-1 ring-rose-400/40'
+                            ? 'border-rose-500/80 text-rose-200 font-bold'
                             : isChecked
-                            ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 text-zinc-100'
-                            : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
+                            ? 'border-zinc-800 text-zinc-100'
+                            : 'border-zinc-900 text-zinc-600 cursor-not-allowed'
                         }`}
                       />
-                      <span className="absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold text-emerald-400">
+                      <span className="absolute inset-y-0 right-0 pr-2 flex items-center text-[10px] font-bold text-emerald-400">
                         %
                       </span>
                     </div>
-                    <div className="text-[10px] font-mono flex items-center justify-between px-1">
-                      <span className="text-zinc-400">{autoCompoundEnabled ? 'Live Pool:' : 'Base USD:'}</span>
-                      <b className="text-emerald-400 font-extrabold">${liveScaledStake} USD</b>
-                    </div>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <div className="relative">
                       <input
                         type="number"
@@ -1710,51 +1726,34 @@ export default function MartingaleStrategyPage() {
                           newSteps[idx] = e.target.value;
                           setProgressionSteps(newSteps);
                         }}
-                        className={`w-full border rounded-xl py-2 px-3 font-mono text-xs focus:outline-none transition-all ${
+                        className={`w-full bg-[#070709] border rounded-lg py-1.5 px-2.5 font-mono text-xs focus:outline-none transition-all ${
                           isActiveStep
-                            ? 'bg-[#0c0c0f] border-amber-500/80 text-amber-200 font-black ring-1 ring-amber-400/40'
+                            ? 'border-amber-500/80 text-amber-200 font-bold'
                             : isInsufficient
-                            ? 'bg-[#0c0c0f] border-rose-500/80 text-rose-200 font-black ring-1 ring-rose-400/40'
+                            ? 'border-rose-500/80 text-rose-200 font-bold'
                             : isChecked
-                            ? 'bg-[#0c0c0f] border-zinc-800 focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/20 text-zinc-100 font-bold'
-                            : 'bg-zinc-900/50 border-zinc-800/50 text-zinc-600 cursor-not-allowed'
+                            ? 'border-zinc-800 text-zinc-100 font-bold'
+                            : 'border-zinc-900 text-zinc-600 cursor-not-allowed'
                         }`}
                       />
-                      <span className={`absolute inset-y-0 right-0 pr-2.5 flex items-center text-[10px] font-bold ${
+                      <span className={`absolute inset-y-0 right-0 pr-2 flex items-center text-[10px] font-bold ${
                         isActiveStep ? 'text-amber-400' : isInsufficient ? 'text-rose-400' : 'text-emerald-400'
                       }`}>
-                        USD
+                        $
                       </span>
                     </div>
-                    {autoCompoundEnabled && (
-                      <div className="text-[9px] font-mono text-zinc-500 flex items-center justify-between px-1">
-                        <span>Base: ${stepBaseUsd.toFixed(2)}</span>
-                        <span className="text-emerald-400 font-bold">Scaled ✨</span>
-                      </div>
-                    )}
                   </div>
                 )}
 
-                {/* Live Capital Pool Remaining Cushion Badge */}
+                {/* Single-line Micro Status Pill */}
                 {autoCompoundEnabled && isChecked && (
-                  <div className={`mt-1.5 pt-1.5 border-t text-[10px] font-mono flex items-center justify-between px-2 py-1 rounded-lg ${
-                    isInsufficient ? 'border-rose-500/30 bg-rose-950/60 text-rose-300' : 'border-emerald-500/20 bg-emerald-950/40 text-emerald-300'
+                  <div className={`text-[9px] font-mono flex items-center justify-between px-2 py-1 rounded-md border ${
+                    isInsufficient ? 'bg-rose-950/40 border-rose-500/40 text-rose-300' : 'bg-zinc-950/60 border-zinc-800/80 text-zinc-400'
                   }`}>
-                    <span className="flex items-center gap-1 font-bold text-zinc-300">
-                      <Shield className="w-2.5 h-2.5 text-emerald-400 shrink-0" /> Pool Remaining:
+                    <span>Base: ${stepBaseUsd.toFixed(2)}</span>
+                    <span className={isInsufficient ? "text-rose-400 font-bold" : "text-emerald-400 font-bold"}>
+                      Left: ${Math.max(0, livePool - cumulativeNeeded).toFixed(2)}
                     </span>
-                    <b className="font-extrabold text-[11px] text-emerald-300">
-                      ${Math.max(0, livePool - cumulativeNeeded).toFixed(2)} USD
-                    </b>
-                  </div>
-                )}
-
-                {isInsufficient && (
-                  <div className="mt-1 text-[9px] font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/50 px-1.5 py-1 rounded-lg flex items-center justify-between shadow-sm">
-                    <span className="flex items-center gap-1 font-bold text-rose-300">
-                      <XCircle className="w-3 h-3 text-rose-400 shrink-0" /> Pool Required:
-                    </span>
-                    <b className="text-rose-200 font-extrabold font-mono">${cumulativeNeeded.toFixed(2)} USD</b>
                   </div>
                 )}
               </div>
@@ -1764,12 +1763,12 @@ export default function MartingaleStrategyPage() {
         </div>
 
         {/* Progression Table Active Steps Summary Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-t border-zinc-800/50 pt-4 gap-2">
-          <span className="text-xs text-zinc-400">
-            Active Steps Enabled: <b className="text-emerald-400">{activeSteps.filter(Boolean).length} / 10</b>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-t border-zinc-800/60 pt-3 gap-2">
+          <span className="text-[11px] text-zinc-400 font-mono">
+            Active Steps: <b className="text-emerald-400">{activeSteps.filter(Boolean).length} / 10</b>
           </span>
-          <span className="text-xs font-mono font-bold text-amber-400 flex items-center gap-1.5 bg-amber-950/40 border border-amber-500/30 px-3 py-1.5 rounded-xl animate-pulse">
-            <span>⚡ Next Trade Execution Stake:</span>
+          <span className="text-xs font-mono font-bold text-amber-400 flex items-center gap-1.5 bg-amber-950/30 border border-amber-500/30 px-3 py-1 rounded-xl">
+            <span>⚡ Next Execution Stake:</span>
             {(() => {
               const currentIdx = stats.currentStepIndex ?? 0;
               const baseCap = parseFloat(String(progressionMode === 'PERCENTAGE' ? portfolioPrice : allocatedCapital)) || 20.00;
@@ -1792,7 +1791,7 @@ export default function MartingaleStrategyPage() {
               }
 
               return (
-                <b className="text-amber-300 underline font-black">
+                <b className="text-amber-300 font-bold">
                   Step {currentIdx + 1} (${nextExecStake.toFixed(2)} USD)
                 </b>
               );
@@ -1802,15 +1801,15 @@ export default function MartingaleStrategyPage() {
       </div>
 
       {/* Control 3: Dedicated Martingale Active Strategy Engines */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 select-none">
           <div
             onClick={() => setIsStrategiesExpanded(!isStrategiesExpanded)}
-            className="flex-1 flex flex-wrap items-center gap-2.5 cursor-pointer"
+            className="flex-1 flex flex-wrap items-center gap-2 cursor-pointer"
           >
-            <Sliders className="w-5 h-5 text-emerald-400 shrink-0" />
-            <h3 className="text-md sm:text-lg font-bold text-zinc-200 hover:text-emerald-400 transition-colors">
-              Dedicated Martingale Active Strategy Engines ({selectedStrategies.length} / 4 Active)
+            <Sliders className="w-4 h-4 text-emerald-400 shrink-0" />
+            <h3 className="text-xs sm:text-sm font-bold text-zinc-200 uppercase tracking-wider hover:text-emerald-400 transition-colors">
+              Dedicated Strategy Engines ({selectedStrategies.length} / 4 Active)
             </h3>
           </div>
 
@@ -1908,15 +1907,17 @@ export default function MartingaleStrategyPage() {
       </div>
 
       {/* Control 4: Dedicated Martingale Pair Selector (5 Market Categories) */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/60 pb-3 gap-3">
           <div>
-            <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-emerald-400" />
-              <span>Dedicated Martingale Scanned Pairs ({selectedPairs.length} Active Across 5 Categories)</span>
-            </h3>
-            <p className="text-xs text-zinc-400 mt-1">
-              Select pairs for Martingale execution organized across 5 separate market categories. Use quick category selectors or toggle individual asset pairs.
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs sm:text-sm font-bold text-zinc-200 uppercase tracking-wider">
+                Dedicated Scanned Pairs ({selectedPairs.length} Active Across 5 Categories)
+              </h3>
+            </div>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Select pairs for Martingale execution across 5 market categories.
             </p>
           </div>
 
@@ -2083,45 +2084,45 @@ export default function MartingaleStrategyPage() {
 
       {/* Martingale Active Positions Terminal (OPEN Trades) */}
       {openTrades.length > 0 && (
-        <div className="bg-emerald-950/20 backdrop-blur-xl border border-emerald-500/40 rounded-3xl p-6 space-y-4 shadow-xl shadow-emerald-950/20">
-          <div className="flex items-center justify-between border-b border-emerald-500/20 pb-3">
-            <h3 className="text-sm font-extrabold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-              <Zap className="w-4 h-4 animate-pulse text-emerald-400" />
-              <span>Active Running Martingale Position ({openTrades.length})</span>
+        <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-3.5 border-emerald-500/30 shadow-lg">
+          <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2.5">
+            <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+              <Zap className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
+              <span>Active Martingale Positions ({openTrades.length})</span>
             </h3>
-            <span className="text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-3 py-1 rounded-xl uppercase tracking-wider animate-pulse">
-              One-By-One Lock Active
+            <span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-lg uppercase tracking-wider animate-pulse">
+              1-By-1 Lock Active
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
             {openTrades.map((t) => (
-              <div key={t.id} className="bg-[#09090b]/90 border border-emerald-500/30 rounded-2xl p-4 space-y-2">
+              <div key={t.id} className="bg-[#070709] border border-emerald-500/30 rounded-xl p-3 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-zinc-100">{SYMBOL_DISPLAY_MAP[t.symbol] || t.symbol}</span>
-                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md ${t.contract_type === 'CALL' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-rose-950 text-rose-400 border border-rose-500/30'}`}>
-                    {t.contract_type === 'CALL' ? '↗️ RISE (CALL)' : '↘️ FALL (PUT)'}
+                  <span className="text-xs font-bold text-zinc-100">{SYMBOL_DISPLAY_MAP[t.symbol] || t.symbol}</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${t.contract_type === 'CALL' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-rose-950 text-rose-400 border border-rose-500/30'}`}>
+                    {t.contract_type === 'CALL' ? '↗ RISE' : '↘ FALL'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between text-xs font-mono pt-1">
+                <div className="flex items-center justify-between text-xs font-mono pt-0.5">
                   <span className="text-zinc-400">Stake:</span>
-                  <span className="font-extrabold text-emerald-400">${(parseFloat(t.stake) || 0).toFixed(2)}</span>
+                  <span className="font-bold text-emerald-400">${(parseFloat(t.stake) || 0).toFixed(2)}</span>
                 </div>
                 <div className="flex items-center justify-between text-xs font-mono">
                   <span className="text-zinc-400">Entry Spot:</span>
-                  <span className="font-bold text-zinc-200">{t.entry_price ? parseFloat(t.entry_price).toFixed(4) : 'N/A'}</span>
+                  <span className="font-mono text-zinc-300">{t.entry_price ? parseFloat(t.entry_price).toFixed(4) : 'N/A'}</span>
                 </div>
-                <div className="text-[10px] text-zinc-500 font-mono text-right pt-1">
-                  Open Time: {new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                <div className="text-[9px] text-zinc-500 font-mono text-right pt-0.5">
+                  Opened: {new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true })}
                 </div>
                 <a
                   href={`https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${t.symbol}&trade_type=rise_fall`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 flex items-center justify-center gap-1.5 w-full py-1.5 px-3 text-[11px] font-extrabold text-amber-400 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/40 rounded-xl transition-all uppercase tracking-wider font-mono shadow-sm active:scale-95 cursor-pointer"
+                  className="mt-1 flex items-center justify-center gap-1.5 w-full py-1 px-2.5 text-[10px] font-bold text-amber-400 bg-amber-950/30 hover:bg-amber-900/50 border border-amber-500/30 rounded-lg transition-all uppercase tracking-wider font-mono shadow-sm cursor-pointer"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                  <span>View Live Trade Chart ↗</span>
+                  <ExternalLink className="w-3 h-3 text-amber-400" />
+                  <span>View Live Chart ↗</span>
                 </a>
               </div>
             ))}
@@ -2130,38 +2131,40 @@ export default function MartingaleStrategyPage() {
       )}
 
       {/* Dedicated Martingale Trades History Table */}
-      <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/50 pb-4 gap-3">
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-zinc-800/60 pb-3 gap-3">
           <div>
-            <h3 className="text-lg font-bold text-zinc-200 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-emerald-400" />
-              <span>Dedicated Martingale Trades History Ledger</span>
-            </h3>
-            <p className="text-xs text-zinc-400 mt-1">
-              Complete history of trades executed exclusively by the Martingale Progression Engine.
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs sm:text-sm font-bold text-zinc-200 uppercase tracking-wider">
+                Dedicated Martingale Trades History
+              </h3>
+            </div>
+            <p className="text-[11px] text-zinc-400 mt-0.5">
+              Closed trades executed exclusively by the Martingale progression engine.
             </p>
           </div>
 
           {/* Filter Tabs */}
-          <div className="flex items-center gap-1.5 bg-zinc-950/80 border border-zinc-800 p-1 rounded-2xl shrink-0">
+          <div className="flex items-center gap-1 bg-zinc-950/80 border border-zinc-800/80 p-0.5 rounded-xl shrink-0">
             <button
               type="button"
               onClick={() => setTradeFilter('all')}
-              className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${tradeFilter === 'all' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${tradeFilter === 'all' ? 'bg-zinc-800 text-white' : 'text-zinc-400 hover:text-zinc-200'}`}
             >
               All ({recentTrades.length})
             </button>
             <button
               type="button"
               onClick={() => setTradeFilter('won')}
-              className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${tradeFilter === 'won' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'text-zinc-400 hover:text-zinc-200'}`}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${tradeFilter === 'won' ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'text-zinc-400 hover:text-zinc-200'}`}
             >
               Won ({recentTrades.filter(t => t.status === 'WON').length})
             </button>
             <button
               type="button"
               onClick={() => setTradeFilter('lost')}
-              className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all cursor-pointer ${tradeFilter === 'lost' ? 'bg-rose-950 text-rose-400 border border-rose-500/30' : 'text-zinc-400 hover:text-zinc-200'}`}
+              className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${tradeFilter === 'lost' ? 'bg-rose-950 text-rose-400 border border-rose-500/30' : 'text-zinc-400 hover:text-zinc-200'}`}
             >
               Lost ({recentTrades.filter(t => t.status === 'LOST').length})
             </button>
@@ -2177,48 +2180,48 @@ export default function MartingaleStrategyPage() {
 
           if (filtered.length === 0) {
             return (
-              <div className="text-center py-12 text-zinc-500 text-xs">
-                No Martingale trades found for the selected filter. Enable Martingale Strategy Engine to start!
+              <div className="text-center py-8 text-zinc-500 text-xs">
+                No Martingale trades found for the selected filter.
               </div>
             );
           }
 
           return (
-            <div className="overflow-x-auto max-h-[380px] overflow-y-auto rounded-2xl border border-zinc-900 bg-[#050507]/60 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
+            <div className="overflow-x-auto max-h-[360px] overflow-y-auto rounded-xl border border-zinc-800/80 bg-[#070709] scrollbar-thin">
               <table className="w-full text-left text-xs font-mono border-collapse">
-                <thead className="sticky top-0 z-10 bg-zinc-950 shadow-sm">
-                  <tr className="border-b border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[10px]">
-                    <th className="py-3 px-4">Symbol / Asset</th>
-                    <th className="py-3 px-3">Direction</th>
-                    <th className="py-3 px-3">Entry Spot</th>
-                    <th className="py-3 px-3">Exit Spot</th>
-                    <th className="py-3 px-3">Stake</th>
-                    <th className="py-3 px-3">Net Return</th>
-                    <th className="py-3 px-3">Status</th>
-                    <th className="py-3 px-4 text-right">Close Time (Jeddah)</th>
+                <thead className="sticky top-0 z-10 bg-[#09090c] shadow-sm">
+                  <tr className="border-b border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[9px]">
+                    <th className="py-2.5 px-3">Asset</th>
+                    <th className="py-2.5 px-2">Direction</th>
+                    <th className="py-2.5 px-2">Entry Spot</th>
+                    <th className="py-2.5 px-2">Exit Spot</th>
+                    <th className="py-2.5 px-2">Stake</th>
+                    <th className="py-2.5 px-2">Net Return</th>
+                    <th className="py-2.5 px-2">Status</th>
+                    <th className="py-2.5 px-3 text-right">Close Time (Jeddah)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800/50 text-zinc-300">
+                <tbody className="divide-y divide-zinc-900 text-zinc-300 font-medium text-[11px]">
                   {filtered.map((t) => {
                     const pnlVal = parseFloat(t.pnl) || 0;
                     const isWon = t.status === 'WON' || pnlVal > 0;
                     const isLost = t.status === 'LOST' || pnlVal < 0;
                     return (
                       <tr key={t.id} className="hover:bg-zinc-800/20 transition-colors">
-                        <td className="py-3 px-4 font-extrabold text-zinc-100">{SYMBOL_DISPLAY_MAP[t.symbol] || t.symbol}</td>
-                        <td className="py-3 px-3 font-extrabold">
+                        <td className="py-2.5 px-3 font-bold text-zinc-100">{SYMBOL_DISPLAY_MAP[t.symbol] || t.symbol}</td>
+                        <td className="py-2.5 px-2 font-bold">
                           <span className={t.contract_type === 'CALL' ? 'text-emerald-400' : 'text-rose-400'}>
                             {t.contract_type === 'CALL' ? 'RISE' : 'FALL'}
                           </span>
                         </td>
-                        <td className="py-3 px-3 text-zinc-400">{t.entry_price ? parseFloat(t.entry_price).toFixed(4) : 'N/A'}</td>
-                        <td className="py-3 px-3 text-zinc-400">{t.exit_price ? parseFloat(t.exit_price).toFixed(4) : 'N/A'}</td>
-                        <td className="py-3 px-3 font-bold text-zinc-200">${(parseFloat(t.stake) || 0).toFixed(2)}</td>
-                        <td className={`py-3 px-3 font-extrabold ${pnlVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        <td className="py-2.5 px-2 text-zinc-400">{t.entry_price ? parseFloat(t.entry_price).toFixed(4) : 'N/A'}</td>
+                        <td className="py-2.5 px-2 text-zinc-400">{t.exit_price ? parseFloat(t.exit_price).toFixed(4) : 'N/A'}</td>
+                        <td className="py-2.5 px-2 font-bold text-zinc-200">${(parseFloat(t.stake) || 0).toFixed(2)}</td>
+                        <td className={`py-2.5 px-2 font-bold ${pnlVal >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                           {pnlVal >= 0 ? '+' : ''}${pnlVal.toFixed(2)}
                         </td>
-                        <td className="py-3 px-3">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+                        <td className="py-2.5 px-2">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
                             isWon ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30' :
                             isLost ? 'bg-rose-950/60 text-rose-400 border border-rose-500/30' :
                             'bg-amber-950/60 text-amber-400 border border-amber-500/30'
@@ -2226,7 +2229,7 @@ export default function MartingaleStrategyPage() {
                             {t.status}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-zinc-500 text-[11px] text-right font-mono">
+                        <td className="py-2.5 px-3 text-zinc-400 text-[10px] text-right font-mono">
                           {t.closed_at ? new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true }) : new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true })}
                         </td>
                       </tr>

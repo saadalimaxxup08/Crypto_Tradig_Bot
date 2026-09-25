@@ -19,7 +19,8 @@ import {
   EyeOff,
   FlaskConical,
   ShieldAlert,
-  Square
+  Square,
+  Terminal
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -771,22 +772,50 @@ export default function DerivDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between border-b border-zinc-800/80 pb-5 gap-6">
-        <div>
-          <h2 className="text-2xl font-extrabold text-zinc-100 flex items-center gap-2.5">
-            <LineChart className="w-7 h-7 text-emerald-400" />
-            <span>Deriv Options Dashboard</span>
-          </h2>
-          <p className="text-xs text-zinc-400 mt-1">
-            Real-time Deriv {tradingMode === 'REAL' ? 'Live Production' : 'Demo Sandbox'} options engine tracker.
-          </p>
-        </div>
+      {/* Unified Command Center Ribbon */}
+      <div className="fintech-card rounded-2xl p-4 sm:p-5 relative overflow-hidden shadow-2xl">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 relative z-10">
+          {/* Left: Branding & Status */}
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner">
+              <LineChart className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-bold text-zinc-100 tracking-tight">
+                  Deriv Options Dashboard
+                </h1>
+                
+                {/* Bot Running Status Pill */}
+                <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border flex items-center gap-1.5 ${
+                  derivBotEnabled
+                    ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/40 shadow-sm shadow-emerald-500/10'
+                    : 'bg-zinc-900/80 text-zinc-500 border-zinc-800'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${derivBotEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+                  {derivBotEnabled ? 'BOT ACTIVE' : 'BOT STOPPED'}
+                </span>
 
-        {/* Bot Controls Row */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Select Symbol to View Chart */}
-          <div className="relative">
+                {/* Account Mode Pill */}
+                <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border ${
+                  tradingMode === 'REAL'
+                    ? 'bg-rose-950/60 text-rose-300 border-rose-500/40'
+                    : 'bg-amber-950/60 text-amber-300 border-amber-500/40'
+                }`}>
+                  {tradingMode === 'REAL' ? 'REAL LIVE' : 'DEMO SANDBOX'}
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-0.5">
+                Real-time algorithmic binary execution engine · Live pulse 30s
+              </p>
+            </div>
+          </div>
+
+          {/* Right: High-Precision Controls Ribbon */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Chart Quick View */}
             <select
               onChange={(e) => {
                 if (e.target.value) {
@@ -796,113 +825,121 @@ export default function DerivDashboard() {
                 }
               }}
               defaultValue=""
-              className="px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer outline-none max-w-[150px]"
+              className="px-2.5 py-1.5 bg-[#070709] hover:bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 cursor-pointer outline-none max-w-[130px]"
             >
-              <option value="" disabled>View Charts</option>
+              <option value="" disabled>View Chart ↗</option>
               <option value="frxEURUSD">EUR/USD</option>
               <option value="frxGBPUSD">GBP/USD</option>
               <option value="frxUSDJPY">USD/JPY</option>
             </select>
-          </div>
 
-          <button
-            onClick={runDiagnostics}
-            disabled={isTestingProject}
-            className="flex items-center gap-2 px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-800 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
-          >
-            <Activity className={`w-4 h-4 text-emerald-400 ${isTestingProject ? 'animate-pulse' : ''}`} />
-            <span>{isTestingProject ? 'Testing...' : 'Test Project'}</span>
-          </button>
-
-          <button
-            onClick={runTestTrade}
-            disabled={isTestingTrade}
-            className="flex items-center gap-2 px-4 py-3 bg-zinc-900/50 hover:bg-zinc-800 border border-zinc-850 rounded-2xl text-xs font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
-          >
-            <FlaskConical className={`w-4 h-4 text-purple-400 ${isTestingTrade ? 'animate-spin' : ''}`} />
-            <span>Test Trade</span>
-          </button>
-
-          {/* Max Open Trades Inline Controller */}
-          <div className="flex items-center gap-2 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 px-4 py-2.5 rounded-2xl shadow-md transition-all duration-300">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block whitespace-nowrap">Max Trades:</span>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={dashboardMaxTrades}
-              onChange={(e) => setDashboardMaxTrades(e.target.value)}
-              className="w-12 bg-zinc-950 border border-zinc-800 rounded-xl py-1 px-1.5 font-mono text-center font-bold text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/85 focus:ring-1 focus:ring-emerald-500/20"
-            />
+            {/* Test Project */}
             <button
-              onClick={handleSaveMaxTrades}
-              disabled={isSavingMaxTrades}
-              className="px-2.5 py-1 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-900/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer disabled:opacity-50"
+              onClick={runDiagnostics}
+              disabled={isTestingProject}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#070709] hover:bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer disabled:opacity-50"
             >
-              {isSavingMaxTrades ? 'Saving...' : 'Set'}
+              <Activity className={`w-3.5 h-3.5 text-emerald-400 ${isTestingProject ? 'animate-pulse' : ''}`} />
+              <span>{isTestingProject ? 'Testing...' : 'Test Project'}</span>
+            </button>
+
+            {/* Test Trade */}
+            <button
+              onClick={runTestTrade}
+              disabled={isTestingTrade}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#070709] hover:bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 hover:text-white transition-all cursor-pointer disabled:opacity-50"
+            >
+              <FlaskConical className={`w-3.5 h-3.5 text-purple-400 ${isTestingTrade ? 'animate-spin' : ''}`} />
+              <span>Test Trade</span>
+            </button>
+
+            {/* Max Trades & Stake Controller Pill */}
+            <div className="flex items-center bg-zinc-950/90 border border-zinc-800 rounded-xl p-1 gap-2">
+              <div className="flex items-center gap-1 pl-1">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase font-mono">Max:</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={dashboardMaxTrades}
+                  onChange={(e) => setDashboardMaxTrades(e.target.value)}
+                  className="w-10 bg-[#070709] border border-zinc-800 rounded-lg py-0.5 text-center font-mono font-bold text-zinc-200 text-xs focus:outline-none"
+                />
+                <button
+                  onClick={handleSaveMaxTrades}
+                  disabled={isSavingMaxTrades}
+                  className="px-1.5 py-0.5 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-900/60 rounded text-[9px] font-bold uppercase text-emerald-400 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingMaxTrades ? '...' : 'Set'}
+                </button>
+              </div>
+
+              <div className="w-[1px] h-4 bg-zinc-800" />
+
+              <div className="flex items-center gap-1 pr-1">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase font-mono">Stake:</span>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.35"
+                  value={dashboardStakeAmount}
+                  onChange={(e) => setDashboardStakeAmount(e.target.value)}
+                  className="w-12 bg-[#070709] border border-zinc-800 rounded-lg py-0.5 text-center font-mono font-bold text-zinc-200 text-xs focus:outline-none"
+                />
+                <button
+                  onClick={handleSaveStakeAmount}
+                  disabled={isSavingStake}
+                  className="px-1.5 py-0.5 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-900/60 rounded text-[9px] font-bold uppercase text-emerald-400 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingStake ? '...' : 'Set'}
+                </button>
+              </div>
+            </div>
+
+            {/* Master Bot Run Toggle */}
+            <button
+              onClick={toggleBot}
+              disabled={isTogglingBot}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer ${
+                derivBotEnabled
+                  ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20'
+                  : 'bg-zinc-850 hover:bg-zinc-750 text-zinc-400'
+              }`}
+            >
+              {derivBotEnabled ? (
+                <>
+                  <Play className="w-3.5 h-3.5 fill-white" />
+                  <span>BOT RUNNING</span>
+                </>
+              ) : (
+                <>
+                  <Square className="w-3.5 h-3.5 fill-zinc-500 text-zinc-500" />
+                  <span>BOT STOPPED</span>
+                </>
+              )}
+            </button>
+
+            {/* Emergency Close */}
+            <button
+              onClick={handleEmergencyClose}
+              disabled={isClosingAll}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-xl text-xs font-bold text-rose-300 transition-all shadow-sm cursor-pointer disabled:opacity-50"
+              title="Instantly close all open positions on Deriv and reset database trades"
+            >
+              <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+              <span>{isClosingAll ? 'Closing...' : 'Emergency Close'}</span>
+            </button>
+
+            {/* Refresh */}
+            <button
+              onClick={fetchTrades}
+              disabled={isLoadingTrades || isSyncing}
+              className="p-1.5 bg-[#070709] border border-zinc-800 rounded-xl hover:bg-zinc-800 hover:text-emerald-400 text-zinc-400 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
+              title="Refresh Dashboard Data"
+            >
+              <RefreshCw className={`w-4 h-4 ${isSyncing || isLoadingTrades ? 'animate-spin' : ''}`} />
             </button>
           </div>
-
-          {/* Stake / Trade Price Inline Controller */}
-          <div className="flex items-center gap-2 bg-zinc-900/40 hover:bg-zinc-900/60 border border-zinc-800/80 px-4 py-2.5 rounded-2xl shadow-md transition-all duration-300">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block whitespace-nowrap">Stake:</span>
-            <input
-              type="number"
-              step="0.1"
-              min="0.35"
-              value={dashboardStakeAmount}
-              onChange={(e) => setDashboardStakeAmount(e.target.value)}
-              className="w-16 bg-zinc-950 border border-zinc-800 rounded-xl py-1 px-1.5 font-mono text-center font-bold text-zinc-200 text-xs focus:outline-none focus:border-emerald-500/85 focus:ring-1 focus:ring-emerald-500/20"
-            />
-            <button
-              onClick={handleSaveStakeAmount}
-              disabled={isSavingStake}
-              className="px-2.5 py-1 bg-emerald-950/40 hover:bg-emerald-900/50 border border-emerald-900/60 rounded-xl text-[10px] font-extrabold uppercase tracking-wider text-emerald-400 hover:text-emerald-300 transition-all cursor-pointer disabled:opacity-50"
-            >
-              {isSavingStake ? 'Saving...' : 'Set'}
-            </button>
-          </div>
-
-          <button
-            onClick={toggleBot}
-            disabled={isTogglingBot}
-            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-300 shadow-md cursor-pointer ${
-              derivBotEnabled
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white shadow-emerald-500/20 shadow-md'
-                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-400'
-            }`}
-          >
-            {derivBotEnabled ? (
-              <>
-                <Play className="w-4 h-4 fill-white animate-pulse" />
-                <span>BOT RUNNING</span>
-              </>
-            ) : (
-              <>
-                <Square className="w-4 h-4 fill-zinc-450 text-zinc-450" />
-                <span>BOT STOPPED</span>
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={handleEmergencyClose}
-            disabled={isClosingAll}
-            className="flex items-center gap-2 px-5 py-3 bg-red-950/30 hover:bg-red-900/40 border border-red-900/50 rounded-2xl text-xs font-bold uppercase tracking-wider text-red-400 hover:text-red-300 transition-all duration-300 shadow-md cursor-pointer disabled:opacity-50"
-            title="Instantly close all open positions on Deriv and reset database trades"
-          >
-            <ShieldAlert className="w-4 h-4 text-red-400" />
-            <span>{isClosingAll ? 'Closing All...' : 'Emergency Close'}</span>
-          </button>
-
-          <button
-            onClick={fetchTrades}
-            disabled={isLoadingTrades || isSyncing}
-            className="p-2.5 bg-zinc-900 border border-zinc-800 rounded-xl hover:bg-zinc-850 hover:text-emerald-400 text-zinc-400 transition-all flex items-center justify-center cursor-pointer disabled:opacity-50"
-            title="Refresh Dashboard Data"
-          >
-            <RefreshCw className={`w-4 h-4 ${isSyncing || isLoadingTrades ? 'animate-spin' : ''}`} />
-          </button>
         </div>
       </div>
 
@@ -1529,34 +1566,36 @@ export default function DerivDashboard() {
         {/* Right Column Panel */}
         <div className="lg:col-span-4 space-y-8">
           
-          {/* Active Engine Toggle Banner (Matches Deriv Dashboard Header) */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-6 shadow-md">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-4">
+          {/* Active Engine Toggle Banner */}
+          <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
                 <div className="relative">
-                  <span className="flex h-4 w-4 relative">
+                  <span className="flex h-3.5 w-3.5 relative">
                     <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${derivBotEnabled ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
-                    <span className={`relative inline-flex rounded-full h-4 w-4 ${derivBotEnabled ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
+                    <span className={`relative inline-flex rounded-full h-3.5 w-3.5 ${derivBotEnabled ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
                   </span>
                 </div>
 
                 <div>
-                  <h3 className="text-md font-extrabold text-zinc-100 flex items-center gap-2">
-                    <span>Deriv Active Options Engine</span>
-                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-extrabold ${derivBotEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-red-950 text-red-400 border border-red-500/20'}`}>
-                      {derivBotEnabled ? 'ENGINE ACTIVE' : 'ENGINE PAUSED'}
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-bold text-zinc-100 uppercase tracking-wider">
+                      Deriv Active Options Engine
+                    </h3>
+                    <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold ${derivBotEnabled ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-500/30' : 'bg-red-950/80 text-red-400 border border-red-500/30'}`}>
+                      {derivBotEnabled ? 'ACTIVE' : 'PAUSED'}
                     </span>
-                  </h3>
-                  <p className="text-[10px] text-zinc-500 mt-1">
-                    Active Account Mode: <span className="font-extrabold text-zinc-300">{tradingMode} Sandbox</span> | Pulse interval: <span className="font-mono">30s</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 mt-0.5">
+                    Account: <span className="font-bold text-zinc-300">{tradingMode} Sandbox</span> · Pulse: <span className="font-mono">30s</span>
                   </p>
                 </div>
               </div>
 
-              {/* Switchers */}
-              <div className="flex flex-wrap gap-3 items-center">
+              {/* Switchers & Force Scan Action */}
+              <div className="flex flex-wrap gap-2 items-center">
                 {/* Bot Work Status */}
-                <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                <div className="flex bg-[#070709] border border-zinc-800 p-0.5 rounded-xl">
                   <button
                     type="button"
                     onClick={async () => {
@@ -1568,8 +1607,8 @@ export default function DerivDashboard() {
                       });
                       fetchSettings();
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      derivBotEnabled ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      derivBotEnabled ? 'bg-emerald-500 text-zinc-950 shadow-sm font-extrabold' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     WORK ON
@@ -1585,8 +1624,8 @@ export default function DerivDashboard() {
                       });
                       fetchSettings();
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      !derivBotEnabled ? 'bg-red-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      !derivBotEnabled ? 'bg-red-500 text-white shadow-sm font-extrabold' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
                     WORK OFF
@@ -1594,7 +1633,7 @@ export default function DerivDashboard() {
                 </div>
 
                 {/* Segmented Switcher */}
-                <div className="flex bg-[#09090b]/80 border border-zinc-800 p-1 rounded-xl">
+                <div className="flex bg-[#070709] border border-zinc-800 p-0.5 rounded-xl">
                   <button
                     type="button"
                     onClick={async () => {
@@ -1606,11 +1645,11 @@ export default function DerivDashboard() {
                       });
                       fetchSettings();
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      tradingMode === 'DEMO' ? 'bg-amber-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      tradingMode === 'DEMO' ? 'bg-amber-500 text-zinc-950 shadow-sm font-extrabold' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    DEMO SANDBOX
+                    DEMO
                   </button>
                   <button
                     type="button"
@@ -1623,11 +1662,11 @@ export default function DerivDashboard() {
                       });
                       fetchSettings();
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                      tradingMode === 'REAL' ? 'bg-emerald-500 text-zinc-950 shadow-md font-black' : 'text-zinc-550 hover:text-zinc-350'
+                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                      tradingMode === 'REAL' ? 'bg-rose-500 text-white shadow-sm font-extrabold' : 'text-zinc-400 hover:text-zinc-200'
                     }`}
                   >
-                    REAL LIVE
+                    REAL
                   </button>
                 </div>
 
@@ -1636,294 +1675,295 @@ export default function DerivDashboard() {
                   type="button"
                   disabled={isForceScanning}
                   onClick={handleForceScan}
-                  className={`px-3.5 py-1.5 rounded-xl text-[10px] font-extrabold border transition-all cursor-pointer flex items-center gap-1.5 ${
-                    isForceScanning 
-                      ? 'bg-zinc-900/50 text-zinc-650 border-zinc-850/40 cursor-not-allowed' 
-                      : 'bg-zinc-950/60 text-zinc-300 border-zinc-800/80 hover:bg-zinc-900/40 hover:text-zinc-200 hover:border-zinc-700/80'
-                  }`}
+                  className="px-3 py-1 rounded-xl text-[10px] font-bold border border-zinc-800 bg-[#070709] hover:bg-zinc-850 text-zinc-300 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                 >
-                  {isForceScanning ? (
-                    <>
-                      <Loader2 className="w-3 h-3 animate-spin text-zinc-500" />
-                      Scanning...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-3 h-3 text-zinc-400" />
-                      Run Scan Now
-                    </>
-                  )}
+                  <RefreshCw className={`w-3 h-3 text-zinc-400 ${isForceScanning ? 'animate-spin' : ''}`} />
+                  <span>{isForceScanning ? 'Scanning...' : 'Scan Now'}</span>
                 </button>
               </div>
             </div>
 
             {/* Divider */}
-            <div className="h-[1px] bg-zinc-800/50 w-full" />
+            <div className="h-[1px] bg-zinc-800/60 w-full" />
 
-            {/* Safety toggles buttons tabs */}
-            <div className="space-y-3">
+            {/* Safety toggles buttons */}
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <h4 className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Active Safety & News Filters</h4>
-                {isSavingRiskToggles && <span className="text-[9px] text-emerald-400 animate-pulse font-bold">Saving settings...</span>}
+                <h4 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Active Safety &amp; Risk Filters</h4>
+                {isSavingRiskToggles && <span className="text-[9px] text-emerald-400 animate-pulse font-bold">Saving...</span>}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
                 {/* News Filter Toggle */}
                 <button
                   type="button"
                   onClick={() => handleToggleRiskFilter('news', newsFilterEnabled)}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                  className={`p-2.5 rounded-xl border transition-all text-left flex flex-col justify-between h-[76px] cursor-pointer ${
                     newsFilterEnabled
-                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                      : 'bg-[#070709] border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
                   }`}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-wider">News Blocker</span>
-                  <span className="text-[8px] opacity-60 mt-0.5">USD/EUR/GBP High Impact</span>
-                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${newsFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-                    {newsFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-200">News Blocker</span>
+                    <span className={`text-[8px] font-extrabold px-1.5 py-0.2 rounded ${newsFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                      {newsFilterEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <p className="text-[8px] text-zinc-400 truncate">High Impact Events</p>
                 </button>
 
                 {/* Session Filter Toggle */}
                 <button
                   type="button"
                   onClick={() => handleToggleRiskFilter('session', sessionFilterEnabled)}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                  className={`p-2.5 rounded-xl border transition-all text-left flex flex-col justify-between h-[76px] cursor-pointer ${
                     sessionFilterEnabled
-                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                      : 'bg-[#070709] border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
                   }`}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-wider">Asian Session</span>
-                  <span className="text-[8px] opacity-60 mt-0.5">21:00 - 23:59 GMT Block</span>
-                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${sessionFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-                    {sessionFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-200">Asian Session</span>
+                    <span className={`text-[8px] font-extrabold px-1.5 py-0.2 rounded ${sessionFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                      {sessionFilterEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <p className="text-[8px] text-zinc-400 truncate">21:00-23:59 GMT Block</p>
                 </button>
 
                 {/* Loss Cooldown Guard Toggle */}
                 <button
                   type="button"
                   onClick={() => handleToggleRiskFilter('cooldown', cooldownFilterEnabled)}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                  className={`p-2.5 rounded-xl border transition-all text-left flex flex-col justify-between h-[76px] cursor-pointer ${
                     cooldownFilterEnabled
-                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                      : 'bg-[#070709] border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
                   }`}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-wider">Loss Cooldown</span>
-                  <span className="text-[8px] opacity-60 mt-0.5">2 Losses = 60m Cooldown</span>
-                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${cooldownFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-                    {cooldownFilterEnabled ? 'GUARD ON' : 'GUARD OFF'}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-200">Loss Cooldown</span>
+                    <span className={`text-[8px] font-extrabold px-1.5 py-0.2 rounded ${cooldownFilterEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                      {cooldownFilterEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <p className="text-[8px] text-zinc-400 truncate">2 Losses = 60m Rest</p>
                 </button>
 
                 {/* Daily Trades Limit Toggle */}
                 <button
                   type="button"
                   onClick={() => handleToggleRiskFilter('daily', dailyLimitEnabled)}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                  className={`p-2.5 rounded-xl border transition-all text-left flex flex-col justify-between h-[76px] cursor-pointer ${
                     dailyLimitEnabled
-                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                      : 'bg-[#070709] border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
                   }`}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-wider">Daily Trade Limit</span>
-                  <span className="text-[8px] opacity-60 mt-0.5">Max 10 Trades Limit</span>
-                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${dailyLimitEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-                    {dailyLimitEnabled ? 'GUARD ON' : 'GUARD OFF'}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-200">Daily Limit</span>
+                    <span className={`text-[8px] font-extrabold px-1.5 py-0.2 rounded ${dailyLimitEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-500'}`}>
+                      {dailyLimitEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <p className="text-[8px] text-zinc-400 truncate">Max 10 Trades Limit</p>
                 </button>
 
                 {/* Pair Post-Loss 1-Hour Cooldown Toggle */}
                 <button
                   type="button"
                   onClick={() => handleToggleRiskFilter('pairLossCooldown', pairLossCooldownEnabled)}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                  className={`p-2.5 rounded-xl border transition-all text-left flex flex-col justify-between h-[76px] cursor-pointer ${
                     pairLossCooldownEnabled
-                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                      : 'bg-[#070709] border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
                   }`}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-wider">Pair Loss Cooldown</span>
-                  <span className="text-[8px] opacity-60 mt-0.5">1 Loss = 60m Pair Pause</span>
-                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${pairLossCooldownEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-                    {pairLossCooldownEnabled ? 'GUARD ON' : 'GUARD OFF'}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-200">Pair Pause</span>
+                    <span className={`text-[8px] font-extrabold px-1.5 py-0.2 rounded ${pairLossCooldownEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-550'}`}>
+                      {pairLossCooldownEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <p className="text-[8px] text-zinc-400 truncate">1 Loss = 60m Pause</p>
                 </button>
 
                 {/* Pair Rotation Guard Toggle */}
                 <button
                   type="button"
                   onClick={() => handleToggleRiskFilter('pairRotationGuard', pairRotationGuardEnabled)}
-                  className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all text-center cursor-pointer ${
+                  className={`p-2.5 rounded-xl border transition-all text-left flex flex-col justify-between h-[76px] cursor-pointer ${
                     pairRotationGuardEnabled
-                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-400 shadow-md shadow-emerald-500/5'
-                      : 'bg-zinc-950/40 border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-850'
+                      ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+                      : 'bg-[#070709] border-zinc-900 text-zinc-500 hover:text-zinc-400 hover:border-zinc-800'
                   }`}
                 >
-                  <span className="text-[9px] font-bold uppercase tracking-wider">Pair Rotation Guard</span>
-                  <span className="text-[8px] opacity-60 mt-0.5">Pair Switch After Loss</span>
-                  <span className={`text-[10px] font-black mt-2 px-2 py-0.5 rounded-lg ${pairRotationGuardEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' : 'bg-zinc-900 text-zinc-550'}`}>
-                    {pairRotationGuardEnabled ? 'GUARD ON' : 'GUARD OFF'}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-zinc-200">Pair Rotate</span>
+                    <span className={`text-[8px] font-extrabold px-1.5 py-0.2 rounded ${pairRotationGuardEnabled ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' : 'bg-zinc-900 text-zinc-550'}`}>
+                      {pairRotationGuardEnabled ? 'ON' : 'OFF'}
+                    </span>
+                  </div>
+                  <p className="text-[8px] text-zinc-400 truncate">Switch After Loss</p>
                 </button>
               </div>
             </div>
           </div>
 
           {/* Statistics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-emerald-400 border border-zinc-850">
-                <DollarSign className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Live Balance</span>
-                <span className="text-xl font-black font-mono mt-0.5 text-zinc-100 block">
-                  ${(tradingMode === 'DEMO' ? demoBalance : realBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="fintech-card rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Live Balance</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase font-mono ${
+                  tradingMode === 'REAL' ? 'bg-rose-950/60 text-rose-400 border-rose-500/30' : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
+                }`}>
+                  {tradingMode}
                 </span>
               </div>
+              <div className="text-lg font-bold font-mono text-zinc-100 flex items-center gap-0.5">
+                <span className="text-zinc-500 font-normal">$</span>
+                <span>{(tradingMode === 'DEMO' ? demoBalance : realBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+              <p className="text-[10px] text-zinc-400 truncate">Deriv account balance</p>
             </div>
 
-            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-emerald-400 border border-zinc-850">
-                <DollarSign className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Today P&L</span>
-                <span className={`text-xl font-black font-mono mt-0.5 block ${totalSimulatedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {totalSimulatedPnl >= 0 ? '+' : ''}{totalSimulatedPnl.toFixed(2)} USD
+            <div className="fintech-card rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Today P&amp;L</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border font-mono ${
+                  totalSimulatedPnl >= 0 ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30' : 'bg-rose-950/60 text-rose-400 border-rose-500/30'
+                }`}>
+                  {totalSimulatedPnl >= 0 ? '+PROFIT' : 'LOSS'}
                 </span>
               </div>
+              <div className={`text-lg font-bold font-mono ${totalSimulatedPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {totalSimulatedPnl >= 0 ? '+' : ''}${totalSimulatedPnl.toFixed(2)}
+              </div>
+              <p className="text-[10px] text-zinc-400 truncate font-mono">Net closed return</p>
             </div>
 
-            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-blue-400 border border-zinc-850">
-                <TrendingUp className="w-6 h-6" />
+            <div className="fintech-card rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Win Rate</span>
+                <span className="text-[9px] font-mono text-zinc-400">{closedTrades.length} trades</span>
               </div>
-              <div>
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Win Rate %</span>
-                <span className="text-xl font-black font-mono mt-0.5 text-zinc-200 block">
-                  {winRate.toFixed(1)}%
-                </span>
+              <div className="text-lg font-bold font-mono text-zinc-100">
+                {winRate.toFixed(1)}%
               </div>
+              <p className="text-[10px] text-zinc-400 truncate">
+                {closedTrades.filter(t => t.status === 'WON').length}W / {closedTrades.filter(t => t.status === 'LOST').length}L
+              </p>
             </div>
 
-            <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-              <div className="w-12 h-12 rounded-xl bg-zinc-900/60 flex items-center justify-center text-purple-400 border border-zinc-850">
-                <Activity className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest block">Active Positions</span>
-                <span className="text-xl font-black font-mono mt-0.5 text-zinc-200 block">
-                  {openTrades.length}
+            <div className="fintech-card rounded-xl p-3.5 flex flex-col justify-between space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Active Positions</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border font-mono ${openTrades.length > 0 ? 'bg-emerald-950/60 text-emerald-400 border-emerald-500/30' : 'bg-zinc-900 text-zinc-500 border-zinc-800'}`}>
+                  {openTrades.length > 0 ? 'RUNNING' : 'IDLE'}
                 </span>
               </div>
+              <div className="text-lg font-bold font-mono text-zinc-100">
+                {openTrades.length}
+              </div>
+              <p className="text-[10px] text-zinc-400 truncate">Open option contracts</p>
             </div>
           </div>
 
           {/* Pairs Near Entry Watchlist */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-5 space-y-4 shadow-sm">
-            <div className="flex items-center justify-between border-b border-zinc-850 pb-2">
-              <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                Pairs Near Entry Watchlist
-              </span>
-              <span className="text-[9px] text-zinc-500 font-medium">
-                Real-time monitoring ({nearEntryPairs.length} active)
+          <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-3 shadow-sm">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+                  Pairs Near Entry Watchlist
+                </h3>
+              </div>
+              <span className="text-[10px] text-zinc-400 font-mono">
+                {nearEntryPairs.length} active scanned
               </span>
             </div>
             
-            <div className="overflow-x-auto overflow-y-auto max-h-[148px] rounded-2xl border border-zinc-900 bg-[#050507]/40 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
-              <table className="w-full text-left border-collapse text-[10px]">
-                <thead>
-                  <tr className="sticky top-0 z-10 border-b border-zinc-900 bg-zinc-950/90 text-zinc-500 font-bold uppercase tracking-wider font-mono text-[8px]">
-                    <th className="py-2.5 px-4 bg-zinc-950/90">Asset Pair</th>
-                    <th className="py-2.5 px-3 bg-zinc-950/90">Direction</th>
-                    <th className="py-2.5 px-3 bg-zinc-950/90">Proximity Status</th>
-                    <th className="py-2.5 px-3 text-right bg-zinc-950/90">Confirmations (T A S)</th>
-                    <th className="py-2.5 px-3 text-right bg-zinc-950/90">ADX</th>
-                    <th className="py-2.5 px-4 text-right bg-zinc-950/90">Stoch %K / %D</th>
-                    <th className="py-2.5 px-4 text-center bg-zinc-950/90">Chart</th>
+            <div className="overflow-x-auto max-h-[160px] overflow-y-auto rounded-xl border border-zinc-800/80 bg-[#070709] scrollbar-thin">
+              <table className="w-full text-left border-collapse text-xs font-mono">
+                <thead className="sticky top-0 z-10 bg-[#09090c] shadow-sm">
+                  <tr className="border-b border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[9px]">
+                    <th className="py-2.5 px-3">Asset</th>
+                    <th className="py-2.5 px-2">Direction</th>
+                    <th className="py-2.5 px-3">Proximity</th>
+                    <th className="py-2.5 px-2 text-right">Confirmations</th>
+                    <th className="py-2.5 px-2 text-right">ADX</th>
+                    <th className="py-2.5 px-3 text-right">Stoch %K / %D</th>
+                    <th className="py-2.5 px-3 text-center">Chart</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-900/60 font-medium">
+                <tbody className="divide-y divide-zinc-900 text-zinc-300 font-medium text-[11px]">
                   {sortedNearEntryPairs.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-zinc-650 italic">
-                        No pairs currently near trade entry criteria. Running active scans...
+                      <td colSpan={7} className="py-6 text-center text-zinc-500 text-xs italic">
+                        No pairs currently near entry criteria. Running active background scans...
                       </td>
                     </tr>
                   ) : (
                     sortedNearEntryPairs.map((pair: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-zinc-900/20 transition-colors text-zinc-300">
-                        <td className="py-2.5 px-4 font-bold text-zinc-200">
+                      <tr key={idx} className="hover:bg-zinc-800/20 transition-colors">
+                        <td className="py-2.5 px-3 font-bold text-zinc-100">
                           {getPairDisplayName(pair.symbol)}
                         </td>
-                        <td className="py-2.5 px-3">
+                        <td className="py-2.5 px-2">
                           <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
                             pair.direction === 'RISE' 
-                              ? 'bg-emerald-950/40 text-emerald-400 border border-emerald-900/40' 
-                              : 'bg-rose-950/40 text-rose-400 border border-rose-900/40'
+                              ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30' 
+                              : 'bg-rose-950/60 text-rose-400 border border-rose-500/30'
                           }`}>
-                            {pair.direction === 'RISE' ? '🟢 RISE (CALL)' : '🔴 FALL (PUT)'}
+                            {pair.direction === 'RISE' ? '↗ RISE' : '↘ FALL'}
                           </span>
                         </td>
-                        <td className="py-2.5 px-3 text-zinc-400 font-mono text-[9px]">
+                        <td className="py-2.5 px-3 text-zinc-400 text-[10px] truncate max-w-[180px]">
                           {pair.reason}
                         </td>
-                        <td className="py-2.5 px-3">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* Trend Indicator */}
+                        <td className="py-2.5 px-2">
+                          <div className="flex items-center justify-end gap-1">
                             <span 
-                              title={pair.confirmations?.trend ? "Trend Aligned (H1 & 15m EMAs match)" : "Trend Disaligned"}
-                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
-                                pair.confirmations?.trend 
-                                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
-                                  : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                              title={pair.confirmations?.trend ? "Trend Aligned" : "Trend Disaligned"}
+                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border ${
+                                pair.confirmations?.trend ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-zinc-900 text-zinc-600 border-zinc-800'
                               }`}
                             >
                               T
                             </span>
-                            {/* ADX Indicator */}
                             <span 
-                              title={pair.confirmations?.adx ? "ADX > 22 (Strong Momentum)" : "ADX <= 22 (Weak Momentum)"}
-                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
-                                pair.confirmations?.adx 
-                                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
-                                  : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                              title={pair.confirmations?.adx ? "ADX > 22" : "ADX <= 22"}
+                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border ${
+                                pair.confirmations?.adx ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-zinc-900 text-zinc-600 border-zinc-800'
                               }`}
                             >
                               A
                             </span>
-                            {/* Stochastic Zone Indicator */}
                             <span 
-                              title={pair.confirmations?.stochZone ? "Stochastic in Oversold/Overbought Trigger Zone" : "Stochastic not in zone"}
-                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border transition-all ${
-                                pair.confirmations?.stochZone 
-                                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
-                                  : 'bg-zinc-900 text-zinc-600 border-zinc-800'
+                              title={pair.confirmations?.stochZone ? "Stochastic Zone Trigger" : "Stochastic not in zone"}
+                              className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border ${
+                                pair.confirmations?.stochZone ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' : 'bg-zinc-900 text-zinc-600 border-zinc-800'
                               }`}
                             >
                               S
                             </span>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-zinc-200">
+                        <td className="py-2.5 px-2 text-right font-mono font-bold text-zinc-200">
                           {parseFloat(pair.adx).toFixed(1)}
                         </td>
-                        <td className="py-2.5 px-4 text-right font-mono font-bold text-zinc-400">
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-zinc-400">
                           {parseFloat(pair.stochK).toFixed(0)} / {parseFloat(pair.stochD).toFixed(0)}
                         </td>
-                        <td className="py-2.5 px-4 text-center">
+                        <td className="py-2.5 px-3 text-center">
                           <a
                             href={`https://dtrader.deriv.com/?chart_type=candle&interval=5m&symbol=${pair.symbol}&trade_type=rise_fall`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-block px-2 py-0.5 text-[8px] font-black text-amber-400 bg-amber-950/30 hover:bg-amber-950/60 border border-amber-500/25 hover:border-amber-500/50 rounded-md transition-all uppercase tracking-wider font-mono"
+                            className="inline-block px-2.5 py-0.5 text-[9px] font-bold text-amber-400 bg-amber-950/30 hover:bg-amber-900/50 border border-amber-500/30 rounded-lg transition-all uppercase tracking-wider font-mono"
                           >
-                            go live chart
+                            Chart ↗
                           </a>
                         </td>
                       </tr>
@@ -1935,28 +1975,30 @@ export default function DerivDashboard() {
           </div>
 
           {/* Terminal Scans Log */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-5 space-y-3">
-            <div className="flex items-center justify-between border-b border-zinc-850 pb-2">
-              <span className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                Terminal Scans Log
-              </span>
-              <span className="text-[10px] text-zinc-500 font-mono">
-                Last scan: {lastScanAt ? new Date(lastScanAt).toLocaleTimeString() : 'Never'}
+          <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-3 shadow-sm">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+                  Terminal Scans Log
+                </h3>
+              </div>
+              <span className="text-[10px] text-zinc-400 font-mono">
+                Last: {lastScanAt ? new Date(lastScanAt).toLocaleTimeString() : 'Never'}
               </span>
             </div>
-            <div className="bg-[#050507]/90 border border-zinc-900 rounded-2xl p-4 min-h-[160px] max-h-[220px] overflow-y-auto font-mono text-[10px] text-zinc-450 space-y-1.5 scrollbar-thin">
+            <div className="bg-[#070709] border border-zinc-900 rounded-xl p-3 min-h-[140px] max-h-[200px] overflow-y-auto font-mono text-[11px] text-zinc-300 space-y-1 scrollbar-thin">
               {lastScanLogs.length === 0 ? (
-                <div className="text-zinc-650 italic py-6 text-center">No terminal scan events captured yet. Check if Bot is WORK ON.</div>
+                <div className="text-zinc-600 italic py-6 text-center text-xs">No terminal scan events captured yet. Check if Bot is WORK ON.</div>
               ) : (
                 lastScanLogs.map((log, idx) => (
                   <div key={idx} className="leading-relaxed hover:bg-zinc-900/30 py-0.5 px-1 rounded transition-colors">
                     {log.includes('❌') || log.includes('🚨') ? (
-                      <span className="text-red-400">{log}</span>
+                      <span className="text-rose-400">{log}</span>
                     ) : log.includes('🔥') || log.includes('🎉') ? (
                       <span className="text-emerald-400 font-bold">{log}</span>
                     ) : log.includes('⏳') || log.includes('⚠️') ? (
-                      <span className="text-amber-500">{log}</span>
+                      <span className="text-amber-400">{log}</span>
                     ) : (
                       <span>{log}</span>
                     )}
@@ -1967,60 +2009,62 @@ export default function DerivDashboard() {
           </div>
 
           {/* Section: Open Active Contracts */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
-              <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider">Active Option Contracts</h3>
+          <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+              <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider flex items-center gap-2">
+                <span>Active Option Contracts ({openTrades.length})</span>
+              </h3>
               {openTrades.length > 0 && isSyncing && (
-                <span className="text-[10px] text-zinc-500 font-medium animate-pulse flex items-center gap-1">
+                <span className="text-[10px] text-zinc-400 animate-pulse flex items-center gap-1 font-mono">
                   <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Syncing with Deriv...</span>
+                  <span>Syncing...</span>
                 </span>
               )}
             </div>
 
             {openTrades.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 border border-dashed border-zinc-800/80 rounded-2xl">
-                <Layers className="w-8 h-8 text-zinc-600 mb-2" />
-                <p className="text-xs text-zinc-500 font-medium">No active contracts running currently</p>
+              <div className="flex flex-col items-center justify-center py-8 border border-dashed border-zinc-800/80 rounded-xl">
+                <Layers className="w-6 h-6 text-zinc-600 mb-1" />
+                <p className="text-xs text-zinc-500 font-medium">No active contracts running</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-zinc-800/80 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                      <th className="pb-3">Contract ID</th>
-                      <th className="pb-3">Asset</th>
-                      <th className="pb-3 text-center">Type</th>
-                      <th className="pb-3 text-right">Stake</th>
-                      <th className="pb-3 text-right">Target Payout</th>
-                      <th className="pb-3 text-right">Duration</th>
-                      <th className="pb-3 text-center">Status</th>
-                      <th className="pb-3 text-right">Entry Time (Jeddah)</th>
+              <div className="overflow-x-auto rounded-xl border border-zinc-800/80 bg-[#070709] scrollbar-thin">
+                <table className="w-full text-left border-collapse text-xs font-mono">
+                  <thead className="sticky top-0 z-10 bg-[#09090c] shadow-sm">
+                    <tr className="border-b border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[9px]">
+                      <th className="py-2.5 px-3">Contract ID</th>
+                      <th className="py-2.5 px-2">Asset</th>
+                      <th className="py-2.5 px-2 text-center">Type</th>
+                      <th className="py-2.5 px-2 text-right">Stake</th>
+                      <th className="py-2.5 px-2 text-right">Target Payout</th>
+                      <th className="py-2.5 px-2 text-right">Duration</th>
+                      <th className="py-2.5 px-2 text-center">Status</th>
+                      <th className="py-2.5 px-3 text-right">Entry Time (Jeddah)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800/50 text-sm font-semibold">
+                  <tbody className="divide-y divide-zinc-900 text-zinc-300 font-medium text-[11px]">
                     {openTrades.map((t) => (
-                      <tr key={t.id}>
-                        <td className="py-3.5 font-mono text-zinc-300 text-xs">{t.contract_id}</td>
-                        <td className="py-3.5 text-zinc-200 text-xs">{getPairDisplayName(t.symbol)}</td>
-                        <td className="py-3.5 text-center">
-                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${
+                      <tr key={t.id} className="hover:bg-zinc-800/20 transition-colors">
+                        <td className="py-2.5 px-3 font-mono text-zinc-300">{t.contract_id}</td>
+                        <td className="py-2.5 px-2 text-zinc-100 font-bold">{getPairDisplayName(t.symbol)}</td>
+                        <td className="py-2.5 px-2 text-center">
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
                             t.contract_type === 'CALL'
-                              ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400'
-                              : 'bg-red-950/20 border-red-900/50 text-red-400'
+                              ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30'
+                              : 'bg-rose-950/60 text-rose-400 border border-rose-500/30'
                           }`}>
                             {t.contract_type === 'CALL' ? 'RISE' : 'FALL'}
                           </span>
                         </td>
-                        <td className="py-3.5 text-right font-mono text-xs text-zinc-300">${t.stake.toFixed(2)}</td>
-                        <td className="py-3.5 text-right font-mono text-xs text-zinc-200">${t.payout.toFixed(2)}</td>
-                        <td className="py-3.5 text-right text-xs text-zinc-400">{t.duration}{t.duration_unit}</td>
-                        <td className="py-3.5 text-center">
-                          <span className="px-2 py-0.5 rounded-md text-[9px] font-extrabold bg-zinc-800/60 border border-zinc-700/50 text-zinc-300 uppercase animate-pulse">
+                        <td className="py-2.5 px-2 text-right font-mono text-zinc-200">${t.stake.toFixed(2)}</td>
+                        <td className="py-2.5 px-2 text-right font-mono text-emerald-400 font-bold">${t.payout.toFixed(2)}</td>
+                        <td className="py-2.5 px-2 text-right text-zinc-400">{t.duration}{t.duration_unit}</td>
+                        <td className="py-2.5 px-2 text-center">
+                          <span className="px-2 py-0.5 rounded text-[8px] font-bold bg-emerald-500/20 text-emerald-300 uppercase animate-pulse">
                             ACTIVE
                           </span>
                         </td>
-                        <td className="py-3.5 text-right font-mono text-xs text-zinc-400">
+                        <td className="py-2.5 px-3 text-right font-mono text-zinc-400 text-[10px]">
                           {t.created_at
                             ? new Date(t.created_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true })
                             : 'N/A'}
@@ -2034,13 +2078,13 @@ export default function DerivDashboard() {
           </div>
 
           {/* Section: Closed Option Contracts History */}
-          <div className="bg-[#0c0c0f]/60 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
-              <h3 className="text-sm font-bold text-zinc-200 uppercase tracking-wider">Trades History</h3>
+          <div className="fintech-card rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-sm">
+            <div className="flex items-center justify-between border-b border-zinc-800/60 pb-2.5">
+              <h3 className="text-xs font-bold text-zinc-200 uppercase tracking-wider">Trades History</h3>
               {closedTrades.length > 0 && (
                 <button
                   onClick={handleCloseAllTrades}
-                  className="px-2.5 py-1 text-[9px] font-extrabold bg-red-950/25 border border-red-900/40 text-red-400 hover:text-red-300 rounded-lg uppercase tracking-wider transition-colors cursor-pointer"
+                  className="px-2.5 py-1 text-[9px] font-bold bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 rounded-lg uppercase tracking-wider transition-colors cursor-pointer"
                 >
                   Clear Archive
                 </button>
@@ -2048,54 +2092,54 @@ export default function DerivDashboard() {
             </div>
 
             {closedTrades.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 border border-dashed border-zinc-800/80 rounded-2xl">
-                <Layers className="w-8 h-8 text-zinc-600 mb-2" />
+              <div className="flex flex-col items-center justify-center py-10 border border-dashed border-zinc-800/80 rounded-xl">
+                <Layers className="w-6 h-6 text-zinc-600 mb-1" />
                 <p className="text-xs text-zinc-500 font-medium">No recent contracts in history</p>
               </div>
             ) : (
-              <div className="overflow-x-auto max-h-[420px] overflow-y-auto rounded-2xl border border-zinc-900 bg-[#050507]/60 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
-                <table className="w-full text-left border-collapse">
-                  <thead className="sticky top-0 z-10 bg-zinc-950 shadow-sm">
-                    <tr className="border-b border-zinc-800 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                      <th className="py-3 px-4">Contract ID</th>
-                      <th className="py-3 px-3">Asset</th>
-                      <th className="py-3 px-3 text-center">Type</th>
-                      <th className="py-3 px-3 text-right">Stake</th>
-                      <th className="py-3 px-3 text-right">Return P&L</th>
-                      <th className="py-3 px-4 text-center">Outcome</th>
-                      <th className="py-3 px-4 text-right">Close Time (Jeddah)</th>
+              <div className="overflow-x-auto max-h-[360px] overflow-y-auto rounded-xl border border-zinc-800/80 bg-[#070709] scrollbar-thin">
+                <table className="w-full text-left border-collapse text-xs font-mono">
+                  <thead className="sticky top-0 z-10 bg-[#09090c] shadow-sm">
+                    <tr className="border-b border-zinc-800 text-zinc-400 font-bold uppercase tracking-wider text-[9px]">
+                      <th className="py-2.5 px-3">Contract ID</th>
+                      <th className="py-2.5 px-2">Asset</th>
+                      <th className="py-2.5 px-2 text-center">Type</th>
+                      <th className="py-2.5 px-2 text-right">Stake</th>
+                      <th className="py-2.5 px-2 text-right">Return P&amp;L</th>
+                      <th className="py-2.5 px-2 text-center">Outcome</th>
+                      <th className="py-2.5 px-3 text-right">Close Time (Jeddah)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-800/50 text-sm font-semibold">
+                  <tbody className="divide-y divide-zinc-900 text-zinc-300 font-medium text-[11px]">
                     {closedTrades.map((t) => {
                       const isWin = t.status === 'WON';
                       return (
-                        <tr key={t.id} className="hover:bg-zinc-950/20 transition-all">
-                          <td className="py-3 px-4 font-mono text-zinc-400 text-xs">{t.contract_id}</td>
-                          <td className="py-3 px-3 text-zinc-300 text-xs">{getPairDisplayName(t.symbol)}</td>
-                          <td className="py-3 px-3 text-center">
-                            <span className={`px-2 py-0.5 rounded-md text-[9px] font-extrabold uppercase border ${
+                        <tr key={t.id} className="hover:bg-zinc-800/20 transition-colors">
+                          <td className="py-2.5 px-3 font-mono text-zinc-400">{t.contract_id}</td>
+                          <td className="py-2.5 px-2 text-zinc-200 font-bold">{getPairDisplayName(t.symbol)}</td>
+                          <td className="py-2.5 px-2 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
                               t.contract_type === 'CALL'
-                                ? 'bg-emerald-950/10 border-emerald-900/20 text-emerald-400'
-                                : 'bg-red-950/10 border-red-900/20 text-red-400'
+                                ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-rose-950/60 text-rose-400 border border-rose-500/30'
                             }`}>
                               {t.contract_type === 'CALL' ? 'RISE' : 'FALL'}
                             </span>
                           </td>
-                          <td className="py-3 px-3 text-right font-mono text-xs text-zinc-400">${t.stake.toFixed(2)}</td>
-                          <td className={`py-3 px-3 text-right font-mono text-xs font-bold ${isWin ? 'text-emerald-400' : 'text-red-400'}`}>
+                          <td className="py-2.5 px-2 text-right font-mono text-zinc-300">${t.stake.toFixed(2)}</td>
+                          <td className={`py-2.5 px-2 text-right font-mono font-bold ${isWin ? 'text-emerald-400' : 'text-rose-400'}`}>
                             {isWin ? '+' : ''}{t.pnl.toFixed(2)} USD
                           </td>
-                          <td className="py-3 px-4 text-center">
-                            <span className={`px-2.5 py-0.5 rounded-lg text-[9px] font-black uppercase ${
+                          <td className="py-2.5 px-2 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
                               isWin
-                                ? 'bg-emerald-500 text-emerald-950'
-                                : 'bg-red-500 text-red-950'
+                                ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-rose-950/60 text-rose-400 border border-rose-500/30'
                             }`}>
                               {t.status}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-right font-mono text-xs text-zinc-400">
+                          <td className="py-2.5 px-3 text-right font-mono text-zinc-400 text-[10px]">
                             {t.closed_at
                               ? new Date(t.closed_at).toLocaleTimeString('en-US', { timeZone: 'Asia/Riyadh', hour: '2-digit', minute: '2-digit', hour12: true })
                               : t.created_at
