@@ -395,8 +395,8 @@ export async function GET(req: Request) {
               continue;
             }
 
-            // Calculate exact candidate pair stake considering per-pair streak isolation & 45m expiration
-            const pairStakeResult = await getMartingaleExecutionStake(config, pair);
+            // In ONE_BY_ONE mode, all pairs share the single global progression streak & shared pool
+            const pairStakeResult = await getMartingaleExecutionStake(config, config.execution_mode === 'ONE_BY_ONE' ? undefined : pair);
             if (pairStakeResult.isHalted || pairStakeResult.stake <= 0) {
               scanLogs.push(pairStakeResult.haltReason || `Martingale Halted for ${getDisplaySymbolName(pair)}.`);
               continue;

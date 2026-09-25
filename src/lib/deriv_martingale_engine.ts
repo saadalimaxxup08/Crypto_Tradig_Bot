@@ -111,8 +111,8 @@ export async function getMartingaleExecutionStake(
     let streakActive = true;
     let lastLossTime = 0;
 
-    // Optional per-pair symbol isolation: filter trades for candidateSymbol if provided
-    const filteredTrades = candidateSymbol 
+    // Optional per-pair symbol isolation: ONLY in ALL_CONCURRENT mode. In ONE_BY_ONE mode, all pairs share the single sequential progression chain & shared capital pool!
+    const filteredTrades = (candidateSymbol && config.execution_mode === 'ALL_CONCURRENT')
       ? martingaleTrades.filter(t => t.symbol === candidateSymbol || t.status === 'OPEN') 
       : martingaleTrades;
 
