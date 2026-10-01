@@ -220,6 +220,13 @@ export async function GET(req: Request) {
 
         if (validOpenTrades.length > 0) {
           scanLogs.push(`⏳ [One-by-One Mode] Open contract active on ${getDisplaySymbolName(validOpenTrades[0].symbol)}. Waiting for expiry.`);
+          await supabase.from('settings').update({
+            pair_overrides: {
+              ...ov,
+              martingale_last_scan_logs: scanLogs.slice(-25),
+              martingale_last_scan_at: new Date().toISOString()
+            }
+          }).eq('id', 1);
           socket.close();
           return NextResponse.json({ success: true, message: 'One-by-one active trade running', logs: scanLogs });
         }
